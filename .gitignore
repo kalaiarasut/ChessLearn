@@ -1,0 +1,28 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# local environment
+.env*
+
+# deployment
+.vercel
+
+# logs
+npm-debug.log*
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# misc
+.DS_Store
+
+# temporary local files
+source code.html
+soruce code.html
+download_themes.js
+/.github
