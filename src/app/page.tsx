@@ -1,4 +1,4 @@
-import { ChevronDown, Play, Bot } from "lucide-react";
+import { ChevronDown, Bot } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {

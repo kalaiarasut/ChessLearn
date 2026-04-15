@@ -6,14 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "scrape:themes": "node download_themes.js"
   },
   "dependencies": {
     "chess.js": "^1.4.0",
     "lucide-react": "^1.8.0",
     "next": "16.2.3",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "stockfish": "^18.0.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
