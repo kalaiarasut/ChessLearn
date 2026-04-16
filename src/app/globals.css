@@ -5,10 +5,153 @@
   --color-foreground: #e0e0e0;
   --font-sans: var(--font-inter), sans-serif;
   --font-serif: var(--font-playfair), serif;
+  --animate-shimmer: shimmer 1.5s infinite;
+  @keyframes shimmer {
+    100% {
+      transform: translateX(150%) skewX(-20deg);
+    }
+  }
 }
 
+/* ===== THEME TOKENS ===== */
+:root,
+.dark {
+  --bg: #0f0f0f;
+  --bg-alt: #131212;
+  --surface: #161616;
+  --surface-alt: #1a1a1a;
+  --surface-hover: #222222;
+  --border: #2a2a2a;
+  --border-hover: #4a4a4a;
+  --border-subtle: #333333;
+  --text-primary: #ffffff;
+  --text-secondary: #adadad;
+  --text-muted: #888888;
+  --text-dimmed: #666666;
+  --input-bg: #1a1a1a;
+  --input-border: #333333;
+  --cta-bg: #ffffff;
+  --cta-text: #161616;
+  --cta-hover: #e0e0e0;
+  --card-from: #1b1b1b;
+  --card-to: #121212;
+  --badge-bg: rgba(0, 0, 0, 0.8);
+  --badge-ring: rgba(255, 255, 255, 0.05);
+  --glow-orb: rgba(255, 255, 255, 0.02);
+  --skeleton: rgba(255, 255, 255, 0.1);
+  --skeleton-soft: rgba(255, 255, 255, 0.05);
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --divider: #2b2b2b;
+  --autofill-bg: #1a1a1a;
+  --autofill-text: #ffffff;
+  --gradient-line: #525252;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.1);
+  --scrollbar-hover: rgba(255, 255, 255, 0.2);
+  --selection-bg: #ffffff;
+  --selection-text: #000000;
+  --success-bg: #162b1f;
+  --success-border: #2b5c3f;
+  --success-text: #9ef0bf;
+  --error-bg: #2b1616;
+  --error-border: #5c2b2b;
+  --error-text: #ffadad;
+}
+
+.light {
+  --bg: #f7f5f0;
+  --bg-alt: #efece5;
+  --surface: #ffffff;
+  --surface-alt: #f5f3ee;
+  --surface-hover: #f0ede6;
+  --border: #e0dcd3;
+  --border-hover: #c5bfb3;
+  --border-subtle: #d4cfc5;
+  --text-primary: #1a1714;
+  --text-secondary: #6b6560;
+  --text-muted: #9e9890;
+  --text-dimmed: #b5afa5;
+  --input-bg: #f5f3ee;
+  --input-border: #d4cfc5;
+  --cta-bg: #1a1714;
+  --cta-text: #ffffff;
+  --cta-hover: #2d2a25;
+  --card-from: #ffffff;
+  --card-to: #faf9f6;
+  --badge-bg: #f0ede6;
+  --badge-ring: rgba(0, 0, 0, 0.06);
+  --glow-orb: rgba(200, 180, 140, 0.08);
+  --skeleton: rgba(0, 0, 0, 0.07);
+  --skeleton-soft: rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 4px 20px rgba(139, 115, 85, 0.08);
+  --divider: #e0dcd3;
+  --autofill-bg: #f5f3ee;
+  --autofill-text: #1a1714;
+  --gradient-line: #c5bfb3;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.12);
+  --scrollbar-hover: rgba(0, 0, 0, 0.2);
+  --selection-bg: #1a1714;
+  --selection-text: #ffffff;
+  --success-bg: #ecfdf5;
+  --success-border: #86efac;
+  --success-text: #166534;
+  --error-bg: #fef2f2;
+  --error-border: #fca5a5;
+  --error-text: #991b1b;
+}
+
+/* ===== GLOBAL STYLES ===== */
 body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
+  background-color: var(--bg);
+  color: var(--text-primary);
   font-family: var(--font-sans);
+}
+
+/* Theme transitions handled by View Transitions API in theme-context.tsx */
+
+/* Keep dark/light inputs on browser autofill */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--autofill-text) !important;
+  caret-color: var(--autofill-text) !important;
+  transition: background-color 9999s ease-in-out 0s;
+  -webkit-box-shadow: 0 0 0px 1000px var(--autofill-bg) inset !important;
+  box-shadow: 0 0 0px 1000px var(--autofill-bg) inset !important;
+}
+
+input:autofill {
+  -webkit-text-fill-color: var(--autofill-text) !important;
+  caret-color: var(--autofill-text) !important;
+  box-shadow: 0 0 0px 1000px var(--autofill-bg) inset !important;
+}
+
+/* Selection */
+::selection {
+  background: var(--selection-bg);
+  color: var(--selection-text);
+}
+
+/* Custom Scrollbar utility */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover);
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }

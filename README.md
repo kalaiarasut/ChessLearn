@@ -17,3 +17,21 @@ npm run dev
 # or
 yarn dev
 ```
+
+## Supabase Auth Setup
+1. Copy `.env.example` to `.env.local` and fill in your Supabase values.
+2. In Supabase SQL Editor, run [`scripts/supabase-auth.sql`](scripts/supabase-auth.sql).
+3. In Supabase Auth settings, set the site URL to `http://localhost:3000`.
+4. Add `http://localhost:3000/auth/confirm` to redirect URLs.
+
+### Implemented Auth Flow
+- `POST` signup via server action on `/signup`
+- `POST` login via server action on `/login`
+- Email verification callback at `/auth/confirm`
+- Session refresh + route guard in `src/proxy.ts`
+- Protected route: `/learn` (redirects to `/login` when signed out)
+
+### Preferences Persistence
+- `GET /api/preferences` loads signed-in user's saved board/piece/sound preferences.
+- `PUT /api/preferences` saves board/piece/sound preferences for the signed-in user.
+- Preferences are stored in `public.user_preferences` (created by `scripts/supabase-auth.sql`).
