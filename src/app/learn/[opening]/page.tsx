@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Chess, type Square } from "chess.js";
-import { ArrowLeft, Settings, Play, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Monitor, User, Gamepad2, MessageSquare, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon } from "lucide-react";
+import { ArrowLeft, Settings, Play, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Monitor, User, Gamepad2, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, MoreHorizontal, ChevronDown, ChevronUp } from "lucide-react";
 import themeManifest from "@/data/themeManifest.json";
 import { useStockfishAnalysis } from "./use-stockfish-analysis";
 import { useTorchStatus } from "./use-torch-status";
@@ -171,6 +171,97 @@ const getPositionStatus = (game: Chess) => {
   return `${sideToMove} to move.`;
 };
 
+type AnalysisStrength = "fast" | "standard" | "deep" | "maximum";
+type AnalysisEngineChoice = "stockfish-18" | "stockfish-18-lite" | "torch-4" | "torch-4-lite" | "off";
+
+const ANALYSIS_PRESET_TO_DEPTH: Record<AnalysisStrength, number> = {
+  fast: 13,
+  standard: 17,
+  deep: 20,
+  maximum: 22,
+};
+
+type PvDisplayMove = {
+  key: string;
+  label: string;
+  fenAfter: string;
+};
+
+const buildPvDisplayMoves = (fen: string, pv: string[]) => {
+  const game = new Chess(fen);
+  const moves: PvDisplayMove[] = [];
+
+  for (let index = 0; index < pv.length; index += 1) {
+    const uci = pv[index];
+    if (!/^[a-h][1-8][a-h][1-8][nbrq]?$/.test(uci)) {
+      break;
+    }
+
+    let playedMove: ReturnType<Chess["move"]> | null = null;
+    try {
+      playedMove = game.move({
+        from: uci.slice(0, 2) as Square,
+        to: uci.slice(2, 4) as Square,
+        promotion: uci[4] as "q" | "r" | "b" | "n" | undefined,
+      });
+    } catch {
+      break;
+    }
+
+    if (!playedMove) {
+      break;
+    }
+
+    moves.push({
+      key: `${index}-${uci}`,
+      label: `${index + 1}. ${playedMove.san}`,
+      fenAfter: game.fen(),
+    });
+  }
+
+  return moves;
+};
+
+const MiniBoardPreview = ({
+  fen,
+  boardTheme,
+  pieceTheme,
+}: {
+  fen: string;
+  boardTheme: string;
+  pieceTheme: string;
+}) => {
+  const game = new Chess(fen);
+  const board = game.board().map((row) => row.map((piece) => getPieceCode(piece)));
+
+  return (
+    <div className="w-[170px] rounded-md border border-[#4a4a4d] bg-[#18181a] p-2 shadow-2xl">
+      <div className="relative aspect-square overflow-hidden rounded-sm border border-[#2f2f32]">
+        <img
+          src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`}
+          alt="Preview board"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 grid grid-cols-8 grid-rows-8">
+          {board.map((row, rowIndex) =>
+            row.map((pieceCode, colIndex) => (
+              <div key={`${rowIndex}-${colIndex}`} className="flex items-center justify-center p-[4%]">
+                {pieceCode ? (
+                  <img
+                    src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${pieceCode}.png`}
+                    alt={pieceCode}
+                    className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)]"
+                  />
+                ) : null}
+              </div>
+            )),
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function OpeningPage() {
   const pathname = usePathname();
   const title = pathname.split("/").pop()?.replace(/-/g, " ") || "Opening";
@@ -179,10 +270,11 @@ export default function OpeningPage() {
   const [boardTheme, setBoardTheme] = useState(themeManifest.defaultBoardTheme);
   const [pieceTheme, setPieceTheme] = useState(themeManifest.defaultPieceTheme);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"boards" | "pieces">("boards");
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"boards" | "pieces" | "engine">("boards");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [fen, setFen] = useState(DEFAULT_FEN);
   const [history, setHistory] = useState<string[]>([DEFAULT_FEN]);
+  const [sanHistory, setSanHistory] = useState<string[]>([]);
   const [soundHistory, setSoundHistory] = useState<string[]>(["game-start"]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -194,6 +286,18 @@ export default function OpeningPage() {
   const [preferencesLoading, setPreferencesLoading] = useState(true);
   const [preferencesSaving, setPreferencesSaving] = useState(false);
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
+  const [isAnalysisMenuOpen, setIsAnalysisMenuOpen] = useState(false);
+  const [showEvaluationBar, setShowEvaluationBar] = useState(true);
+  const [showEngineLines, setShowEngineLines] = useState(true);
+  const [showSuggestionArrow, setShowSuggestionArrow] = useState(false);
+  const [showMoveFeedback, setShowMoveFeedback] = useState(false);
+  const [analysisStrength, setAnalysisStrength] = useState<AnalysisStrength>("standard");
+  const [analysisEngineChoice, setAnalysisEngineChoice] = useState<AnalysisEngineChoice>("stockfish-18-lite");
+  const [analysisMaxTimeSeconds, setAnalysisMaxTimeSeconds] = useState(5);
+  const [analysisMultiPv, setAnalysisMultiPv] = useState(3);
+  const [analysisThreads, setAnalysisThreads] = useState(1);
+  const [analysisDepth, setAnalysisDepth] = useState(ANALYSIS_PRESET_TO_DEPTH.standard);
+  const [expandedEngineLineIds, setExpandedEngineLineIds] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -218,9 +322,17 @@ export default function OpeningPage() {
     ? game.moves({ square: selectedSquare, verbose: true }).map((move) => move.to)
     : [];
   const boardState = game.board().map((row) => row.map((piece) => getPieceCode(piece)));
-  const moveCount = game.history().length;
   const statusText = getPositionStatus(game);
-  const analysis = useStockfishAnalysis(fen, true, 13, 3);
+  const isEngineEnabled = analysisEngineChoice !== "off";
+  const stockfishVariant = analysisEngineChoice === "stockfish-18" ? "stockfish-18" : "stockfish-18-lite";
+  const analysis = useStockfishAnalysis(
+    fen,
+    isEngineEnabled,
+    analysisDepth,
+    analysisMultiPv,
+    analysisThreads,
+    stockfishVariant,
+  );
   const { status: torchStatus, loading: torchLoading } = useTorchStatus();
 
   useEffect(() => {
@@ -272,6 +384,23 @@ export default function OpeningPage() {
     };
   }, []);
 
+  useEffect(() => {
+    setAnalysisDepth(ANALYSIS_PRESET_TO_DEPTH[analysisStrength]);
+    setAnalysisMaxTimeSeconds(
+      analysisStrength === "fast" ? 1 : analysisStrength === "standard" ? 5 : analysisStrength === "deep" ? 20 : 90,
+    );
+  }, [analysisStrength]);
+
+  useEffect(() => {
+    if (!analysis.error) {
+      return;
+    }
+
+    if (analysisEngineChoice === "stockfish-18") {
+      setAnalysisEngineChoice("stockfish-18-lite");
+    }
+  }, [analysis.error, analysisEngineChoice]);
+
   const playSound = (name: string) => {
     if (!soundEnabled) {
       return;
@@ -283,6 +412,7 @@ export default function OpeningPage() {
   const resetBoard = () => {
     setFen(DEFAULT_FEN);
     setHistory([DEFAULT_FEN]);
+    setSanHistory([]);
     setSoundHistory(["game-start"]);
     setCurrentMoveIndex(0);
     setIsPlaying(false);
@@ -362,7 +492,10 @@ export default function OpeningPage() {
       const newFen = nextPosition.fen();
       const nextHistory = history.slice(0, currentMoveIndex + 1);
       nextHistory.push(newFen);
+      const nextSanHistory = sanHistory.slice(0, currentMoveIndex);
+      nextSanHistory.push(move.san);
       setHistory(nextHistory);
+      setSanHistory(nextSanHistory);
       setCurrentMoveIndex(nextHistory.length - 1);
       setFen(newFen);
       setSelectedSquare(null);
@@ -482,6 +615,52 @@ export default function OpeningPage() {
 
   const { toggleTheme, isDark } = useTheme();
 
+  const topSuggestedMove = analysis.lines[0]?.pv[0] ?? null;
+  const suggestionFrom = topSuggestedMove?.slice(0, 2) ?? null;
+  const suggestionTo = topSuggestedMove?.slice(2, 4) ?? null;
+
+  const toBoardPoint = (square: string | null) => {
+    if (!square || square.length !== 2) {
+      return null;
+    }
+
+    const file = FILES.indexOf(square[0] as typeof FILES[number]);
+    const rank = Number(square[1]);
+    if (file < 0 || Number.isNaN(rank) || rank < 1 || rank > 8) {
+      return null;
+    }
+
+    let row = 8 - rank;
+    let col = file;
+
+    if (isBoardFlipped) {
+      row = 7 - row;
+      col = 7 - col;
+    }
+
+    return {
+      x: ((col + 0.5) / 8) * 100,
+      y: ((row + 0.5) / 8) * 100,
+    };
+  };
+
+  const suggestionStart = showSuggestionArrow ? toBoardPoint(suggestionFrom) : null;
+  const suggestionEnd = showSuggestionArrow ? toBoardPoint(suggestionTo) : null;
+  const visibleSanMoves = sanHistory.slice(0, Math.max(0, currentMoveIndex));
+  const playedMoveRows: Array<{
+    moveNumber: number;
+    whiteMove: string;
+    blackMove: string;
+  }> = [];
+
+  for (let index = 0; index < visibleSanMoves.length; index += 2) {
+    playedMoveRows.push({
+      moveNumber: Math.floor(index / 2) + 1,
+      whiteMove: visibleSanMoves[index] ?? "",
+      blackMove: visibleSanMoves[index + 1] ?? "",
+    });
+  }
+
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-[var(--bg)]">
       <header className="w-full px-8 py-5 flex items-center justify-between border-b border-[var(--border)]">
@@ -498,49 +677,181 @@ export default function OpeningPage() {
       </header>
 
       <main className="flex-1 w-full flex flex-col lg:flex-row h-[calc(100vh-73px)]">
-        <div className="w-full lg:w-[35%] flex flex-col items-center justify-center p-10 bg-[var(--bg)] relative z-10 shrink-0">
-          <div className="w-full max-w-[420px] bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-8 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r from-blue-500 to-emerald-400" />
-            <h1 className="text-[32px] font-serif text-[var(--text-primary)] font-[500] leading-tight mb-2 tracking-tight">
-              {formattedTitle}
-            </h1>
-            <div className="bg-[var(--badge-bg)] rounded-md py-2 px-3 mb-6 font-mono text-[13px] font-bold text-[var(--text-secondary)] border border-[var(--badge-ring)] inline-flex shadow-inner">
-              {lastMove ? `Last move ${lastMove.san}` : "Interactive analysis board"}
+        <div className="w-full lg:w-[35%] p-6 lg:p-5 bg-[var(--bg)] relative z-10 shrink-0 border-r border-[var(--border)]">
+          <div className="w-full h-full max-h-[85vh] bg-[#1e1e1f] border border-[#2d2d2f] rounded-xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="h-12 px-3 border-b border-[#2c2c2d] flex items-center justify-between relative">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#3a3a3a] text-[#d4d4d4] text-[10px]">v</span>
+                <span className="text-[#f0f0f0] text-[20px] font-[500] leading-none">Analysis</span>
+                <button
+                  onClick={() => setIsAnalysisMenuOpen((open) => !open)}
+                  className="p-1 rounded hover:bg-white/10 text-[#b8b8b8]"
+                  title="Analysis menu"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[#cfcfcf] text-[14px]">depth-{analysis.depth || analysisDepth}</span>
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="text-[#bfbfbf] hover:text-white"
+                  title="Engine settings"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+              </div>
+
+              {isAnalysisMenuOpen && (
+                <div className="absolute top-11 left-20 z-30 w-[230px] rounded-md border border-[#3a3a3d] bg-[#242426] shadow-2xl py-2">
+                  <button onClick={() => setShowEvaluationBar((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                    <span>Evaluation Bar</span>
+                    <span className={showEvaluationBar ? "text-emerald-400" : "text-[#7b7b7b]"}>{showEvaluationBar ? "On" : "Off"}</span>
+                  </button>
+                  <button onClick={() => setShowEngineLines((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                    <span>Engine Lines</span>
+                    <span className={showEngineLines ? "text-emerald-400" : "text-[#7b7b7b]"}>{showEngineLines ? "On" : "Off"}</span>
+                  </button>
+                  <button onClick={() => setShowSuggestionArrow((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                    <span>Suggestion Arrow</span>
+                    <span className={showSuggestionArrow ? "text-emerald-400" : "text-[#7b7b7b]"}>{showSuggestionArrow ? "On" : "Off"}</span>
+                  </button>
+                  <button onClick={() => setShowMoveFeedback((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                    <span>Move Feedback</span>
+                    <span className={showMoveFeedback ? "text-emerald-400" : "text-[#7b7b7b]"}>{showMoveFeedback ? "On" : "Off"}</span>
+                  </button>
+                </div>
+              )}
             </div>
 
-            <p className="text-[var(--text-muted)] text-[15px] leading-relaxed mb-8">
-              Click a piece and then a highlighted target square, or drag pieces directly on the
-              board. Legal moves, turn order, captures, castling, check, and promotion are all
-              enforced now.
-            </p>
+            <div className="flex-1 min-h-0 flex flex-col">
+              <div className="max-h-[255px] overflow-visible border-b border-[#2a2a2c]">
+                {showEngineLines ? (
+                  <>
+                    {analysis.lines.slice(0, analysisMultiPv).map((line) => {
+                      const pvMoves = buildPvDisplayMoves(fen, line.pv);
+                      const isExpanded = expandedEngineLineIds[line.id] ?? false;
+                      const canExpand = pvMoves.length > 6;
+                      const visibleMoves = isExpanded ? pvMoves : pvMoves.slice(0, 6);
 
-            <div className="flex items-center justify-center gap-2 mb-6 w-full">
-              <button onClick={goToStart} disabled={currentMoveIndex === 0} className="p-2.5 rounded-lg bg-[var(--skeleton)] hover:bg-[var(--border)] text-[var(--text-muted)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                <ChevronsLeft className="w-4 h-4" />
-              </button>
-              <button onClick={goToPrev} disabled={currentMoveIndex === 0} className="p-2.5 rounded-lg bg-[var(--skeleton)] hover:bg-[var(--border)] text-[var(--text-muted)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              
-              <button onClick={togglePlay} className="p-2.5 px-4 rounded-lg bg-emerald-600/30 text-emerald-400 hover:bg-emerald-600/50 transition-colors flex items-center justify-center min-w-[60px]">
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-              </button>
+                      return (
+                        <div key={line.id} className="min-h-[44px] px-2 py-1 border-b border-[#2a2a2c] flex items-start gap-2 text-[#d8d8d8] relative z-20">
+                          <div className="min-w-[52px] h-6 rounded bg-[#151515] border border-[#3a3a3c] flex items-center justify-center text-[12px] font-bold leading-none text-white mt-[2px]">
+                            {line.scoreText}
+                          </div>
+                          <div className="min-w-0 flex-1 flex items-start justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] leading-[1.1] text-[#d7d7d7]">
+                              {visibleMoves.map((pvMove) => (
+                                <div key={pvMove.key} className="relative group">
+                                  <span className="inline-flex rounded-sm px-1 py-[2px] hover:bg-white/10 cursor-default">
+                                    {pvMove.label}
+                                  </span>
+                                  <div className="pointer-events-none hidden group-hover:block absolute left-0 top-[calc(100%+8px)] z-[200]">
+                                    <MiniBoardPreview fen={pvMove.fenAfter} boardTheme={boardTheme} pieceTheme={pieceTheme} />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {canExpand && (
+                              <button
+                                onClick={() =>
+                                  setExpandedEngineLineIds((prev) => ({
+                                    ...prev,
+                                    [line.id]: !isExpanded,
+                                  }))
+                                }
+                                className="h-6 w-6 shrink-0 rounded text-[#c1c1c4] hover:bg-white/10 hover:text-white flex items-center justify-center"
+                                title={isExpanded ? "Collapse line" : "Show full line"}
+                              >
+                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {analysis.error ? (
+                      <div className="px-3 py-3 text-rose-300 text-[14px] border-b border-[#2a2a2c]">
+                        Engine failed: {analysis.error}
+                      </div>
+                    ) : analysis.lines.length === 0 && (
+                      <div className="px-3 py-3 text-[#9a9a9a] text-[14px] border-b border-[#2a2a2c]">
+                        {analysis.ready ? "Analyzing current position..." : "Starting engine..."}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="px-3 py-3 text-[#9a9a9a] text-[14px] border-b border-[#2a2a2c]">
+                    Engine lines hidden from menu.
+                  </div>
+                )}
+              </div>
 
-              <button onClick={goToNext} disabled={currentMoveIndex === history.length - 1} className="p-2.5 rounded-lg bg-[var(--skeleton)] hover:bg-[var(--border)] text-[var(--text-muted)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                <ChevronRight className="w-4 h-4" />
-              </button>
-              <button onClick={goToEnd} disabled={currentMoveIndex === history.length - 1} className="p-2.5 rounded-lg bg-[var(--skeleton)] hover:bg-[var(--border)] text-[var(--text-muted)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                <ChevronsRight className="w-4 h-4" />
-              </button>
+              <div className="flex-1 min-h-0 flex flex-col bg-[#1d1d1f]">
+                <div className="px-3 py-2 border-b border-[#2a2a2c] text-[15px] font-semibold text-white">
+                  White - Black
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {playedMoveRows.length === 0 ? (
+                    <div className="px-3 py-3 text-[13px] text-[#8f8f92]">No moves yet.</div>
+                  ) : (
+                    playedMoveRows.map((row, rowIndex) => {
+                      const whitePlyIndex = rowIndex * 2 + 1;
+                      const blackPlyIndex = rowIndex * 2 + 2;
+                      const isCurrentWhite = currentMoveIndex === whitePlyIndex;
+                      const isCurrentBlack = currentMoveIndex === blackPlyIndex;
+
+                      return (
+                        <div key={row.moveNumber} className="grid grid-cols-[36px_1fr_1fr] items-center px-3 py-1.5 border-b border-[#252527] text-[14px]">
+                          <span className="text-[#a5a5a8]">{row.moveNumber}.</span>
+                          <span className={`truncate ${isCurrentWhite ? "text-white font-semibold" : "text-[#d4d4d6]"}`}>
+                            {row.whiteMove || ""}
+                          </span>
+                          <span className={`truncate ${isCurrentBlack ? "text-white font-semibold" : "text-[#d4d4d6]"}`}>
+                            {row.blackMove || ""}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
             </div>
 
+            <div className="px-3 py-2 border-t border-[#2a2a2c] bg-[#1b1b1c]">
+              <div className="flex items-center justify-center gap-2 mb-3 w-full">
+                <button onClick={goToStart} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-[#c7c7c7] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                  <ChevronsLeft className="w-4 h-4" />
+                </button>
+                <button onClick={goToPrev} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-[#c7c7c7] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button onClick={togglePlay} className="p-2 px-4 rounded-md bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50 transition-colors flex items-center justify-center min-w-[56px]">
+                  {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                </button>
+                <button onClick={goToNext} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-[#c7c7c7] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <button onClick={goToEnd} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-[#c7c7c7] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                  <ChevronsRight className="w-4 h-4" />
+                </button>
+              </div>
 
-            <button
-              onClick={resetBoard}
-              className="w-full flex items-center justify-center px-6 py-4 bg-[var(--cta-bg)] text-[var(--cta-text)] rounded-lg font-bold text-[15px] hover:bg-[var(--cta-hover)] transition-colors shadow-lg"
-            >
-              Reset Board <span className="ml-2">&rarr;</span>
-            </button>
+              <div className="text-[13px] text-[#a8a8aa] mb-2">
+                {formattedTitle} - {statusText}
+              </div>
+              {showMoveFeedback && (
+                <div className="text-[12px] text-[#b8e8d0] mb-2">
+                  {topSuggestedMove ? `Suggested move: ${topSuggestedMove}` : "No suggestion yet."}
+                </div>
+              )}
+              <button
+                onClick={resetBoard}
+                className="w-full flex items-center justify-center px-4 py-2.5 bg-[#2f78cf] text-white rounded-md font-semibold text-[13px] hover:bg-[#3f88df] transition-colors"
+              >
+                Reset Board
+              </button>
+            </div>
           </div>
         </div>
 
@@ -586,13 +897,27 @@ export default function OpeningPage() {
                   <div className="px-5 mb-4">
                     <span className="text-[var(--text-muted)] text-[11px] font-bold uppercase tracking-wider">Settings</span>
                   </div>
-                  <button className="flex items-center gap-3 px-5 py-3 w-full text-left bg-[var(--surface-alt)] text-emerald-400 font-medium border-l-2 border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]">
+                  <button
+                    onClick={() => setActiveSettingsTab("boards")}
+                    className={`flex items-center gap-3 px-5 py-3 w-full text-left font-medium border-l-2 transition-colors ${
+                      activeSettingsTab === "boards" || activeSettingsTab === "pieces"
+                        ? "bg-[var(--surface-alt)] text-emerald-400 border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]"
+                        : "text-[#999] hover:bg-white/5 hover:text-white border-transparent"
+                    }`}
+                  >
                     <LayoutGrid className="w-[18px] h-[18px]" />
                     <span className="text-[14px]">Board & Pieces</span>
                   </button>
-                  <button className="flex items-center gap-3 px-5 py-3 w-full text-left text-[#999] hover:bg-white/5 hover:text-white transition-colors border-l-2 border-transparent">
+                  <button
+                    onClick={() => setActiveSettingsTab("engine")}
+                    className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${
+                      activeSettingsTab === "engine"
+                        ? "bg-[var(--surface-alt)] text-emerald-400 font-medium border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]"
+                        : "text-[#999] hover:bg-white/5 hover:text-white border-transparent"
+                    }`}
+                  >
                     <Gamepad2 className="w-[18px] h-[18px]" />
-                    <span className="text-[14px]">Gameplay</span>
+                    <span className="text-[14px]">Engine</span>
                   </button>
                   <button className="flex items-center gap-3 px-5 py-3 w-full text-left text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] transition-colors border-l-2 border-transparent">
                     <User className="w-[18px] h-[18px]" />
@@ -629,10 +954,12 @@ export default function OpeningPage() {
                   {/* Header */}
                   <div className="px-8 pt-6 pb-3 shrink-0">
                   <h2 className="text-[24px] font-bold text-white mb-1 font-sans">
-                    Board & Pieces
+                    {activeSettingsTab === "engine" ? "Engine" : "Board & Pieces"}
                   </h2>
                   <p className="text-[#a1a1aa] text-[14px]">
-                    Customize the look and feel of your chess set.
+                    {activeSettingsTab === "engine"
+                      ? "Configure analysis engine options and line depth."
+                      : "Customize the look and feel of your chess set."}
                   </p>
                   {preferencesLoading && (
                     <p className="text-[#8f8f8f] text-[12px] mt-2">Loading saved preferences...</p>
@@ -661,6 +988,13 @@ export default function OpeningPage() {
                       >
                         Pieces
                         {activeSettingsTab === "pieces" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-emerald-400" />}
+                      </button>
+                      <button
+                        onClick={() => setActiveSettingsTab("engine")}
+                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "engine" ? "text-emerald-400" : "text-[#888] hover:text-gray-200"}`}
+                      >
+                        Engine
+                        {activeSettingsTab === "engine" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-emerald-400" />}
                       </button>
                     </div>
 
@@ -724,6 +1058,89 @@ export default function OpeningPage() {
                               </button>
                             );
                           })}
+                        </div>
+                      )}
+                      {activeSettingsTab === "engine" && (
+                        <div className="px-2 py-2 space-y-4 text-[#d4d4d4]">
+                          <div className="space-y-1">
+                            <label className="text-[12px] uppercase tracking-wide text-[#8c8c8c]">Strength</label>
+                            <select
+                              value={analysisStrength}
+                              onChange={(event) => setAnalysisStrength(event.target.value as AnalysisStrength)}
+                              className="w-full bg-[#242424] border border-[#3a3a3a] rounded-md px-3 py-2 text-[14px] text-white"
+                            >
+                              <option value="fast">Fast (~1 sec, 3270 Rating)</option>
+                              <option value="standard">Standard (~5 sec, 3430 Rating)</option>
+                              <option value="deep">Deep (~20 sec, 3500 Rating)</option>
+                              <option value="maximum">Maximum (~1 min 30 sec, 3560 Rating)</option>
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[12px] uppercase tracking-wide text-[#8c8c8c]">Analysis Engine</label>
+                            <select
+                              value={analysisEngineChoice}
+                              onChange={(event) => setAnalysisEngineChoice(event.target.value as AnalysisEngineChoice)}
+                              className="w-full bg-[#242424] border border-[#3a3a3a] rounded-md px-3 py-2 text-[14px] text-white"
+                            >
+                              <option value="stockfish-18">Stockfish 18 (108MB download)</option>
+                              <option value="stockfish-18-lite">Stockfish 18 Lite (7MB download)</option>
+                              <option value="torch-4">Torch 4 (73MB download)</option>
+                              <option value="torch-4-lite">Torch 4 Lite (6MB download)</option>
+                              <option value="off">Engine Off</option>
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[12px] uppercase tracking-wide text-[#8c8c8c]">Number of Lines</label>
+                            <select
+                              value={analysisMultiPv}
+                              onChange={(event) => setAnalysisMultiPv(Number(event.target.value))}
+                              className="w-full bg-[#242424] border border-[#3a3a3a] rounded-md px-3 py-2 text-[14px] text-white"
+                            >
+                              <option value={1}>1</option>
+                              <option value={2}>2</option>
+                              <option value={3}>3</option>
+                              <option value={4}>4</option>
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[12px] uppercase tracking-wide text-[#8c8c8c]">Maximum Time (sec)</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={180}
+                              value={analysisMaxTimeSeconds}
+                              onChange={(event) => setAnalysisMaxTimeSeconds(Math.max(1, Number(event.target.value) || 1))}
+                              className="w-full bg-[#242424] border border-[#3a3a3a] rounded-md px-3 py-2 text-[14px] text-white"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[12px] uppercase tracking-wide text-[#8c8c8c]">Threads</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={1}
+                              value={analysisThreads}
+                              onChange={(event) => setAnalysisThreads(Math.max(1, Number(event.target.value) || 1))}
+                              disabled
+                              className="w-full bg-[#242424] border border-[#3a3a3a] rounded-md px-3 py-2 text-[14px] text-[#8a8a8a] cursor-not-allowed"
+                            />
+                          </div>
+
+                          <div className="rounded-md border border-[#323234] bg-[#202022] px-3 py-2 text-[12px] text-[#a5a5a8]">
+                            {analysisEngineChoice === "torch-4" || analysisEngineChoice === "torch-4-lite"
+                              ? torchLoading
+                                ? "Checking Torch runtime..."
+                                : torchStatus.ok
+                                  ? torchStatus.model_present
+                                    ? "Torch runtime detected. Until a Torch inference backend is wired, analysis still runs through Stockfish."
+                                    : "Torch runtime detected but model file is missing. Analysis still runs through Stockfish."
+                                  : "Torch runtime unavailable. Analysis runs through Stockfish."
+                              : "Stockfish engine is used for live analysis in this build."}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -809,22 +1226,24 @@ export default function OpeningPage() {
           )}
 
           <div className="flex items-stretch h-[85vh] max-h-[820px] aspect-[1/0.95] max-w-[85%] justify-end">
-            <div className="w-[25px] md:w-[30px] mr-[12px] md:mr-[24px] bg-[#333333] rounded overflow-hidden flex flex-col relative h-[100%] shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
-              <div
-                className="w-full bg-[#202020] transition-[height] duration-300 relative"
-                style={{ height: `${100 - analysis.whiteWinChance}%` }}
-              >
-                <div className="absolute inset-0 bg-white/5 animate-pulse" />
+            {showEvaluationBar && (
+              <div className="w-[25px] md:w-[30px] mr-[12px] md:mr-[24px] bg-[#333333] rounded overflow-hidden flex flex-col relative h-[100%] shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
+                <div
+                  className="w-full bg-[#202020] transition-[height] duration-300 relative"
+                  style={{ height: `${100 - analysis.whiteWinChance}%` }}
+                >
+                  <div className="absolute inset-0 bg-white/5 animate-pulse" />
+                </div>
+                <div
+                  className="w-full bg-white relative shadow-[0_-2px_10px_rgba(255,255,255,0.6)] flex flex-col justify-end pb-1.5 border-t border-[#666] transition-[height] duration-300"
+                  style={{ height: `${analysis.whiteWinChance}%` }}
+                >
+                  <span className="text-center text-[11px] md:text-[13px] font-[700] text-black">
+                    {isEngineEnabled ? analysis.evaluationText : "OFF"}
+                  </span>
+                </div>
               </div>
-              <div
-                className="w-full bg-white relative shadow-[0_-2px_10px_rgba(255,255,255,0.6)] flex flex-col justify-end pb-1.5 border-t border-[#666] transition-[height] duration-300"
-                style={{ height: `${analysis.whiteWinChance}%` }}
-              >
-                <span className="text-center text-[11px] md:text-[13px] font-[700] text-black">
-                  {analysis.evaluationText}
-                </span>
-              </div>
-            </div>
+            )}
 
             <div
               className="h-full aspect-square relative overflow-hidden"
@@ -842,7 +1261,6 @@ export default function OpeningPage() {
                     const square = toSquare(logicalRow, logicalCol);
                     const squarePiece = game.get(square);
                     const isLightSquare = (logicalRow + logicalCol) % 2 === 0;
-                    const isSelectedSquare = selectedSquare === square;
                     const isLegalTarget = legalTargets.includes(square);
                     const isLastMoveSquare =
                       lastMove?.from === square || lastMove?.to === square;
@@ -916,6 +1334,26 @@ export default function OpeningPage() {
                   })
                 )}
                 </div>
+                {suggestionStart && suggestionEnd && (
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none z-30">
+                    <defs>
+                      <marker id="suggestion-arrow-head" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 z" fill="#22d3ee" />
+                      </marker>
+                    </defs>
+                    <line
+                      x1={`${suggestionStart.x}%`}
+                      y1={`${suggestionStart.y}%`}
+                      x2={`${suggestionEnd.x}%`}
+                      y2={`${suggestionEnd.y}%`}
+                      stroke="#22d3ee"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      markerEnd="url(#suggestion-arrow-head)"
+                      opacity="0.85"
+                    />
+                  </svg>
+                )}
               </BoardImage>
             </div>
           </div>

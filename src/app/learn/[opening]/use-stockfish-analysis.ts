@@ -12,6 +12,8 @@ export type EngineLine = {
   pv: string[];
 };
 
+export type StockfishEngineVariant = "stockfish-18" | "stockfish-18-lite";
+
 type AnalysisState = {
   ready: boolean;
   analyzing: boolean;
@@ -19,6 +21,7 @@ type AnalysisState = {
   evaluationText: string;
   whiteWinChance: number;
   lines: EngineLine[];
+  error: string | null;
 };
 
 const DEFAULT_STATE: AnalysisState = {
@@ -28,6 +31,7 @@ const DEFAULT_STATE: AnalysisState = {
   evaluationText: "...",
   whiteWinChance: 50,
   lines: [],
+  error: null,
 };
 
 const scoreToWinChance = (cp: number | null, mate: number | null) => {
@@ -70,17 +74,28 @@ const uciToSan = (fen: string, uciMove: string) => {
     return uciMove;
   }
 
-  const game = new Chess(fen);
-  const move = game.move({
-    from: uciMove.slice(0, 2),
-    to: uciMove.slice(2, 4),
-    promotion: uciMove[4],
-  });
+  try {
+    const game = new Chess(fen);
+    const move = game.move({
+      from: uciMove.slice(0, 2),
+      to: uciMove.slice(2, 4),
+      promotion: uciMove[4],
+    });
 
-  return move?.san ?? uciMove;
+    return move?.san ?? uciMove;
+  } catch {
+    return uciMove;
+  }
 };
 
-export function useStockfishAnalysis(fen: string, enabled = true, depth = 13, multiPv = 3) {
+export function useStockfishAnalysis(
+  fen: string,
+  enabled = true,
+  depth = 13,
+  multiPv = 3,
+  threads = 1,
+  engineVariant: StockfishEngineVariant = "stockfish-18-lite",
+) {
   const [state, setState] = useState<AnalysisState>(DEFAULT_STATE);
   const workerRef = useRef<Worker | null>(null);
   const readyRef = useRef(false);
@@ -88,9 +103,14 @@ export function useStockfishAnalysis(fen: string, enabled = true, depth = 13, mu
   const linesRef = useRef<Map<number, EngineLine>>(new Map());
 
   const workerScript = useMemo(
-    () =>
-      `/engines/stockfish/stockfish-18-lite-single.js#${encodeURIComponent("/engines/stockfish/stockfish-18-lite-single.wasm")},worker`,
-    [],
+    () => {
+      if (engineVariant === "stockfish-18") {
+        return "/engines/stockfish/stockfish-18-single.js";
+      }
+
+      return "/engines/stockfish/stockfish-18-lite-single.js";
+    },
+    [engineVariant],
   );
 
   useEffect(() => {
@@ -102,13 +122,26 @@ export function useStockfishAnalysis(fen: string, enabled = true, depth = 13, mu
       return;
     }
 
-    const worker = new Worker(workerScript);
+    let worker: Worker;
+    try {
+      worker = new Worker(workerScript);
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        ready: false,
+        analyzing: false,
+        error: error instanceof Error ? error.message : "Unable to create analysis worker.",
+      }));
+      return;
+    }
+
     workerRef.current = worker;
 
     const handleMessage = (event: MessageEvent<string>) => {
       const message = String(event.data).trim();
 
       if (message === "uciok") {
+        worker.postMessage(`setoption name Threads value ${Math.max(1, threads)}`);
         worker.postMessage(`setoption name MultiPV value ${multiPv}`);
         worker.postMessage("isready");
         return;
@@ -116,7 +149,7 @@ export function useStockfishAnalysis(fen: string, enabled = true, depth = 13, mu
 
       if (message === "readyok") {
         readyRef.current = true;
-        setState((current) => ({ ...current, ready: true }));
+        setState((current) => ({ ...current, ready: true, error: null }));
         return;
       }
 
@@ -171,7 +204,17 @@ export function useStockfishAnalysis(fen: string, enabled = true, depth = 13, mu
       }));
     };
 
+    const handleError = (event: ErrorEvent) => {
+      setState((current) => ({
+        ...current,
+        ready: false,
+        analyzing: false,
+        error: event.message || "Engine worker failed to load.",
+      }));
+    };
+
     worker.addEventListener("message", handleMessage);
+    worker.addEventListener("error", handleError);
     worker.postMessage("uci");
 
     return () => {
@@ -179,10 +222,11 @@ export function useStockfishAnalysis(fen: string, enabled = true, depth = 13, mu
       linesRef.current.clear();
       worker.postMessage("quit");
       worker.removeEventListener("message", handleMessage);
+      worker.removeEventListener("error", handleError);
       workerRef.current = null;
       worker.terminate();
     };
-  }, [enabled, multiPv, workerScript]);
+  }, [enabled, multiPv, threads, workerScript]);
 
   useEffect(() => {
     if (!enabled || !readyRef.current || !workerRef.current) {
@@ -199,8 +243,10 @@ export function useStockfishAnalysis(fen: string, enabled = true, depth = 13, mu
         depth: 0,
         evaluationText: "...",
         lines: [],
+        error: null,
       }));
       worker.postMessage("stop");
+      worker.postMessage(`setoption name Threads value ${Math.max(1, threads)}`);
       worker.postMessage(`setoption name MultiPV value ${multiPv}`);
       worker.postMessage(`position fen ${fen}`);
       worker.postMessage(`go depth ${depth}`);
@@ -210,7 +256,7 @@ export function useStockfishAnalysis(fen: string, enabled = true, depth = 13, mu
       window.clearTimeout(timeoutId);
       worker.postMessage("stop");
     };
-  }, [depth, enabled, fen, multiPv]);
+  }, [depth, enabled, fen, multiPv, threads]);
 
   return state;
 }

@@ -20,7 +20,7 @@ export default function Home() {
         <nav className="hidden lg:flex items-center space-x-10 text-[14px] font-medium text-[var(--text-secondary)]">
           <a href="#" className="hover:text-[var(--text-primary)] transition-colors">Puzzles</a>
           <Link href="/learn" className="hover:text-[var(--text-primary)] transition-colors">Learn</Link>
-          <a href="#" className="hover:text-[var(--text-primary)] transition-colors">Watch</a>
+          <Link href="/play/computer" className="hover:text-[var(--text-primary)] transition-colors">Play Bot</Link>
           <a href="#" className="hover:text-[var(--text-primary)] transition-colors">News</a>
           <a href="#" className="hover:text-[var(--text-primary)] transition-colors">Social</a>
           <div className="flex items-center space-x-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
@@ -83,10 +83,10 @@ export default function Home() {
             Play Online
           </button>
           
-          <button className="w-full sm:w-auto flex items-center justify-center px-10 py-5 bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-secondary)] rounded-full font-bold text-xl hover:bg-[var(--surface-hover)] transition-colors shadow-lg">
+          <Link href="/play/computer" className="w-full sm:w-auto flex items-center justify-center px-10 py-5 bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-secondary)] rounded-full font-bold text-xl hover:bg-[var(--surface-hover)] transition-colors shadow-lg">
             <Bot className="w-6 h-6 mr-3 text-[var(--text-muted)]" />
             Play Bots
-          </button>
+          </Link>
         </div>
 
         {/* Video / 3D Chessboard container */}
