@@ -27,3 +27,6 @@ source code.html
 soruce code.html
 download_themes.js
 /.github
+
+# large local engine binaries
+public/engines/stockfish/stockfish-18-single.wasm
