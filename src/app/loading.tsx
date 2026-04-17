@@ -17,9 +17,11 @@ export default function Loading() {
         </nav>
 
         {/* Auth Buttons Skeleton */}
-        <div className="flex items-center space-x-6">
-          <div className="w-[50px] h-[20px] bg-[var(--skeleton)] rounded-md hidden sm:block"></div>
-          <div className="w-[90px] h-[40px] bg-[var(--skeleton)] rounded-full"></div>
+        <div className="flex items-center space-x-5">
+          <div className="w-[38px] h-[38px] bg-[var(--skeleton)] rounded-full"></div>
+          <div className="w-[38px] h-[38px] bg-[var(--skeleton)] rounded-full"></div>
+          <div className="w-[45px] h-[20px] bg-[var(--skeleton)] rounded-md hidden sm:block"></div>
+          <div className="w-[82px] h-[40px] bg-[var(--skeleton)] rounded-full"></div>
         </div>
       </header>
 
@@ -28,14 +30,14 @@ export default function Loading() {
         <div className="w-[80%] max-w-[600px] h-[60px] md:h-[100px] bg-[var(--skeleton)] rounded-xl mb-4"></div>
         <div className="w-[60%] max-w-[400px] h-[60px] md:h-[100px] bg-[var(--skeleton)] rounded-xl"></div>
         
-        <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-6 mt-12 w-full max-w-md sm:max-w-none">
+        <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-6 mt-8 w-full max-w-md sm:max-w-none">
            <div className="w-[150px] h-[24px] bg-[var(--skeleton)] rounded-md"></div>
            <div className="w-[150px] h-[24px] bg-[var(--skeleton)] rounded-md"></div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-5 mt-12 w-full justify-center">
-            <div className="w-full sm:w-[220px] py-8 bg-[var(--skeleton)] rounded-full"></div>
-            <div className="w-full sm:w-[220px] py-8 bg-[var(--skeleton-soft)] rounded-full"></div>
+        <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-5 mt-12 w-full max-w-md sm:max-w-none justify-center">
+            <div className="w-full sm:w-[220px] h-[68px] bg-[var(--skeleton)] rounded-full"></div>
+            <div className="w-full sm:w-[220px] h-[68px] bg-[var(--skeleton-soft)] rounded-full"></div>
         </div>
 
         {/* Video / 3D Chessboard Skeleton */}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Session } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { Settings } from "lucide-react";
 
 export function AuthMenu() {
   const [session, setSession] = useState<Session | null>(null);
@@ -66,10 +67,11 @@ export function AuthMenu() {
 
   if (loading) {
     return (
-      <div className="flex items-center space-x-5 text-[14px]">
-        <div className="w-12 h-5 animate-pulse bg-[var(--surface-hover)] rounded" />
-        <div className="w-20 h-10 animate-pulse bg-[var(--surface-hover)] rounded-full" />
-      </div>
+      <>
+        <div className="w-[38px] h-[38px] animate-pulse bg-[var(--skeleton)] rounded-full" />
+        <div className="w-[45px] h-[20px] animate-pulse bg-[var(--skeleton)] rounded-md hidden sm:block" />
+        <div className="w-[82px] h-[40px] animate-pulse bg-[var(--skeleton)] rounded-full" />
+      </>
     );
   }
 
@@ -84,9 +86,17 @@ export function AuthMenu() {
     const displayName = baseDisplayName.split(/[@＠]/)[0] || "User";
     
     return (
-      <div className="relative" ref={dropdownRef}>
-        <button
-          onClick={() => setDropdownOpen(!dropdownOpen)}
+      <>
+        <Link
+          href="/settings"
+          className="p-2.5 rounded-full bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all duration-300 shadow-sm flex items-center justify-center"
+          title="Settings"
+        >
+          <Settings className="w-[18px] h-[18px]" />
+        </Link>
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setDropdownOpen(!dropdownOpen)}
           className="flex items-center space-x-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors font-medium text-[14px]"
         >
           <span>{displayName}</span>
@@ -94,13 +104,6 @@ export function AuthMenu() {
 
         {dropdownOpen && (
           <div className="absolute right-0 top-full mt-2 w-48 rounded-lg shadow-lg bg-[var(--surface)] border border-[var(--border)] overflow-hidden z-50">
-            <Link 
-              href="/settings"
-              onClick={() => setDropdownOpen(false)}
-              className="block w-full text-left px-4 py-3 border-b border-[var(--border-subtle)] text-[14px] font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors"
-            >
-              Settings
-            </Link>
             <button
               onClick={handleLogout}
               className="w-full text-left px-4 py-3 text-[14px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors"
@@ -109,12 +112,20 @@ export function AuthMenu() {
             </button>
           </div>
         )}
-      </div>
+        </div>
+      </>
     );
   }
 
   return (
     <>
+      <Link
+        href="/settings"
+        className="p-2.5 rounded-full bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all duration-300 shadow-sm flex items-center justify-center"
+        title="Settings"
+      >
+        <Settings className="w-[18px] h-[18px]" />
+      </Link>
       <Link href="/login" className="relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all duration-300 hidden sm:block after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[1px] after:bg-[var(--text-primary)] hover:after:w-full after:transition-all after:duration-300">
         Login
       </Link>

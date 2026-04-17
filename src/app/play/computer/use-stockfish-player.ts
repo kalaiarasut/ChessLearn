@@ -70,6 +70,7 @@ export function useStockfishPlayer(fen: string, isBotTurn: boolean, elo: number)
     if (!readyRef.current || !workerRef.current || !isBotTurn) {
       if (!isBotTurn) {
         // Reset best move when it's not bot turn
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setState(s => ({ ...s, bestMove: null }));
       }
       return;

@@ -5,15 +5,18 @@ export default function LearnLoading() {
       <header className="w-full max-w-[1400px] px-6 py-8 flex items-center justify-between border-[var(--border)]">
         <div className="w-[100px] h-[30px] bg-[var(--skeleton)] rounded-md"></div>
         <nav className="hidden lg:flex items-center space-x-10">
-          <div className="w-[60px] h-[20px] bg-[var(--skeleton)] rounded-md"></div>
-          <div className="w-[60px] h-[20px] bg-[var(--skeleton)] rounded-md"></div>
-          <div className="w-[60px] h-[20px] bg-[var(--skeleton)] rounded-md"></div>
-          <div className="w-[60px] h-[20px] bg-[var(--skeleton)] rounded-md"></div>
-          <div className="w-[60px] h-[20px] bg-[var(--skeleton)] rounded-md"></div>
+          <div className="w-[60px] h-[20px] bg-[var(--skeleton)] rounded"></div>
+          <div className="w-[60px] h-[20px] bg-[var(--skeleton)] rounded"></div>
+          <div className="w-[60px] h-[20px] bg-[var(--skeleton)] rounded"></div>
+          <div className="w-[60px] h-[20px] bg-[var(--skeleton)] rounded"></div>
+          <div className="w-[60px] h-[20px] bg-[var(--skeleton)] rounded"></div>
+          <div className="w-[60px] h-[20px] bg-[var(--skeleton)] rounded"></div>
         </nav>
-        <div className="flex items-center space-x-6">
-          <div className="w-[50px] h-[20px] bg-[var(--skeleton)] rounded-md hidden sm:block"></div>
-          <div className="w-[90px] h-[40px] bg-[var(--skeleton)] rounded-full"></div>
+        <div className="flex items-center space-x-5">
+          <div className="w-[38px] h-[38px] bg-[var(--skeleton)] rounded-full"></div>
+          <div className="w-[38px] h-[38px] bg-[var(--skeleton)] rounded-full"></div>
+          <div className="w-[45px] h-[20px] bg-[var(--skeleton)] rounded-md hidden sm:block"></div>
+          <div className="w-[82px] h-[40px] bg-[var(--skeleton)] rounded-full"></div>
         </div>
       </header>
 
@@ -30,15 +33,18 @@ export default function LearnLoading() {
           {Array.from({ length: 9 }).map((_, idx) => (
             <div 
               key={idx} 
-              className="bg-gradient-to-b from-[var(--card-from)] to-[var(--card-to)] border border-[var(--border)] rounded-2xl p-8 shadow-lg flex flex-col justify-between"
+              className="relative bg-gradient-to-b from-[var(--card-from)] to-[var(--card-to)] border border-[var(--border)] rounded-2xl p-8 shadow-lg"
             >
-              <div>
-                <div className="w-[180px] h-[30px] bg-[var(--skeleton)] mb-4 rounded-md"></div>
-                <div className="w-[120px] h-[35px] bg-[var(--skeleton-soft)] mb-5 rounded-lg"></div>
-                <div className="w-full h-[60px] bg-[var(--skeleton-soft)] rounded-md"></div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-[180px] h-[30px] bg-[var(--skeleton)] rounded"></div>
+              </div>
+              <div className="bg-[var(--skeleton-soft)] rounded-lg w-[120px] h-[40px] mb-5"></div>
+              <div className="space-y-2">
+                <div className="w-full h-[20px] bg-[var(--skeleton-soft)] rounded"></div>
+                <div className="w-4/5 h-[20px] bg-[var(--skeleton-soft)] rounded"></div>
               </div>
               <div className="mt-8 flex items-center">
-                <div className="w-[110px] h-[25px] bg-[var(--skeleton)] rounded-md"></div>
+                <div className="w-[110px] h-[25px] opacity-0"></div>
               </div>
             </div>
           ))}
