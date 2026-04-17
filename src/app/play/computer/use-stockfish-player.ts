@@ -16,12 +16,11 @@ export function useStockfishPlayer(fen: string, isBotTurn: boolean, elo: number)
   });
   
   const workerRef = useRef<Worker | null>(null);
-  const readyRef = useRef(false);
 
   // We use the same single-threaded stockfish 18 lite
   const workerScript = useMemo(
     () =>
-      `/engines/stockfish/stockfish-18-lite-single.js#${encodeURIComponent("/engines/stockfish/stockfish-18-lite-single.wasm")},worker`,
+      "/engines/stockfish/stockfish-18-lite-single.js",
     [],
   );
 
@@ -40,7 +39,6 @@ export function useStockfishPlayer(fen: string, isBotTurn: boolean, elo: number)
       }
 
       if (message === "readyok") {
-        readyRef.current = true;
         setState((current) => ({ ...current, ready: true }));
         return;
       }
@@ -57,7 +55,6 @@ export function useStockfishPlayer(fen: string, isBotTurn: boolean, elo: number)
     worker.postMessage("uci");
 
     return () => {
-      readyRef.current = false;
       worker.postMessage("quit");
       worker.removeEventListener("message", handleMessage);
       workerRef.current = null;
@@ -67,7 +64,7 @@ export function useStockfishPlayer(fen: string, isBotTurn: boolean, elo: number)
 
   // Handle bot's turn
   useEffect(() => {
-    if (!readyRef.current || !workerRef.current || !isBotTurn) {
+    if (!state.ready || !workerRef.current || !isBotTurn) {
       if (!isBotTurn) {
         // Reset best move when it's not bot turn
         // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -101,7 +98,7 @@ export function useStockfishPlayer(fen: string, isBotTurn: boolean, elo: number)
       window.clearTimeout(timeoutId);
       worker.postMessage("stop");
     };
-  }, [fen, isBotTurn, elo]);
+  }, [fen, isBotTurn, elo, state.ready]);
 
   return state;
 }

@@ -5,48 +5,64 @@ import { ChevronDown, ArrowLeft, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/lib/theme-context";
 import { AuthMenu } from "@/components/auth-menu";
 
-const openings = [
+type OpeningCard = {
+  slug: string;
+  name: string;
+  moves: string;
+  description: string;
+};
+
+const fallbackOpenings: OpeningCard[] = [
   {
+    slug: "italian-game",
     name: "Italian Game",
     moves: "1. e4 e5 2. Nf3 Nc6 3. Bc4",
     description: "A classical opening that develops pieces quickly and controls the center. Perfect for beginners and masters alike."
   },
   {
+    slug: "sicilian-defense",
     name: "Sicilian Defense",
     moves: "1. e4 c5",
     description: "The most popular and best-scoring response to White's first move 1.e4. Highly tactical and aggressive."
   },
   {
+    slug: "queens-gambit",
     name: "Queen's Gambit",
     moves: "1. d4 d5 2. c4",
     description: "White offers a pawn to gain control of the center. A staple of positional and strategic chess."
   },
   {
+    slug: "ruy-lopez",
     name: "Ruy Lopez",
     moves: "1. e4 e5 2. Nf3 Nc6 3. Bb5",
     description: "Named after a Spanish bishop, this opening aims to apply pressure on the knight defending the e5 pawn."
   },
   {
+    slug: "french-defense",
     name: "French Defense",
     moves: "1. e4 e6",
     description: "A solid and resilient opening for Black that immediately challenges White's central pawn on e4."
   },
   {
+    slug: "caro-kann-defense",
     name: "Caro-Kann Defense",
     moves: "1. e4 c6",
     description: "Known for its extreme solidity, Black prepares to challenge the center with d5 on the next move."
   },
   {
+    slug: "kings-indian-defense",
     name: "King's Indian Defense",
     moves: "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7",
     description: "A hypermodern opening where Black allows White to build a pawn center, aiming to attack it later."
   },
   {
+    slug: "english-opening",
     name: "English Opening",
     moves: "1. c4",
     description: "A flexible and flank opening where White fights for the center using the c-pawn instead of the d or e pawns."
   },
   {
+    slug: "scandinavian-defense",
     name: "Scandinavian Defense",
     moves: "1. e4 d5",
     description: "Directly challenging White's central e4 pawn. It leads to open and complex positions."
@@ -108,7 +124,7 @@ export default function LearnPage() {
 
         {/* Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-          {openings.map((opening, idx) => (
+          {fallbackOpenings.map((opening, idx) => (
             <div 
               key={idx} 
               className="relative bg-gradient-to-b from-[var(--card-from)] to-[var(--card-to)] border border-[var(--border)] hover:border-[var(--border-hover)] rounded-2xl p-8 hover:bg-[var(--surface-hover)] transition-all cursor-pointer group shadow-lg hover:shadow-2xl hover:-translate-y-1 duration-300"
@@ -125,7 +141,7 @@ export default function LearnPage() {
               <div className="mt-8 flex items-center text-[14px] font-bold text-[var(--text-primary)] opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
                 Study Opening <span className="ml-2 bg-[var(--cta-bg)] text-[var(--cta-text)] px-2 py-1 rounded-md text-xs">&rarr;</span>
               </div>
-              <Link href={`/learn/${opening.name.toLowerCase().replace(/\s+/g, '-')}`} className="absolute inset-0 z-10">
+              <Link href={`/learn/${opening.slug}`} className="absolute inset-0 z-10">
                 <span className="sr-only">Study {opening.name}</span>
               </Link>
             </div>

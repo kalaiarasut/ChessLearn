@@ -1,14 +1,16 @@
 "use client";
 
-import type { DragEvent } from "react";
+import type { DragEvent, MouseEvent } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { Chess, type Square } from "chess.js";
-import { ArrowLeft, Settings, Play, Bot, RotateCcw, ChevronLeft, ChevronRight, Monitor, User, Gamepad2, MessageSquare, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, Crosshair, Crown } from "lucide-react";
+import { ArrowLeft, Settings, Play, Pause, Bot, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, ChevronUp, MoreHorizontal, Monitor, User, Gamepad2, MessageSquare, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, Crosshair, Crown } from "lucide-react";
 import themeManifest from "@/data/themeManifest.json";
 import { useTheme } from "@/lib/theme-context";
 import { useStockfishPlayer } from "./use-stockfish-player";
+import { useStockfishAnalysis } from "../../learn/[opening]/use-stockfish-analysis";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreferences } from "@/lib/client-preferences";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
@@ -19,6 +21,38 @@ const BOARD_THEME_ASSETS = themeManifest.boardAssets as Record<string, string>;
 const PIECE_THEME_ASSETS = themeManifest.pieceAssets as Record<string, string>;
 
 const ELOS = [250, 400, 700, 1000, 1300, 1500, 1800, 2000, 2400, 3200];
+const BOT_OPENING_MOVES = [
+  { id: "engine", label: "Engine Choice", uci: null as string | null },
+  { id: "e4", label: "King Pawn (e4)", uci: "e2e4" },
+  { id: "d4", label: "Queen Pawn (d4)", uci: "d2d4" },
+  { id: "c4", label: "English (c4)", uci: "c2c4" },
+  { id: "nf3", label: "Reti (Nf3)", uci: "g1f3" },
+  { id: "e5", label: "Open Game (e5)", uci: "e7e5" },
+  { id: "c5", label: "Sicilian (c5)", uci: "c7c5" },
+  { id: "e6", label: "French (e6)", uci: "e7e6" },
+  { id: "d5", label: "Queen Pawn (d5)", uci: "d7d5" },
+  { id: "nf6", label: "Indian (Nf6)", uci: "g8f6" },
+] as const;
+const MATERIAL_VALUES = {
+  p: 1,
+  n: 3,
+  b: 3,
+  r: 5,
+  q: 9,
+  k: 0,
+} as const;
+const STARTING_PIECE_COUNTS = {
+  p: 8,
+  n: 2,
+  b: 2,
+  r: 2,
+  q: 1,
+  k: 1,
+} as const;
+const CAPTURE_DISPLAY_ORDER = ["q", "r", "b", "n", "p"] as const;
+
+type MaterialPieceType = Exclude<keyof typeof MATERIAL_VALUES, "k">;
+type SideColor = "w" | "b";
 
 type SerializableMove = {
   from: Square;
@@ -143,8 +177,137 @@ const getPositionStatus = (game: Chess) => {
   return `${sideToMove} to move.`;
 };
 
+const getMaterialSnapshot = (game: Chess) => {
+  const counts: Record<SideColor, Record<keyof typeof MATERIAL_VALUES, number>> = {
+    w: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
+    b: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
+  };
+
+  for (const row of game.board()) {
+    for (const piece of row) {
+      if (!piece) continue;
+      counts[piece.color][piece.type] += 1;
+    }
+  }
+
+  const whiteMaterial =
+    counts.w.p * MATERIAL_VALUES.p +
+    counts.w.n * MATERIAL_VALUES.n +
+    counts.w.b * MATERIAL_VALUES.b +
+    counts.w.r * MATERIAL_VALUES.r +
+    counts.w.q * MATERIAL_VALUES.q;
+
+  const blackMaterial =
+    counts.b.p * MATERIAL_VALUES.p +
+    counts.b.n * MATERIAL_VALUES.n +
+    counts.b.b * MATERIAL_VALUES.b +
+    counts.b.r * MATERIAL_VALUES.r +
+    counts.b.q * MATERIAL_VALUES.q;
+
+  const materialDiff = whiteMaterial - blackMaterial;
+
+  const buildCapturedTypes = (capturedFromColor: SideColor) => {
+    const capturedTypes: MaterialPieceType[] = [];
+    for (const type of CAPTURE_DISPLAY_ORDER) {
+      const capturedCount = Math.max(0, STARTING_PIECE_COUNTS[type] - counts[capturedFromColor][type]);
+      for (let index = 0; index < capturedCount; index += 1) {
+        capturedTypes.push(type);
+      }
+    }
+    return capturedTypes;
+  };
+
+  return {
+    materialDiff,
+    capturedByWhite: buildCapturedTypes("b"),
+    capturedByBlack: buildCapturedTypes("w"),
+  };
+};
+
+type PvDisplayMove = {
+  key: string;
+  label: string;
+  fenAfter: string;
+};
+
+const buildPvDisplayMoves = (fen: string, pv: string[]) => {
+  const game = new Chess(fen);
+  const moves: PvDisplayMove[] = [];
+
+  for (let index = 0; index < pv.length; index += 1) {
+    const uci = pv[index];
+    if (!/^[a-h][1-8][a-h][1-8][nbrq]?$/.test(uci)) {
+      break;
+    }
+
+    let playedMove: ReturnType<Chess["move"]> | null = null;
+    try {
+      playedMove = game.move({
+        from: uci.slice(0, 2) as Square,
+        to: uci.slice(2, 4) as Square,
+        promotion: uci[4] as "q" | "r" | "b" | "n" | undefined,
+      });
+    } catch {
+      break;
+    }
+
+    if (!playedMove) {
+      break;
+    }
+
+    moves.push({
+      key: `${index}-${uci}`,
+      label: `${index + 1}. ${playedMove.san}`,
+      fenAfter: game.fen(),
+    });
+  }
+
+  return moves;
+};
+
+const MiniBoardPreview = ({
+  fen,
+  boardTheme,
+  pieceTheme,
+}: {
+  fen: string;
+  boardTheme: string;
+  pieceTheme: string;
+}) => {
+  const game = new Chess(fen);
+  const board = game.board().map((row) => row.map((piece) => getPieceCode(piece)));
+
+  return (
+    <div className="w-[170px] rounded-md border border-[#4a4a4d] bg-[#18181a] p-2 shadow-2xl">
+      <div className="relative aspect-square overflow-hidden rounded-sm border border-[#2f2f32]">
+        <img
+          src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`}
+          alt="Preview board"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 grid grid-cols-8 grid-rows-8">
+          {board.map((row, rowIndex) =>
+            row.map((pieceCode, colIndex) => (
+              <div key={`${rowIndex}-${colIndex}`} className="flex items-center justify-center p-[4%]">
+                {pieceCode ? (
+                  <img
+                    src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${pieceCode}.png`}
+                    alt={pieceCode}
+                    className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)]"
+                  />
+                ) : null}
+              </div>
+            )),
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function PlayComputerPage() {
   const pathname = usePathname();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   // Settings state
   const [boardTheme, setBoardTheme] = useState(themeManifest.defaultBoardTheme);
@@ -166,19 +329,87 @@ export default function PlayComputerPage() {
   const [gameState, setGameState] = useState<"setup" | "playing" | "game_over">("setup");
   const [fen, setFen] = useState(DEFAULT_FEN);
   const [history, setHistory] = useState<string[]>([DEFAULT_FEN]);
+  const [sanHistory, setSanHistory] = useState<string[]>([]);
+  const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
+  const [isPlayingHistory, setIsPlayingHistory] = useState(false);
+  const [isAnalysisMenuOpen, setIsAnalysisMenuOpen] = useState(false);
+  const [showEvaluationBar, setShowEvaluationBar] = useState(true);
+  const [showEngineLines, setShowEngineLines] = useState(true);
+  const [showSuggestionArrow, setShowSuggestionArrow] = useState(false);
+  const [showMoveFeedback, setShowMoveFeedback] = useState(false);
+  const [analysisEngineVariant, setAnalysisEngineVariant] = useState<"stockfish-18" | "stockfish-18-lite">("stockfish-18-lite");
+  const [analysisMaxTimeSeconds, setAnalysisMaxTimeSeconds] = useState(5);
+  const [analysisMultiPv, setAnalysisMultiPv] = useState(3);
+  const [analysisDepth, setAnalysisDepth] = useState(15);
+  const [analysisThreads, setAnalysisThreads] = useState(1);
+  const [expandedEngineLineIds, setExpandedEngineLineIds] = useState<Record<number, boolean>>({});
+  const [bot1EloIndex, setBot1EloIndex] = useState<number>(5);
+  const [bot2EloIndex, setBot2EloIndex] = useState<number>(5);
+  const [bot1OpeningId, setBot1OpeningId] = useState<string>("c5");
+  const [bot2OpeningId, setBot2OpeningId] = useState<string>("e4");
+  const [bot1OpeningUsed, setBot1OpeningUsed] = useState(false);
+  const [bot2OpeningUsed, setBot2OpeningUsed] = useState(false);
+  const [botMatchConfigOpen, setBotMatchConfigOpen] = useState(false);
+  const [viewerName, setViewerName] = useState("Guest User");
+  const [hoverPreview, setHoverPreview] = useState<{ fen: string; left: number; top: number } | null>(null);
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [draggedSquare, setDraggedSquare] = useState<Square | null>(null);
   const [dragOverSquare, setDragOverSquare] = useState<Square | null>(null);
   const [lastMove, setLastMove] = useState<SerializableMove | null>(null);
+  const [whiteTimeSeconds, setWhiteTimeSeconds] = useState(10 * 60);
+  const [blackTimeSeconds, setBlackTimeSeconds] = useState(10 * 60);
+  const [timeoutStatus, setTimeoutStatus] = useState<string | null>(null);
+  const [warnedWhiteLowTime, setWarnedWhiteLowTime] = useState(false);
+  const [warnedBlackLowTime, setWarnedBlackLowTime] = useState(false);
 
   const gameRef = useRef(new Chess(fen));
+  const isReviewing = currentMoveIndex !== history.length - 1;
+  const isBotMatchMode = playerColor === "bot-vs-bot";
+  const playerSide: SideColor = isBotMatchMode ? "w" : playerColor;
+  const botSide: SideColor = playerSide === "w" ? "b" : "w";
+  const bot1Elo = ELOS[bot1EloIndex];
+  const bot2Elo = ELOS[bot2EloIndex];
+  const activeEngineElo = isBotMatchMode ? (gameRef.current.turn() === botSide ? bot1Elo : bot2Elo) : elo;
 
-  const isBotTurn = gameState === "playing" && (playerColor === "bot-vs-bot" || gameRef.current.turn() !== playerColor) && !gameRef.current.isGameOver();
-  
-  const { ready: engineReady, isThinking, bestMove } = useStockfishPlayer(
+  const isBotTurn =
+    gameState === "playing" &&
+    !isReviewing &&
+    (isBotMatchMode || gameRef.current.turn() === botSide) &&
+    !gameRef.current.isGameOver();
+
+  const { ready: engineReady, bestMove } = useStockfishPlayer(
     fen,
     isBotTurn,
-    elo
+    activeEngineElo,
+  );
+  const isBestMoveLegal = useMemo(() => {
+    if (!bestMove || !/^[a-h][1-8][a-h][1-8][nbrq]?$/.test(bestMove)) {
+      return false;
+    }
+
+    const from = bestMove.slice(0, 2) as Square;
+    const to = bestMove.slice(2, 4) as Square;
+    const promotion = bestMove.length > 4 ? bestMove[4] : undefined;
+    const legalMoves = gameRef.current.moves({ verbose: true });
+
+    return legalMoves.some((move) => {
+      if (move.from !== from || move.to !== to) {
+        return false;
+      }
+      if (!promotion) {
+        return true;
+      }
+      return move.promotion === promotion;
+    });
+  }, [bestMove, fen]);
+
+  const analysis = useStockfishAnalysis(
+    fen,
+    gameState !== "setup",
+    analysisDepth,
+    analysisMultiPv,
+    analysisThreads,
+    analysisEngineVariant,
   );
 
   const { toggleTheme, isDark } = useTheme();
@@ -192,10 +423,50 @@ export default function PlayComputerPage() {
       },
     }));
   };
+  const shouldLockBoard = isBotTurn || isBotMatchMode || botPreferences.boardLock;
 
   useEffect(() => {
     setClientPreferences(loadClientPreferences());
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (cancelled) return;
+
+      const user = session?.user;
+      if (!user) {
+        setViewerName("Guest User");
+        return;
+      }
+
+      let resolvedName =
+        (typeof user.user_metadata?.username === "string" && user.user_metadata.username.trim()) ||
+        (typeof user.user_metadata?.full_name === "string" && user.user_metadata.full_name.trim()) ||
+        (typeof user.user_metadata?.name === "string" && user.user_metadata.name.trim()) ||
+        (typeof user.email === "string" && user.email.includes("@") ? user.email.split("@")[0] : "") ||
+        "Guest User";
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (typeof data?.username === "string" && data.username.trim()) {
+        resolvedName = data.username.trim();
+      }
+
+      if (!cancelled) {
+        setViewerName(resolvedName);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
 
   // Fetch preferences
   useEffect(() => {
@@ -232,19 +503,61 @@ export default function PlayComputerPage() {
     audio.play().catch(() => {});
   };
 
+  const formatClock = (seconds: number) => {
+    const safe = Math.max(0, seconds);
+    const mins = Math.floor(safe / 60);
+    const secs = safe % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const getTimeoutStatusByMaterial = () => {
+    const { materialDiff } = getMaterialSnapshot(gameRef.current);
+    if (materialDiff === 0) {
+      return "Time over. Draw by equal material.";
+    }
+
+    const winner = materialDiff > 0 ? "White" : "Black";
+    return `Time over. ${winner} wins on material (+${Math.abs(materialDiff)}).`;
+  };
+
   const savePreferences = async () => {
     setPreferencesError(null);
     setPreferencesSaving(true);
     try {
-      const response = await fetch("/api/preferences", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ boardTheme, pieceTheme, soundEnabled }),
-      });
-      if (!response.ok) {
-        const payload = (await response.json()) as { error?: string };
-        throw new Error(payload.error ?? "Failed to save preferences.");
+      let shouldFallbackToLocal = false;
+
+      try {
+        const response = await fetch("/api/preferences", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ boardTheme, pieceTheme, soundEnabled }),
+        });
+
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            const wantsLogin = window.confirm("Log in to save preferences to your account?");
+            if (wantsLogin) {
+              window.location.href = `/login?next=${encodeURIComponent(pathname)}`;
+              return;
+            }
+            shouldFallbackToLocal = true;
+          } else {
+            const payload = (await response.json()) as { error?: string };
+            throw new Error(payload.error ?? "Failed to save preferences.");
+          }
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("Failed to fetch")) {
+          shouldFallbackToLocal = true;
+        } else if (!shouldFallbackToLocal) {
+          throw error;
+        }
       }
+
+      if (shouldFallbackToLocal) {
+        setPreferencesError(null);
+      }
+
       saveClientPreferences(clientPreferences);
       setIsSettingsOpen(false);
     } catch (error) {
@@ -254,33 +567,118 @@ export default function PlayComputerPage() {
     }
   };
 
-  // Bot applies its best move
+  // Bot applies opening move (bot match) or best engine move.
   useEffect(() => {
-    if (gameState === "playing" && isBotTurn && bestMove) {
+    if (gameState !== "playing" || !isBotTurn) {
+      return;
+    }
+
+    if (isBotMatchMode) {
+      const turn = gameRef.current.turn();
+      const isBot1Turn = turn === botSide;
+      const selectedOpening = BOT_OPENING_MOVES.find((opening) =>
+        opening.id === (isBot1Turn ? bot1OpeningId : bot2OpeningId),
+      );
+      const openingAlreadyUsed = isBot1Turn ? bot1OpeningUsed : bot2OpeningUsed;
+
+      if (!openingAlreadyUsed) {
+        const openingMove = selectedOpening?.uci;
+
+        if (openingMove) {
+          const from = openingMove.slice(0, 2) as Square;
+          const to = openingMove.slice(2, 4) as Square;
+          const promotion = openingMove.length > 4 ? openingMove[4] : undefined;
+          commitMove(from, to, promotion);
+        }
+
+        if (isBot1Turn) {
+          setBot1OpeningUsed(true);
+        } else {
+          setBot2OpeningUsed(true);
+        }
+
+        return;
+      }
+    }
+
+    if (bestMove && isBestMoveLegal) {
       const from = bestMove.slice(0, 2) as Square;
       const to = bestMove.slice(2, 4) as Square;
       const promotion = bestMove.length > 4 ? bestMove[4] : undefined;
       
       commitMove(from, to, promotion);
     }
-  }, [bestMove, isBotTurn, gameState]);
+  }, [
+    bestMove,
+    isBotTurn,
+    gameState,
+    isBotMatchMode,
+    botSide,
+    bot1OpeningId,
+    bot2OpeningId,
+    bot1OpeningUsed,
+    bot2OpeningUsed,
+    isBestMoveLegal,
+  ]);
+
+  // Failsafe: if engine stalls while it's bot turn, play a legal move so the game never freezes.
+  useEffect(() => {
+    if (gameState !== "playing" || !isBotTurn || isBestMoveLegal) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      if (gameState !== "playing" || !isBotTurn || gameRef.current.isGameOver()) {
+        return;
+      }
+
+      const legalMoves = gameRef.current.moves({ verbose: true });
+      if (legalMoves.length === 0) {
+        return;
+      }
+
+      const fallbackMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
+      commitMove(
+        fallbackMove.from,
+        fallbackMove.to,
+        fallbackMove.promotion,
+      );
+    }, 3500);
+
+    return () => window.clearTimeout(timer);
+  }, [gameState, isBotTurn, isBestMoveLegal, fen]);
 
   const startGame = (color: "w" | "b" | "random" | "bot-vs-bot") => {
     const finalColor = color === "random" ? (Math.random() > 0.5 ? "w" : "b") : color;
+    const seededGame = new Chess();
+
     setPlayerColor(finalColor);
-    setFen(DEFAULT_FEN);
+    setFen(seededGame.fen());
     setHistory([DEFAULT_FEN]);
+    setSanHistory([]);
+    setCurrentMoveIndex(0);
+    setIsPlayingHistory(false);
     setLastMove(null);
+    setTimeoutStatus(null);
+    setWhiteTimeSeconds(timeLimit * 60);
+    setBlackTimeSeconds(timeLimit * 60);
+    setWarnedWhiteLowTime(false);
+    setWarnedBlackLowTime(false);
     setSelectedSquare(null);
     setDraggedSquare(null);
     setDragOverSquare(null);
-    gameRef.current = new Chess();
+    gameRef.current = seededGame;
+    setBot1OpeningUsed(false);
+    setBot2OpeningUsed(false);
+    setBotMatchConfigOpen(false);
     setGameState("playing");
     playSound("game-start");
   };
 
   const stopGame = () => {
     setGameState("setup");
+    setIsPlayingHistory(false);
+    setTimeoutStatus(null);
   };
 
   const commitMove = (from: Square, to: Square, promotion?: string) => {
@@ -336,10 +734,13 @@ export default function PlayComputerPage() {
       };
 
       const newFen = nextPosition.fen();
-      const nextHistory = [...history, newFen];
+      const nextHistory = [...history.slice(0, currentMoveIndex + 1), newFen];
+      const nextSanHistory = [...sanHistory.slice(0, currentMoveIndex), move.san];
       
       gameRef.current = nextPosition;
       setHistory(nextHistory);
+      setSanHistory(nextSanHistory);
+      setCurrentMoveIndex(nextHistory.length - 1);
       setFen(newFen);
       setSelectedSquare(null);
       setDraggedSquare(null);
@@ -369,9 +770,26 @@ export default function PlayComputerPage() {
     }
   };
 
+  const setPositionFromHistory = (index: number) => {
+    const bounded = Math.max(0, Math.min(index, history.length - 1));
+    const fenAtIndex = history[bounded] ?? DEFAULT_FEN;
+    setCurrentMoveIndex(bounded);
+    setFen(fenAtIndex);
+    gameRef.current = new Chess(fenAtIndex);
+    setSelectedSquare(null);
+    setDraggedSquare(null);
+    setDragOverSquare(null);
+  };
+
+  const goToStart = () => setPositionFromHistory(0);
+  const goToPrev = () => setPositionFromHistory(currentMoveIndex - 1);
+  const goToNext = () => setPositionFromHistory(currentMoveIndex + 1);
+  const goToEnd = () => setPositionFromHistory(history.length - 1);
+  const resetBoardReview = () => setPositionFromHistory(0);
+
   const handleSquareClick = (square: Square) => {
     if (botPreferences.moveMethod === "drag") return;
-    if (gameState !== "playing" || isBotTurn) return;
+    if (gameState !== "playing" || shouldLockBoard || isReviewing) return;
 
     const game = gameRef.current;
     const clickedPiece = game.get(square);
@@ -406,7 +824,7 @@ export default function PlayComputerPage() {
       event.preventDefault();
       return;
     }
-    if (gameState !== "playing" || isBotTurn) {
+    if (gameState !== "playing" || shouldLockBoard || isReviewing) {
       event.preventDefault();
       return;
     }
@@ -433,7 +851,7 @@ export default function PlayComputerPage() {
 
   const handleDrop = (event: DragEvent<HTMLDivElement>, square: Square) => {
     event.preventDefault();
-    if (!draggedSquare || isBotTurn || gameState !== "playing") return;
+    if (!draggedSquare || shouldLockBoard || isReviewing || gameState !== "playing") return;
 
     if (botPreferences.moveConfirmation && !window.confirm(`Confirm move ${draggedSquare} to ${square}?`)) {
       setDraggedSquare(null);
@@ -451,16 +869,174 @@ export default function PlayComputerPage() {
 
   const game = gameRef.current;
   const boardState = game.board().map((row) => row.map((piece) => getPieceCode(piece)));
-  const legalTargets = selectedSquare && gameState === "playing" && !isBotTurn
+  const legalTargets = selectedSquare && gameState === "playing" && !shouldLockBoard
     ? game.moves({ square: selectedSquare, verbose: true }).map((move) => move.to)
     : [];
 
-  const isBoardFlipped =
-    botPreferences.boardOrientation === "black"
-      ? true
-      : botPreferences.boardOrientation === "white"
-        ? false
-        : playerColor === "b";
+  useEffect(() => {
+    if (!isPlayingHistory) {
+      return;
+    }
+    if (currentMoveIndex >= history.length - 1) {
+      setIsPlayingHistory(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setPositionFromHistory(currentMoveIndex + 1);
+    }, 850);
+
+    return () => window.clearTimeout(timer);
+  }, [isPlayingHistory, currentMoveIndex, history.length]);
+
+  useEffect(() => {
+    if (gameState !== "playing" || isReviewing || gameRef.current.isGameOver()) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      const turn = gameRef.current.turn();
+
+      if (turn === "w") {
+        setWhiteTimeSeconds((previous) => {
+          const next = previous - 1;
+          if (botPreferences.lowTimeWarning && next <= 10 && next > 0 && !warnedWhiteLowTime) {
+            setWarnedWhiteLowTime(true);
+            playSound("move-check");
+          }
+          if (next <= 0) {
+            setGameState("game_over");
+            setTimeoutStatus(getTimeoutStatusByMaterial());
+            playSound("game-end");
+            return 0;
+          }
+          return next;
+        });
+      } else {
+        setBlackTimeSeconds((previous) => {
+          const next = previous - 1;
+          if (botPreferences.lowTimeWarning && next <= 10 && next > 0 && !warnedBlackLowTime) {
+            setWarnedBlackLowTime(true);
+            playSound("move-check");
+          }
+          if (next <= 0) {
+            setGameState("game_over");
+            setTimeoutStatus(getTimeoutStatusByMaterial());
+            playSound("game-end");
+            return 0;
+          }
+          return next;
+        });
+      }
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [gameState, isReviewing, botPreferences.lowTimeWarning, warnedWhiteLowTime, warnedBlackLowTime]);
+
+  const toggleHistoryPlayback = () => {
+    if (history.length <= 1) {
+      return;
+    }
+    if (currentMoveIndex >= history.length - 1) {
+      setPositionFromHistory(0);
+      setIsPlayingHistory(true);
+      return;
+    }
+    setIsPlayingHistory((previous) => !previous);
+  };
+
+  const isBoardFlipped = botSide === "w";
+
+  const botClockSeconds = botSide === "w" ? whiteTimeSeconds : blackTimeSeconds;
+
+  const playerClockSeconds = playerSide === "w" ? whiteTimeSeconds : blackTimeSeconds;
+
+  const topSuggestedMove = analysis.lines[0]?.pv[0] ?? null;
+  const pieceThemePath = PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`;
+  const botSideColor: SideColor = botSide;
+  const playerSideColor: SideColor = playerSide;
+  const materialSnapshot = getMaterialSnapshot(game);
+  const topSideColor: SideColor = botSideColor;
+  const bottomSideColor: SideColor = playerSideColor;
+  const capturedByTopTypes = topSideColor === "w" ? materialSnapshot.capturedByWhite : materialSnapshot.capturedByBlack;
+  const capturedByBottomTypes = bottomSideColor === "w" ? materialSnapshot.capturedByWhite : materialSnapshot.capturedByBlack;
+  const topMaterialLead = topSideColor === "w" ? materialSnapshot.materialDiff : -materialSnapshot.materialDiff;
+  const bottomMaterialLead = bottomSideColor === "w" ? materialSnapshot.materialDiff : -materialSnapshot.materialDiff;
+  const toCapturedPieceCodes = (capturerColor: SideColor, capturedTypes: MaterialPieceType[]) => {
+    const capturedColor: SideColor = capturerColor === "w" ? "b" : "w";
+    return capturedTypes.map((type) => `${capturedColor}${type}`);
+  };
+  const topCapturedPieceCodes = toCapturedPieceCodes(topSideColor, capturedByTopTypes);
+  const bottomCapturedPieceCodes = toCapturedPieceCodes(bottomSideColor, capturedByBottomTypes);
+  const topDisplayName = isBotMatchMode ? "Bot 1" : "MT Model";
+  const topDisplaySubtitle = isBotMatchMode ? `ELO ${bot1Elo}` : `Bot Level ${eloIndex + 1}`;
+  const bottomDisplayName = isBotMatchMode ? "Bot 2" : viewerName;
+  const bottomDisplaySubtitle = isBotMatchMode ? `ELO ${bot2Elo}` : null;
+  const whiteWinChance = Math.max(0, Math.min(100, analysis.whiteWinChance));
+
+  const toBoardPoint = (square: string | null) => {
+    if (!square || square.length !== 2) {
+      return null;
+    }
+
+    const file = FILES.indexOf(square[0] as typeof FILES[number]);
+    const rank = Number(square[1]);
+    if (file < 0 || Number.isNaN(rank) || rank < 1 || rank > 8) {
+      return null;
+    }
+
+    let row = 8 - rank;
+    let col = file;
+
+    if (isBoardFlipped) {
+      row = 7 - row;
+      col = 7 - col;
+    }
+
+    return {
+      x: ((col + 0.5) / 8) * 100,
+      y: ((row + 0.5) / 8) * 100,
+    };
+  };
+
+  const suggestionFrom = topSuggestedMove?.slice(0, 2) ?? null;
+  const suggestionTo = topSuggestedMove?.slice(2, 4) ?? null;
+  const suggestionStart = showSuggestionArrow ? toBoardPoint(suggestionFrom) : null;
+  const suggestionEnd = showSuggestionArrow ? toBoardPoint(suggestionTo) : null;
+  const showMovePreview = (event: MouseEvent<HTMLSpanElement>, fenAfter: string) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const previewSize = 190;
+    const padding = 12;
+    const left = Math.min(Math.max(padding, rect.left), window.innerWidth - previewSize - padding);
+    const top = Math.min(rect.bottom + 8, window.innerHeight - previewSize - padding);
+    setHoverPreview({ fen: fenAfter, left, top });
+  };
+
+  useEffect(() => {
+    const clearPreview = () => setHoverPreview(null);
+    window.addEventListener("resize", clearPreview);
+    window.addEventListener("scroll", clearPreview, true);
+    return () => {
+      window.removeEventListener("resize", clearPreview);
+      window.removeEventListener("scroll", clearPreview, true);
+    };
+  }, []);
+
+  const visibleSanMoves = sanHistory.slice(0, Math.max(0, currentMoveIndex));
+
+  const playedMoveRows: Array<{
+    moveNumber: number;
+    whiteMove: string;
+    blackMove: string;
+  }> = [];
+
+  for (let index = 0; index < visibleSanMoves.length; index += 2) {
+    playedMoveRows.push({
+      moveNumber: Math.floor(index / 2) + 1,
+      whiteMove: visibleSanMoves[index] ?? "",
+      blackMove: visibleSanMoves[index + 1] ?? "",
+    });
+  }
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-[var(--bg)]">
@@ -469,7 +1045,7 @@ export default function PlayComputerPage() {
           CHESS
         </Link>
         <Link
-          href="/play"
+          href="/"
           className="inline-flex items-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-[14px] font-medium group"
         >
           <ArrowLeft className="w-4 h-4 mr-2 transform group-hover:-translate-x-1 transition-transform" />
@@ -479,23 +1055,25 @@ export default function PlayComputerPage() {
 
       <main className="flex-1 w-full flex flex-col lg:flex-row h-[calc(100vh-73px)]">
         {/* Left Side: Setup & Status */}
-        <div className="w-full lg:w-[35%] flex flex-col items-center justify-center p-10 bg-[var(--bg)] relative z-10 shrink-0">
-          <div className="w-full max-w-[440px] bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-8 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r from-blue-500 to-emerald-400" />
-            
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-xl bg-[var(--skeleton)] border border-[var(--border)] flex items-center justify-center text-[var(--text-primary)] shadow-sm">
-                <Bot className="w-6 h-6" />
+        <div className={gameState === "setup" ? "w-full lg:w-[35%] flex flex-col items-center justify-center p-10 bg-[var(--bg)] relative z-10 shrink-0" : "w-full lg:w-[35%] p-6 lg:p-5 bg-[var(--bg)] relative z-10 shrink-0 border-r border-[var(--border)]"}>
+          <div className={gameState === "setup" ? "w-full max-w-[440px] bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-8 shadow-2xl relative overflow-hidden" : "w-full h-full max-h-[85vh] bg-[#1e1e1f] border border-[#2d2d2f] rounded-xl shadow-2xl overflow-visible flex flex-col"}>
+            {gameState === "setup" && <div className="absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r from-blue-500 to-emerald-400" />}
+
+            {gameState === "setup" && (
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-[var(--skeleton)] border border-[var(--border)] flex items-center justify-center text-[var(--text-primary)] shadow-sm">
+                  <Bot className="w-6 h-6" />
+                </div>
+                <div>
+                  <h1 className="text-[28px] font-serif text-[var(--text-primary)] font-[500] leading-tight tracking-tight">
+                    Play vs Computer
+                  </h1>
+                  <p className="text-[var(--text-muted)] text-[14px]">
+                    Challenge Stockfish 16 at any level
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-[28px] font-serif text-[var(--text-primary)] font-[500] leading-tight tracking-tight">
-                  Play vs Computer
-                </h1>
-                <p className="text-[var(--text-muted)] text-[14px]">
-                  Challenge Stockfish 16 at any level
-                </p>
-              </div>
-            </div>
+            )}
 
             {gameState === "setup" ? (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -685,7 +1263,7 @@ export default function PlayComputerPage() {
                       <span className="text-[13px] font-bold tracking-wide relative z-10">Black</span>
                     </button>
                     <button 
-                      onClick={() => startGame("bot-vs-bot")}
+                      onClick={() => setBotMatchConfigOpen((open) => !open)}
                       className="relative overflow-hidden py-4 px-2 rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 hover:from-emerald-500/20 hover:to-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition-all flex flex-col items-center gap-3 group shadow-[0_4px_15px_rgba(16,185,129,0.1)] hover:shadow-[0_8px_25px_rgba(16,185,129,0.2)] hover:-translate-y-1"
                     >
                       <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-colors duration-500" />
@@ -693,60 +1271,257 @@ export default function PlayComputerPage() {
                       <span className="text-[13px] font-bold tracking-wide relative z-10">Bot Match</span>
                     </button>
                   </div>
+
+                  {botMatchConfigOpen && (
+                    <div className="mt-5 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4 space-y-3">
+                      <div className="text-[12px] uppercase tracking-wider font-semibold text-emerald-600 dark:text-emerald-400">
+                        Bot Match Setup
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="text-[12px] text-[var(--text-muted)] font-semibold">
+                          Bot 1 ELO
+                          <select
+                            value={bot1EloIndex}
+                            onChange={(event) => setBot1EloIndex(Number(event.target.value))}
+                            className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-emerald-500"
+                          >
+                            {ELOS.map((value, index) => (
+                              <option key={`bot1-${value}`} value={index}>{value}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="text-[12px] text-[var(--text-muted)] font-semibold">
+                          Bot 2 ELO
+                          <select
+                            value={bot2EloIndex}
+                            onChange={(event) => setBot2EloIndex(Number(event.target.value))}
+                            className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-emerald-500"
+                          >
+                            {ELOS.map((value, index) => (
+                              <option key={`bot2-${value}`} value={index}>{value}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <label className="text-[12px] text-[var(--text-muted)] font-semibold block">
+                        Bot 1 Opening
+                        <select
+                          value={bot1OpeningId}
+                          onChange={(event) => setBot1OpeningId(event.target.value)}
+                          className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-emerald-500"
+                        >
+                          {BOT_OPENING_MOVES.map((opening) => (
+                            <option key={opening.id} value={opening.id}>{opening.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-[12px] text-[var(--text-muted)] font-semibold block">
+                        Bot 2 Opening
+                        <select
+                          value={bot2OpeningId}
+                          onChange={(event) => setBot2OpeningId(event.target.value)}
+                          className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-emerald-500"
+                        >
+                          {BOT_OPENING_MOVES.map((opening) => (
+                            <option key={`bot2-${opening.id}`} value={opening.id}>{opening.label}</option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <button
+                        onClick={() => startGame("bot-vs-bot")}
+                        className="w-full py-2.5 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-500 transition-colors"
+                      >
+                        Start Bot Match
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
-                
-                {/* Game Status */}
-                <div className="bg-[var(--surface-alt)] rounded-xl border border-[var(--border)] p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[var(--skeleton)] flex items-center justify-center relative shadow-inner">
-                        <Bot className="w-5 h-5 text-[var(--text-muted)]" />
-                        {isThinking && <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping" />}
-                        {isThinking && <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full" />}
-                      </div>
-                      <div>
-                        <h3 className="text-[15px] font-bold text-[var(--text-primary)]">Stockfish</h3>
-                        <p className="text-[13px] text-[var(--text-muted)] font-mono">ELO {elo}</p>
-                      </div>
-                    </div>
+              <>
+                <div className="h-12 px-3 border-b border-[#2c2c2d] flex items-center justify-between relative">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#3a3a3a] text-[var(--text-primary)] text-[10px]">v</span>
+                    <span className="text-[#f0f0f0] text-[15px] font-[500] leading-none">Analysis</span>
+                    <button
+                      onClick={() => setIsAnalysisMenuOpen((open) => !open)}
+                      className="p-1 rounded hover:bg-white/10 text-[#b8b8b8]"
+                      title="Analysis menu"
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
                   </div>
-                  
-                  <div className="border-t border-[var(--border-subtle)] pt-4 mt-2">
-                    <p className={`font-medium text-[15px] ${gameState === "game_over" ? "text-red-400" : "text-[var(--text-secondary)]"}`}>
-                      {getPositionStatus(gameRef.current)}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[#cfcfcf] text-[14px]">depth-{analysis.depth || analysisDepth}</span>
+                    <button
+                      onClick={() => setIsSettingsOpen(true)}
+                      className="text-[#bfbfbf] hover:text-white"
+                      title="Engine settings"
+                    >
+                      <Settings className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {isAnalysisMenuOpen && (
+                    <div className="absolute top-11 left-20 z-30 w-[230px] rounded-md border border-[#3a3a3d] bg-[#242426] shadow-2xl py-2">
+                      <button onClick={() => setShowEvaluationBar((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                        <span>Evaluation Bar</span>
+                        <span className={showEvaluationBar ? "text-emerald-500" : "text-[#7b7b7b]"}>{showEvaluationBar ? "On" : "Off"}</span>
+                      </button>
+                      <button onClick={() => setShowEngineLines((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                        <span>Engine Lines</span>
+                        <span className={showEngineLines ? "text-emerald-500" : "text-[#7b7b7b]"}>{showEngineLines ? "On" : "Off"}</span>
+                      </button>
+                      <button onClick={() => setShowSuggestionArrow((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                        <span>Suggestion Arrow</span>
+                        <span className={showSuggestionArrow ? "text-emerald-500" : "text-[#7b7b7b]"}>{showSuggestionArrow ? "On" : "Off"}</span>
+                      </button>
+                      <button onClick={() => setShowMoveFeedback((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                        <span>Move Feedback</span>
+                        <span className={showMoveFeedback ? "text-emerald-500" : "text-[#7b7b7b]"}>{showMoveFeedback ? "On" : "Off"}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 min-h-0 flex flex-col">
+                  <div className="max-h-[255px] overflow-visible border-b border-[#2a2a2c]">
+                    {showEngineLines ? (
+                      <>
+                        {analysis.lines.slice(0, analysisMultiPv).map((line) => {
+                          const pvMoves = buildPvDisplayMoves(fen, line.pv);
+                          const isExpanded = expandedEngineLineIds[line.id] ?? false;
+                          const canExpand = pvMoves.length > 6;
+                          const visibleMoves = isExpanded ? pvMoves : pvMoves.slice(0, 6);
+
+                          return (
+                            <div key={line.id} className="min-h-[44px] px-2 py-1 border-b border-[#2a2a2c] flex items-start gap-2 text-[#d8d8d8] relative z-0 hover:z-40">
+                              <div className="min-w-[52px] h-6 rounded bg-[#151515] border border-[#3a3a3c] flex items-center justify-center text-[12px] font-bold leading-none text-white mt-[2px]">
+                                {line.scoreText}
+                              </div>
+                              <div className="min-w-0 flex-1 flex items-start justify-between gap-2">
+                                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] leading-[1.1] text-[#d7d7d7]">
+                                  {visibleMoves.map((pvMove) => (
+                                    <div key={pvMove.key} className="relative z-0">
+                                      <span
+                                        className="inline-flex rounded-sm px-1 py-[2px] hover:bg-white/10 cursor-default"
+                                        onMouseEnter={(event) => showMovePreview(event, pvMove.fenAfter)}
+                                        onMouseLeave={() => setHoverPreview(null)}
+                                      >
+                                        {pvMove.label}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                                {canExpand && (
+                                  <button
+                                    onClick={() =>
+                                      setExpandedEngineLineIds((prev) => ({
+                                        ...prev,
+                                        [line.id]: !isExpanded,
+                                      }))
+                                    }
+                                    className="h-6 w-6 shrink-0 rounded text-[#c1c1c4] hover:bg-white/10 hover:text-white flex items-center justify-center"
+                                    title={isExpanded ? "Collapse line" : "Show full line"}
+                                  >
+                                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {analysis.error ? (
+                          <div className="px-3 py-3 text-rose-300 text-[14px] border-b border-[#2a2a2c]">
+                            Engine failed: {analysis.error}
+                          </div>
+                        ) : analysis.lines.length === 0 && (
+                          <div className="px-3 py-3 text-[#9a9a9a] text-[14px] border-b border-[#2a2a2c]">
+                            {analysis.ready ? "Analyzing current position..." : "Starting engine..."}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="px-3 py-3 text-[#9a9a9a] text-[14px] border-b border-[#2a2a2c]">
+                        Engine lines hidden from menu.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-h-0 flex flex-col bg-[#1d1d1f]">
+                    <div className="px-3 py-2 border-b border-[#2a2a2c] text-[13px] font-semibold text-white">
+                      White - Black
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      {playedMoveRows.length === 0 ? (
+                        <div className="px-3 py-3 text-[13px] text-[#8f8f92]">No moves yet.</div>
+                      ) : (
+                        playedMoveRows.map((row, rowIndex) => {
+                          const whitePlyIndex = rowIndex * 2 + 1;
+                          const blackPlyIndex = rowIndex * 2 + 2;
+                          const isCurrentWhite = currentMoveIndex === whitePlyIndex;
+                          const isCurrentBlack = currentMoveIndex === blackPlyIndex;
+
+                          return (
+                            <div key={row.moveNumber} className="grid grid-cols-[36px_1fr_1fr] items-center px-3 py-1.5 border-b border-[#252527] text-[14px]">
+                              <span className="text-[#a5a5a8]">{row.moveNumber}.</span>
+                              <span className={`truncate ${isCurrentWhite ? "text-white font-semibold" : "text-[#d4d4d6]"}`}>
+                                {row.whiteMove || ""}
+                              </span>
+                              <span className={`truncate ${isCurrentBlack ? "text-white font-semibold" : "text-[#d4d4d6]"}`}>
+                                {row.blackMove || ""}
+                              </span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="px-3 py-2 border-t border-[#2a2a2c] bg-[#1b1b1c]">
+                  <div className="flex items-center justify-center gap-2 mb-3 w-full">
+                    <button onClick={goToStart} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                      <ChevronsLeft className="w-6 h-6" />
+                    </button>
+                    <button onClick={goToPrev} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                    <button onClick={toggleHistoryPlayback} className="p-2 px-4 rounded-md bg-emerald-600/30 text-white hover:bg-emerald-600/50 transition-colors flex items-center justify-center min-w-[56px]">
+                      {isPlayingHistory ? <Pause className="w-6 h-6 fill-white" /> : <Play className="w-6 h-6 fill-white" />}
+                    </button>
+                    <button onClick={goToNext} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                    <button onClick={goToEnd} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                      <ChevronsRight className="w-6 h-6" />
+                    </button>
+                  </div>
+
+                  <div className="text-[13px] text-[#a8a8aa] mb-2">
+                    {timeoutStatus ?? getPositionStatus(gameRef.current)}
+                  </div>
+                  {showMoveFeedback && (
+                    <div className="text-[12px] text-[#b8e8d0] mb-2">
+                      {topSuggestedMove ? `Suggested move: ${topSuggestedMove}` : "No suggestion yet."}
+                    </div>
+                  )}
                   <button
-                    onClick={stopGame}
-                    className="flex-1 py-3.5 bg-[var(--skeleton)] text-[var(--text-primary)] font-bold rounded-xl hover:bg-[var(--border)] transition-colors"
+                    onClick={resetBoardReview}
+                    className="w-full flex items-center justify-center px-4 py-2.5 bg-[#2f78cf] text-white rounded-md font-semibold text-[13px] hover:bg-[#3f88df] transition-colors"
                   >
-                    Abort Setup
-                  </button>
-                  <button
-                    onClick={() => {
-                        const nextColor = playerColor === "w" ? "b" : "w";
-                        startGame(nextColor);
-                    }}
-                    className="aspect-square p-3.5 bg-[var(--cta-bg)] text-[var(--cta-text)] hover:bg-[var(--cta-hover)] font-bold rounded-xl transition-colors shadow-lg flex items-center justify-center group"
-                    title="Rematch with opposite colors"
-                  >
-                    <RotateCcw className="w-5 h-5 group-hover:-rotate-90 transition-transform duration-300" />
+                    Reset Board
                   </button>
                 </div>
-              </div>
+              </>
             )}
             
           </div>
         </div>
 
         {/* Right Side: The Board */}
-        <div className="w-full lg:w-[65%] flex-1 flex flex-row items-center justify-center lg:justify-end bg-[var(--bg-alt)] p-8 lg:p-0 lg:pt-6 lg:pr-[70px] relative shadow-[-30px_0_50px_rgba(0,0,0,0.15)] border-l border-[var(--border)]">
+        <div className="w-full lg:w-[65%] flex-1 flex flex-row items-center lg:items-start justify-center lg:justify-end bg-[var(--bg-alt)] p-8 lg:p-0 lg:pr-[70px] relative shadow-[-30px_0_50px_rgba(0,0,0,0.15)] border-l border-[var(--border)]">
           <div className="absolute top-6 right-6 flex flex-col gap-3 z-50">
             <button
               onClick={() => setIsSettingsOpen(true)}
@@ -754,6 +1529,18 @@ export default function PlayComputerPage() {
               title="Settings"
             >
               <Settings className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() =>
+                updateBotPreferences({
+                  boardOrientation: isBoardFlipped ? "white" : "black",
+                })
+              }
+              className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center flex-col gap-[2px]"
+              title="Flip Board"
+            >
+              <ArrowLeft className="w-[14px] h-[14px] -ml-1" />
+              <ArrowLeft className="w-[14px] h-[14px] -mr-1 rotate-180" />
             </button>
             <button
               onClick={toggleTheme}
@@ -764,32 +1551,84 @@ export default function PlayComputerPage() {
             </button>
           </div>
 
-          <div className="flex flex-col items-center justify-center h-[90vh] max-h-[860px] max-w-[95%] lg:max-w-[70%] lg:min-w-[500px] w-full relative pt-12 lg:pt-0 shrink-0 lg:ml-auto lg:mr-4">
+          <div className="flex flex-col items-center justify-start h-[75vh] max-h-[720px] max-w-[95%] lg:max-w-[70%] lg:min-w-[500px] w-full relative shrink-0 lg:ml-auto lg:mr-8 lg:mt-4">
             {/* Top Bar (Opponent: Stockfish) */}
             {gameState !== "setup" && (
-              <div className="w-full flex items-center justify-between mb-4 bg-[var(--surface)] px-5 py-3.5 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-                <div className="flex items-center gap-4">
-                  <div className="w-11 h-11 rounded-lg bg-[var(--skeleton)] border border-[var(--border)] flex items-center justify-center shrink-0">
-                    <Bot className="w-6 h-6 text-[var(--text-secondary)]" />
+              <div className="w-full flex items-center justify-between mb-3 bg-[var(--surface)] px-2.5 py-1 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-[var(--skeleton)] border border-[var(--border)] flex items-center justify-center shrink-0">
+                    <Bot className="w-4 h-4 text-[var(--text-secondary)]" />
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-bold text-[15px] text-[var(--text-primary)] tracking-wide">MT Model</span>
-                    <span className="text-[12px] text-[var(--text-muted)] font-medium">Bot Level {eloIndex + 1}</span>
+                    <span className="font-bold text-[12px] text-[var(--text-primary)] tracking-wide">{topDisplayName}</span>
+                    <span className="text-[10px] text-[var(--text-muted)] font-medium">{topDisplaySubtitle}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-5">
-                  <span className="text-[14px] font-bold text-[var(--text-muted)] tracking-widest hidden sm:inline-block">+2 ♙♙♙</span>
-                  <div className="px-4 py-2 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[20px] text-[var(--text-primary)] shadow-inner w-[90px] text-center">
-                    {timeLimit}:00
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-0.5 min-h-[16px]">
+                    {topCapturedPieceCodes.map((pieceCode, index) => (
+                      <img
+                        key={`${pieceCode}-${index}`}
+                        src={`${pieceThemePath}/${pieceCode}.png`}
+                        alt={pieceCode}
+                        className="w-[14px] h-[14px] object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
+                      />
+                    ))}
+                    {topMaterialLead > 0 ? (
+                      <span className="ml-1 text-[11px] font-bold text-emerald-500">+{topMaterialLead}</span>
+                    ) : null}
+                  </div>
+                  <div className="px-2 py-0.5 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[14px] text-[var(--text-primary)] shadow-inner w-[68px] text-center">
+                    {formatClock(botClockSeconds)}
                   </div>
                 </div>
               </div>
             )}
             
-            <div
-              className={`w-full aspect-square relative overflow-hidden shadow-2xl rounded-sm transition-all duration-500 ${!engineReady && gameState === "setup" ? "opacity-90 grayscale-[0.3]" : ""}`}
-            >
-              <BoardImage src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`} className="w-full h-full">
+            <div className="w-full flex items-stretch gap-3">
+              {gameState !== "setup" && showEvaluationBar ? (
+                <div className="w-[30px] md:w-[30px] shrink-0 bg-[#333333] rounded overflow-hidden flex flex-col relative shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
+                  <div
+                    className="w-full bg-[#202020] transition-[height] duration-300 relative"
+                    style={{ height: `${100 - whiteWinChance}%` }}
+                  >
+                    <div className="absolute inset-0 bg-white/5 animate-pulse" />
+                  </div>
+                  <div
+                    className="w-full bg-white relative shadow-[0_-2px_10px_rgba(255,255,255,0.6)] flex flex-col justify-end pb-1 border-t border-[#666] transition-[height] duration-300"
+                    style={{ height: `${whiteWinChance}%` }}
+                  >
+                    <span className="text-center text-[10px] md:text-[12px] font-[700] text-black">
+                      {analysis.evaluationText}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+
+              <div
+                className={`flex-1 aspect-square relative shadow-2xl transition-all duration-500 ${!engineReady && gameState === "setup" ? "opacity-90 grayscale-[0.3]" : ""}`}
+              >
+              <BoardImage src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`} className="w-full h-full overflow-hidden rounded-sm">
+                {suggestionStart && suggestionEnd && (
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none z-[15]" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <defs>
+                      <marker id="analysis-arrow-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(16,185,129,0.95)" />
+                      </marker>
+                    </defs>
+                    <line
+                      x1={suggestionStart.x}
+                      y1={suggestionStart.y}
+                      x2={suggestionEnd.x}
+                      y2={suggestionEnd.y}
+                      stroke="rgba(16,185,129,0.95)"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      markerEnd="url(#analysis-arrow-head)"
+                    />
+                    <circle cx={suggestionStart.x} cy={suggestionStart.y} r="1.8" fill="rgba(16,185,129,0.85)" />
+                  </svg>
+                )}
                 <div className="w-full h-full grid grid-cols-8 grid-rows-8 relative">
                   {(isBoardFlipped
                     ? [...boardState].reverse().map(r => [...r].reverse())
@@ -822,7 +1661,7 @@ export default function PlayComputerPage() {
                           handleDrop(event, square);
                           setDragOverSquare(null);
                         }}
-                        className={`relative flex items-center justify-center ${gameState === "playing" && !isBotTurn ? "cursor-pointer" : ""}`}
+                        className={`relative flex items-center justify-center ${gameState === "playing" && !shouldLockBoard ? "cursor-pointer" : ""}`}
                       >
                         {dragOverSquare === square && (
                           <div className="absolute inset-0 ring-[3px] ring-white bg-white/20 z-20 pointer-events-none shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
@@ -872,29 +1711,49 @@ export default function PlayComputerPage() {
                 )}
                 </div>
               </BoardImage>
+              </div>
             </div>
 
             {/* Bottom Bar (Player: User) */}
             {gameState !== "setup" && (
-              <div className="w-full flex items-center justify-between mt-4 bg-[var(--surface)] px-5 py-3.5 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-                <div className="flex items-center gap-4">
-                  <div className="w-11 h-11 rounded-lg bg-gradient-to-b from-[#444] to-[#222] border border-[#555] flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
-                     <User className="w-6 h-6 text-white/90" />
+              <div className="w-full flex items-center justify-between mt-3 bg-[var(--surface)] px-2.5 py-1 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-b from-[#444] to-[#222] border border-[#555] flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+                    {isBotMatchMode ? <Bot className="w-4 h-4 text-white/90" /> : <User className="w-4 h-4 text-white/90" />}
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-bold text-[15px] text-[var(--text-primary)] tracking-wide">Guest User</span>
-                    <span className="text-[12px] text-[var(--text-muted)] font-medium">1200</span>
+                    <span className="font-bold text-[12px] text-[var(--text-primary)] tracking-wide">{bottomDisplayName}</span>
+                    {bottomDisplaySubtitle ? <span className="text-[10px] text-[var(--text-muted)] font-medium">{bottomDisplaySubtitle}</span> : null}
                   </div>
                 </div>
-                <div className="flex items-center gap-5">
-                  <div className="px-4 py-2 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[20px] text-[var(--text-primary)] shadow-inner w-[90px] text-center">
-                    {timeLimit}:00
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-0.5 min-h-[16px]">
+                    {bottomCapturedPieceCodes.map((pieceCode, index) => (
+                      <img
+                        key={`${pieceCode}-${index}`}
+                        src={`${pieceThemePath}/${pieceCode}.png`}
+                        alt={pieceCode}
+                        className="w-[14px] h-[14px] object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
+                      />
+                    ))}
+                    {bottomMaterialLead > 0 ? (
+                      <span className="ml-1 text-[11px] font-bold text-emerald-500">+{bottomMaterialLead}</span>
+                    ) : null}
+                  </div>
+                  <div className="px-2 py-0.5 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[14px] text-[var(--text-primary)] shadow-inner w-[68px] text-center">
+                    {formatClock(playerClockSeconds)}
                   </div>
                 </div>
               </div>
             )}
           </div>
         </div>
+
+        {hoverPreview ? (
+          <div className="pointer-events-none fixed z-[99999]" style={{ left: hoverPreview.left, top: hoverPreview.top }}>
+            <MiniBoardPreview fen={hoverPreview.fen} boardTheme={boardTheme} pieceTheme={pieceTheme} />
+          </div>
+        ) : null}
 
         {/* Settings Modal (Copied exactly from learn page but adjusted) */}
         {isSettingsOpen && (
@@ -974,10 +1833,19 @@ export default function PlayComputerPage() {
                         </div>
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                           <span className="text-[14px] text-[var(--text-primary)]">Strength</span>
-                          <select className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTUgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]">
-                            <option>Fast (~1 sec, 3270 Rating)</option>
-                            <option>Standard (~3 sec, 3500 Rating)</option>
-                            <option>Deep (~10 sec, 3600 Rating)</option>
+                          <select
+                            value={analysisDepth <= 13 ? "fast" : analysisDepth <= 17 ? "standard" : "deep"}
+                            onChange={(event) => {
+                              const next = event.target.value;
+                              if (next === "fast") setAnalysisDepth(13);
+                              if (next === "standard") setAnalysisDepth(17);
+                              if (next === "deep") setAnalysisDepth(20);
+                            }}
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTUgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                          >
+                            <option value="fast">Fast (~1 sec, 3270 Rating)</option>
+                            <option value="standard">Standard (~3 sec, 3500 Rating)</option>
+                            <option value="deep">Deep (~10 sec, 3600 Rating)</option>
                           </select>
                         </div>
                       </div>
@@ -989,33 +1857,59 @@ export default function PlayComputerPage() {
                       <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                           <span className="text-[14px] text-[var(--text-primary)]">Chess Engine</span>
-                          <select className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]">
-                            <option>Stockfish 18 Lite (7MB download)</option>
-                            <option>Stockfish 18.1 NNUE (Full)</option>
+                          <select
+                            value={analysisEngineVariant}
+                            onChange={(event) => setAnalysisEngineVariant(event.target.value as "stockfish-18" | "stockfish-18-lite")}
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                          >
+                            <option value="stockfish-18-lite">Stockfish 18 Lite (7MB download)</option>
+                            <option value="stockfish-18">Stockfish 18.1 NNUE (Full)</option>
                           </select>
                         </div>
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                           <span className="text-[14px] text-[var(--text-primary)]">Maximum Time</span>
-                          <select className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]">
-                            <option>Unlimited</option>
-                            <option>3 sec</option>
-                            <option selected>5 sec</option>
-                            <option>10 sec</option>
+                          <select
+                            value={String(analysisMaxTimeSeconds)}
+                            onChange={(event) => {
+                              const value = Number(event.target.value);
+                              setAnalysisMaxTimeSeconds(value);
+                              if (value === 3) setAnalysisDepth(13);
+                              if (value === 5) setAnalysisDepth(15);
+                              if (value === 10) setAnalysisDepth(18);
+                              if (value === 0) setAnalysisDepth(22);
+                            }}
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                          >
+                            <option value="0">Unlimited</option>
+                            <option value="3">3 sec</option>
+                            <option value="5">5 sec</option>
+                            <option value="10">10 sec</option>
                           </select>
                         </div>
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                           <span className="text-[14px] text-[var(--text-primary)]">Number of Lines</span>
-                          <select className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]">
-                            <option>1</option>
-                            <option>2</option>
-                            <option selected>3</option>
-                            <option>4</option>
-                            <option>5</option>
+                          <select
+                            value={String(analysisMultiPv)}
+                            onChange={(event) => setAnalysisMultiPv(Number(event.target.value))}
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                          >
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
                           </select>
                         </div>
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                           <span className="text-[14px] text-[var(--text-primary)]">Threads</span>
-                          <input type="number" defaultValue="1" min="1" max="32" className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 w-[200px]" />
+                          <input
+                            type="number"
+                            value={analysisThreads}
+                            onChange={(event) => setAnalysisThreads(Math.max(1, Math.min(32, Number(event.target.value) || 1)))}
+                            min="1"
+                            max="32"
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 w-[200px]"
+                          />
                         </div>
                       </div>
                     </div>

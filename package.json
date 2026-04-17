@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "scrape:themes": "node download_themes.js"
+    "scrape:themes": "node download_themes.js",
+    "download:openings": "node scripts/download-openings-db.mjs",
+    "download:openings:ecojson": "node scripts/download-ecojson-source.mjs",
+    "build:openings:combined": "node scripts/build-combined-openings.mjs",
+    "refresh:openings": "npm run download:openings && npm run download:openings:ecojson && npm run build:openings:combined"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

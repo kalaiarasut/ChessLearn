@@ -1,6 +1,6 @@
 "use client";
 
-import type { DragEvent } from "react";
+import type { DragEvent, MouseEvent } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -35,6 +35,60 @@ const formatOpeningTitle = (slug: string) =>
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+
+type OpeningApiPayload = {
+  slug: string;
+  name: string;
+  eco: string;
+  variationCount: number;
+  mainLine: {
+    id: string;
+    pgn: string;
+    priority: number;
+    sources: string[];
+  };
+  variations: Array<{
+    id: string;
+    eco: string;
+    name: string;
+    pgn: string;
+    priority: number;
+    sources: string[];
+  }>;
+};
+
+const SAN_RESULT_TOKENS = new Set(["1-0", "0-1", "1/2-1/2", "*"]);
+
+const buildHistoryFromPgn = (pgn: string) => {
+  const tokens = pgn
+    .replace(/\{[^}]*\}/g, " ")
+    .replace(/\d+\.(\.\.\.)?/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0 && !SAN_RESULT_TOKENS.has(token));
+
+  const game = new Chess();
+  const history = [game.fen()];
+  const sanHistory: string[] = [];
+
+  for (const token of tokens) {
+    const move = game.move(token);
+    if (!move) {
+      break;
+    }
+
+    sanHistory.push(move.san);
+    history.push(game.fen());
+  }
+
+  return {
+    history,
+    sanHistory,
+    soundHistory: ["game-start", ...sanHistory.map(() => "move-self")],
+  };
+};
 
 const toSquare = (rowIndex: number, columnIndex: number) =>
   `${FILES[columnIndex]}${8 - rowIndex}` as Square;
@@ -265,8 +319,7 @@ const MiniBoardPreview = ({
 
 export default function OpeningPage() {
   const pathname = usePathname();
-  const title = pathname.split("/").pop()?.replace(/-/g, " ") || "Opening";
-  const formattedTitle = formatOpeningTitle(title);
+  const openingSlug = decodeURIComponent(pathname.split("/").pop() ?? "");
 
   const [boardTheme, setBoardTheme] = useState(themeManifest.defaultBoardTheme);
   const [pieceTheme, setPieceTheme] = useState(themeManifest.defaultPieceTheme);
@@ -299,7 +352,14 @@ export default function OpeningPage() {
   const [analysisThreads, setAnalysisThreads] = useState(1);
   const [analysisDepth, setAnalysisDepth] = useState(ANALYSIS_PRESET_TO_DEPTH.standard);
   const [expandedEngineLineIds, setExpandedEngineLineIds] = useState<Record<number, boolean>>({});
+  const [hoverPreview, setHoverPreview] = useState<{ fen: string; left: number; top: number } | null>(null);
   const [clientPreferences, setClientPreferences] = useState(DEFAULT_CLIENT_PREFERENCES);
+  const [openingData, setOpeningData] = useState<OpeningApiPayload | null>(null);
+  const [openingLoading, setOpeningLoading] = useState(true);
+  const [openingError, setOpeningError] = useState<string | null>(null);
+  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+
+  const formattedTitle = openingData?.name ?? formatOpeningTitle(openingSlug.replace(/-/g, " "));
   const learnPreferences = clientPreferences.learn;
   const updateLearnPreferences = (updates: Partial<typeof learnPreferences>) => {
     setClientPreferences((previous) => ({
@@ -328,6 +388,91 @@ export default function OpeningPage() {
     }
     return () => clearTimeout(timer);
   }, [isPlaying, currentMoveIndex, history, soundEnabled, soundHistory]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadOpening = async () => {
+      if (!openingSlug) {
+        if (!cancelled) {
+          setOpeningLoading(false);
+          setOpeningError("Opening slug is missing.");
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/openings/${encodeURIComponent(openingSlug)}`);
+        if (!response.ok) {
+          if (!cancelled) {
+            setOpeningError("Opening not found in opening database.");
+          }
+          return;
+        }
+
+        const payload = (await response.json()) as OpeningApiPayload;
+        if (!cancelled) {
+          setOpeningData(payload);
+          setOpeningError(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setOpeningError("Failed to load opening data.");
+        }
+      } finally {
+        if (!cancelled) {
+          setOpeningLoading(false);
+        }
+      }
+    };
+
+    setOpeningLoading(true);
+    setOpeningError(null);
+    setOpeningData(null);
+    loadOpening().catch(() => {
+      if (!cancelled) {
+        setOpeningLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [openingSlug]);
+
+  useEffect(() => {
+    if (!openingData?.mainLine?.pgn) {
+      return;
+    }
+
+    const seeded = buildHistoryFromPgn(openingData.mainLine.pgn);
+    setHistory(seeded.history);
+    setSanHistory(seeded.sanHistory);
+    setSoundHistory(seeded.soundHistory);
+    setCurrentMoveIndex(seeded.history.length - 1);
+    setFen(seeded.history[seeded.history.length - 1] ?? DEFAULT_FEN);
+    setSelectedLineId(openingData.mainLine.id);
+    setIsPlaying(false);
+    setSelectedSquare(null);
+    setDraggedSquare(null);
+    setDragOverSquare(null);
+    setLastMove(null);
+  }, [openingData?.mainLine?.pgn]);
+
+  const applyOpeningLine = (lineId: string, pgn: string) => {
+    const seeded = buildHistoryFromPgn(pgn);
+    setHistory(seeded.history);
+    setSanHistory(seeded.sanHistory);
+    setSoundHistory(seeded.soundHistory);
+    setCurrentMoveIndex(seeded.history.length - 1);
+    setFen(seeded.history[seeded.history.length - 1] ?? DEFAULT_FEN);
+    setSelectedLineId(lineId);
+    setIsPlaying(false);
+    setSelectedSquare(null);
+    setDraggedSquare(null);
+    setDragOverSquare(null);
+    setLastMove(null);
+  };
 
   const game = new Chess(fen);
   const legalTargets = selectedSquare
@@ -647,21 +792,44 @@ export default function OpeningPage() {
     setPreferencesSaving(true);
 
     try {
-      const response = await fetch("/api/preferences", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          boardTheme,
-          pieceTheme,
-          soundEnabled,
-        }),
-      });
+      let shouldFallbackToLocal = false;
 
-      if (!response.ok) {
-        const payload = (await response.json()) as { error?: string };
-        throw new Error(payload.error ?? "Failed to save preferences.");
+      try {
+        const response = await fetch("/api/preferences", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            boardTheme,
+            pieceTheme,
+            soundEnabled,
+          }),
+        });
+
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            const wantsLogin = window.confirm("Log in to save preferences to your account?");
+            if (wantsLogin) {
+              window.location.href = `/login?next=${encodeURIComponent(pathname)}`;
+              return;
+            }
+            shouldFallbackToLocal = true;
+          } else {
+            const payload = (await response.json()) as { error?: string };
+            throw new Error(payload.error ?? "Failed to save preferences.");
+          }
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("Failed to fetch")) {
+          shouldFallbackToLocal = true;
+        } else if (!shouldFallbackToLocal) {
+          throw error;
+        }
+      }
+
+      if (shouldFallbackToLocal) {
+        setPreferencesError(null);
       }
 
       saveClientPreferences(clientPreferences);
@@ -707,6 +875,25 @@ export default function OpeningPage() {
 
   const suggestionStart = showSuggestionArrow ? toBoardPoint(suggestionFrom) : null;
   const suggestionEnd = showSuggestionArrow ? toBoardPoint(suggestionTo) : null;
+  const showMovePreview = (event: MouseEvent<HTMLSpanElement>, fenAfter: string) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const previewSize = 190;
+    const padding = 12;
+    const left = Math.min(Math.max(padding, rect.left), window.innerWidth - previewSize - padding);
+    const top = Math.min(rect.bottom + 8, window.innerHeight - previewSize - padding);
+    setHoverPreview({ fen: fenAfter, left, top });
+  };
+
+  useEffect(() => {
+    const clearPreview = () => setHoverPreview(null);
+    window.addEventListener("resize", clearPreview);
+    window.addEventListener("scroll", clearPreview, true);
+    return () => {
+      window.removeEventListener("resize", clearPreview);
+      window.removeEventListener("scroll", clearPreview, true);
+    };
+  }, []);
+
   const visibleSanMoves = sanHistory.slice(0, Math.max(0, currentMoveIndex));
   const playedMoveRows: Array<{
     moveNumber: number;
@@ -739,7 +926,7 @@ export default function OpeningPage() {
 
       <main className="flex-1 w-full flex flex-col lg:flex-row h-[calc(100vh-73px)]">
         <div className="w-full lg:w-[35%] p-6 lg:p-5 bg-[var(--bg)] relative z-10 shrink-0 border-r border-[var(--border)]">
-          <div className="w-full h-full max-h-[85vh] bg-[#1e1e1f] border border-[#2d2d2f] rounded-xl shadow-2xl overflow-hidden flex flex-col">
+          <div className="w-full h-full max-h-[85vh] bg-[#1e1e1f] border border-[#2d2d2f] rounded-xl shadow-2xl overflow-visible flex flex-col">
             <div className="h-12 px-3 border-b border-[#2c2c2d] flex items-center justify-between relative">
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#3a3a3a] text-[var(--text-primary)] text-[10px]">v</span>
@@ -796,20 +983,21 @@ export default function OpeningPage() {
                       const visibleMoves = isExpanded ? pvMoves : pvMoves.slice(0, 6);
 
                       return (
-                        <div key={line.id} className="min-h-[44px] px-2 py-1 border-b border-[#2a2a2c] flex items-start gap-2 text-[#d8d8d8] relative z-20">
+                        <div key={line.id} className="min-h-[44px] px-2 py-1 border-b border-[#2a2a2c] flex items-start gap-2 text-[#d8d8d8] relative z-0 hover:z-40">
                           <div className="min-w-[52px] h-6 rounded bg-[#151515] border border-[#3a3a3c] flex items-center justify-center text-[12px] font-bold leading-none text-white mt-[2px]">
                             {line.scoreText}
                           </div>
                           <div className="min-w-0 flex-1 flex items-start justify-between gap-2">
                             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] leading-[1.1] text-[#d7d7d7]">
                               {visibleMoves.map((pvMove) => (
-                                <div key={pvMove.key} className="relative group">
-                                  <span className="inline-flex rounded-sm px-1 py-[2px] hover:bg-white/10 cursor-default">
+                                <div key={pvMove.key} className="relative z-0">
+                                  <span
+                                    className="inline-flex rounded-sm px-1 py-[2px] hover:bg-white/10 cursor-default"
+                                    onMouseEnter={(event) => showMovePreview(event, pvMove.fenAfter)}
+                                    onMouseLeave={() => setHoverPreview(null)}
+                                  >
                                     {pvMove.label}
                                   </span>
-                                  <div className="pointer-events-none hidden group-hover:block absolute left-0 top-[calc(100%+8px)] z-[200]">
-                                    <MiniBoardPreview fen={pvMove.fenAfter} boardTheme={boardTheme} pieceTheme={pieceTheme} />
-                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -906,6 +1094,43 @@ export default function OpeningPage() {
                   {topSuggestedMove ? `Suggested move: ${topSuggestedMove}` : "No suggestion yet."}
                 </div>
               )}
+              {openingLoading ? (
+                <div className="mb-3 rounded-md border border-[#2f2f32] bg-[#1d1d1f] px-3 py-2 text-[12px] text-[#a3a3a6]">
+                  Loading opening context...
+                </div>
+              ) : openingError ? (
+                <div className="mb-3 rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
+                  {openingError}
+                </div>
+              ) : openingData ? (
+                <div className="mb-3 rounded-md border border-[#2f2f32] bg-[#1d1d1f] px-3 py-2 text-[12px] text-[#cfcfd2]">
+                  <div className="font-semibold text-white mb-1">{openingData.name} ({openingData.eco})</div>
+                  <div className="text-[#b7b7ba] mb-1 break-words">Main line: {openingData.mainLine.pgn}</div>
+                  <div className="text-[#9f9fa3] mb-1">{openingData.variationCount} mapped variations</div>
+                  <div className="mt-2 max-h-[140px] overflow-y-auto space-y-1 pr-1">
+                    {openingData.variations.slice(0, 16).map((line, index) => {
+                      const isSelected = selectedLineId === line.id;
+                      const label = index === 0
+                        ? "Main line"
+                        : line.name.startsWith(`${openingData.name}:`)
+                          ? line.name.slice(openingData.name.length + 1).trim()
+                          : line.name;
+
+                      return (
+                        <button
+                          key={line.id}
+                          onClick={() => applyOpeningLine(line.id, line.pgn)}
+                          className={`w-full text-left rounded border px-2 py-1 transition-colors ${isSelected ? "border-emerald-500/70 bg-emerald-500/10 text-emerald-200" : "border-[#343437] bg-[#202023] text-[#c9c9cc] hover:bg-[#29292d]"}`}
+                          title={line.pgn}
+                        >
+                          <div className="text-[11px] font-semibold uppercase tracking-wide mb-0.5">{label || `Variation ${index + 1}`}</div>
+                          <div className="text-[11px] text-[#b7b7ba] truncate">{line.pgn}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
               <button
                 onClick={resetBoard}
                 className="w-full flex items-center justify-center px-4 py-2.5 bg-[#2f78cf] text-white rounded-md font-semibold text-[13px] hover:bg-[#3f88df] transition-colors"
@@ -1479,6 +1704,11 @@ export default function OpeningPage() {
           </div>
         </div>
       </main>
+      {hoverPreview ? (
+        <div className="pointer-events-none fixed z-[99999]" style={{ left: hoverPreview.left, top: hoverPreview.top }}>
+          <MiniBoardPreview fen={hoverPreview.fen} boardTheme={boardTheme} pieceTheme={pieceTheme} />
+        </div>
+      ) : null}
     </div>
   );
 }
