@@ -10,6 +10,7 @@ import themeManifest from "@/data/themeManifest.json";
 import { useStockfishAnalysis } from "./use-stockfish-analysis";
 import { useTorchStatus } from "./use-torch-status";
 import { useTheme } from "@/lib/theme-context";
+import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreferences } from "@/lib/client-preferences";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 const DEFAULT_FEN = new Chess().fen();
@@ -270,7 +271,7 @@ export default function OpeningPage() {
   const [boardTheme, setBoardTheme] = useState(themeManifest.defaultBoardTheme);
   const [pieceTheme, setPieceTheme] = useState(themeManifest.defaultPieceTheme);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"boards" | "pieces" | "engine">("boards");
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"boards" | "pieces" | "engine" | "gameplay">("boards");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [fen, setFen] = useState(DEFAULT_FEN);
   const [history, setHistory] = useState<string[]>([DEFAULT_FEN]);
@@ -298,6 +299,17 @@ export default function OpeningPage() {
   const [analysisThreads, setAnalysisThreads] = useState(1);
   const [analysisDepth, setAnalysisDepth] = useState(ANALYSIS_PRESET_TO_DEPTH.standard);
   const [expandedEngineLineIds, setExpandedEngineLineIds] = useState<Record<number, boolean>>({});
+  const [clientPreferences, setClientPreferences] = useState(DEFAULT_CLIENT_PREFERENCES);
+  const learnPreferences = clientPreferences.learn;
+  const updateLearnPreferences = (updates: Partial<typeof learnPreferences>) => {
+    setClientPreferences((previous) => ({
+      ...previous,
+      learn: {
+        ...previous.learn,
+        ...updates,
+      },
+    }));
+  };
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -334,6 +346,13 @@ export default function OpeningPage() {
     stockfishVariant,
   );
   const { status: torchStatus, loading: torchLoading } = useTorchStatus();
+
+  useEffect(() => {
+    const loaded = loadClientPreferences();
+    setClientPreferences(loaded);
+    setAnalysisDepth(loaded.learn.engineDepth);
+    setIsBoardFlipped(loaded.learn.boardOrientation === "black");
+  }, []);
 
   useEffect(() => {
     let isCancelled = false;
@@ -405,8 +424,9 @@ export default function OpeningPage() {
     if (!soundEnabled) {
       return;
     }
-
-    new Audio(`/sounds/${name}.mp3`).play().catch(() => {});
+    const audio = new Audio(`/sounds/${name}.mp3`);
+    audio.volume = Math.min(1, Math.max(0, learnPreferences.masterVolume / 100));
+    audio.play().catch(() => {});
   };
 
   const resetBoard = () => {
@@ -467,11 +487,34 @@ export default function OpeningPage() {
   const commitMove = (from: Square, to: Square) => {
     const nextPosition = new Chess(fen);
 
+    let promotion: "q" | "r" | "b" | "n" | undefined = undefined;
+    const movingPiece = nextPosition.get(from);
+    const targetRank = Number(to[1]);
+    const isPawnPromotion =
+      movingPiece?.type === "p" &&
+      ((movingPiece.color === "w" && targetRank === 8) || (movingPiece.color === "b" && targetRank === 1));
+
+    if (isPawnPromotion) {
+      if (learnPreferences.autoQueen) {
+        promotion = "q";
+      } else {
+        const selected = window.prompt("Promote to (q, r, b, n)", "q")?.trim().toLowerCase();
+        if (!selected) {
+          return false;
+        }
+        if (!["q", "r", "b", "n"].includes(selected)) {
+          playSound("illegal");
+          return false;
+        }
+        promotion = selected as "q" | "r" | "b" | "n";
+      }
+    }
+
     try {
       const move = nextPosition.move({
         from,
         to,
-        promotion: "q",
+        promotion,
       });
 
       if (!move) {
@@ -524,6 +567,9 @@ export default function OpeningPage() {
   };
 
   const handleSquareClick = (square: Square) => {
+    if (learnPreferences.moveMethod === "drag") {
+      return;
+    }
     const clickedPiece = game.get(square);
 
     if (selectedSquare === square) {
@@ -532,6 +578,9 @@ export default function OpeningPage() {
     }
 
     if (selectedSquare && legalTargets.includes(square)) {
+      if (learnPreferences.moveConfirmation && !window.confirm(`Confirm move ${selectedSquare} to ${square}?`)) {
+        return;
+      }
       commitMove(selectedSquare, square);
       return;
     }
@@ -548,6 +597,10 @@ export default function OpeningPage() {
   };
 
   const handleDragStart = (event: DragEvent<HTMLDivElement>, square: Square) => {
+    if (learnPreferences.moveMethod === "click") {
+      event.preventDefault();
+      return;
+    }
     const draggedPiece = game.get(square);
 
     if (!draggedPiece || draggedPiece.color !== game.turn()) {
@@ -572,6 +625,12 @@ export default function OpeningPage() {
     event.preventDefault();
 
     if (!draggedSquare) {
+      return;
+    }
+
+    if (learnPreferences.moveConfirmation && !window.confirm(`Confirm move ${draggedSquare} to ${square}?`)) {
+      setDraggedSquare(null);
+      setSelectedSquare(null);
       return;
     }
 
@@ -604,6 +663,8 @@ export default function OpeningPage() {
         const payload = (await response.json()) as { error?: string };
         throw new Error(payload.error ?? "Failed to save preferences.");
       }
+
+      saveClientPreferences(clientPreferences);
 
       setIsSettingsOpen(false);
     } catch (error) {
@@ -681,8 +742,8 @@ export default function OpeningPage() {
           <div className="w-full h-full max-h-[85vh] bg-[#1e1e1f] border border-[#2d2d2f] rounded-xl shadow-2xl overflow-hidden flex flex-col">
             <div className="h-12 px-3 border-b border-[#2c2c2d] flex items-center justify-between relative">
               <div className="flex items-center gap-2">
-                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#3a3a3a] text-[#d4d4d4] text-[10px]">v</span>
-                <span className="text-[#f0f0f0] text-[20px] font-[500] leading-none">Analysis</span>
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#3a3a3a] text-[var(--text-primary)] text-[10px]">v</span>
+                <span className="text-[#f0f0f0] text-[15px] font-[500] leading-none">Analysis</span>
                 <button
                   onClick={() => setIsAnalysisMenuOpen((open) => !open)}
                   className="p-1 rounded hover:bg-white/10 text-[#b8b8b8]"
@@ -706,19 +767,19 @@ export default function OpeningPage() {
                 <div className="absolute top-11 left-20 z-30 w-[230px] rounded-md border border-[#3a3a3d] bg-[#242426] shadow-2xl py-2">
                   <button onClick={() => setShowEvaluationBar((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
                     <span>Evaluation Bar</span>
-                    <span className={showEvaluationBar ? "text-emerald-400" : "text-[#7b7b7b]"}>{showEvaluationBar ? "On" : "Off"}</span>
+                    <span className={showEvaluationBar ? "text-emerald-500" : "text-[#7b7b7b]"}>{showEvaluationBar ? "On" : "Off"}</span>
                   </button>
                   <button onClick={() => setShowEngineLines((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
                     <span>Engine Lines</span>
-                    <span className={showEngineLines ? "text-emerald-400" : "text-[#7b7b7b]"}>{showEngineLines ? "On" : "Off"}</span>
+                    <span className={showEngineLines ? "text-emerald-500" : "text-[#7b7b7b]"}>{showEngineLines ? "On" : "Off"}</span>
                   </button>
                   <button onClick={() => setShowSuggestionArrow((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
                     <span>Suggestion Arrow</span>
-                    <span className={showSuggestionArrow ? "text-emerald-400" : "text-[#7b7b7b]"}>{showSuggestionArrow ? "On" : "Off"}</span>
+                    <span className={showSuggestionArrow ? "text-emerald-500" : "text-[#7b7b7b]"}>{showSuggestionArrow ? "On" : "Off"}</span>
                   </button>
                   <button onClick={() => setShowMoveFeedback((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
                     <span>Move Feedback</span>
-                    <span className={showMoveFeedback ? "text-emerald-400" : "text-[#7b7b7b]"}>{showMoveFeedback ? "On" : "Off"}</span>
+                    <span className={showMoveFeedback ? "text-emerald-500" : "text-[#7b7b7b]"}>{showMoveFeedback ? "On" : "Off"}</span>
                   </button>
                 </div>
               )}
@@ -788,7 +849,7 @@ export default function OpeningPage() {
               </div>
 
               <div className="flex-1 min-h-0 flex flex-col bg-[#1d1d1f]">
-                <div className="px-3 py-2 border-b border-[#2a2a2c] text-[15px] font-semibold text-white">
+                <div className="px-3 py-2 border-b border-[#2a2a2c] text-[13px] font-semibold text-white">
                   White - Black
                 </div>
                 <div className="flex-1 overflow-y-auto">
@@ -820,25 +881,25 @@ export default function OpeningPage() {
 
             <div className="px-3 py-2 border-t border-[#2a2a2c] bg-[#1b1b1c]">
               <div className="flex items-center justify-center gap-2 mb-3 w-full">
-                <button onClick={goToStart} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-[#c7c7c7] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                  <ChevronsLeft className="w-4 h-4" />
-                </button>
-                <button onClick={goToPrev} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-[#c7c7c7] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button onClick={togglePlay} className="p-2 px-4 rounded-md bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50 transition-colors flex items-center justify-center min-w-[56px]">
-                  {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                </button>
-                <button onClick={goToNext} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-[#c7c7c7] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-                <button onClick={goToEnd} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-[#c7c7c7] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                  <ChevronsRight className="w-4 h-4" />
-                </button>
-              </div>
+                  <button onClick={goToStart} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                    <ChevronsLeft className="w-6 h-6" />
+                  </button>
+                  <button onClick={goToPrev} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button onClick={togglePlay} className="p-2 px-4 rounded-md bg-emerald-600/30 text-white hover:bg-emerald-600/50 transition-colors flex items-center justify-center min-w-[56px]">
+                    {isPlaying ? <Pause className="w-6 h-6 fill-white" /> : <Play className="w-6 h-6 fill-white" />}
+                  </button>
+                  <button onClick={goToNext} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                  <button onClick={goToEnd} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                    <ChevronsRight className="w-6 h-6" />
+                  </button>
+                </div>
 
               <div className="text-[13px] text-[#a8a8aa] mb-2">
-                {formattedTitle} - {statusText}
+                {learnPreferences.showOpeningNames ? `${formattedTitle} - ${statusText}` : statusText}
               </div>
               {showMoveFeedback && (
                 <div className="text-[12px] text-[#b8e8d0] mb-2">
@@ -901,64 +962,49 @@ export default function OpeningPage() {
                     onClick={() => setActiveSettingsTab("boards")}
                     className={`flex items-center gap-3 px-5 py-3 w-full text-left font-medium border-l-2 transition-colors ${
                       activeSettingsTab === "boards" || activeSettingsTab === "pieces"
-                        ? "bg-[var(--surface-alt)] text-emerald-400 border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]"
-                        : "text-[#999] hover:bg-white/5 hover:text-white border-transparent"
+                        ? "bg-[var(--surface-alt)] text-emerald-500 border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]"
+                        : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"
                     }`}
                   >
                     <LayoutGrid className="w-[18px] h-[18px]" />
                     <span className="text-[14px]">Board & Pieces</span>
                   </button>
                   <button
+                    onClick={() => setActiveSettingsTab("gameplay")}
+                    className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${
+                      activeSettingsTab === "gameplay"
+                        ? "bg-[var(--surface-alt)] text-emerald-500 font-medium border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]"
+                        : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"
+                    }`}
+                  >
+                    <Monitor className="w-[18px] h-[18px]" />
+                    <span className="text-[14px]">Gameplay</span>
+                  </button>
+                  <button
                     onClick={() => setActiveSettingsTab("engine")}
                     className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${
                       activeSettingsTab === "engine"
-                        ? "bg-[var(--surface-alt)] text-emerald-400 font-medium border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]"
-                        : "text-[#999] hover:bg-white/5 hover:text-white border-transparent"
+                        ? "bg-[var(--surface-alt)] text-emerald-500 font-medium border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]"
+                        : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"
                     }`}
                   >
                     <Gamepad2 className="w-[18px] h-[18px]" />
                     <span className="text-[14px]">Engine</span>
                   </button>
-                  <button className="flex items-center gap-3 px-5 py-3 w-full text-left text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] transition-colors border-l-2 border-transparent">
-                    <User className="w-[18px] h-[18px]" />
-                    <span className="text-[14px]">Profile</span>
-                  </button>
-                  <button className="flex items-center gap-3 px-5 py-3 w-full text-left text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] transition-colors border-l-2 border-transparent">
-                    <Monitor className="w-[18px] h-[18px]" />
-                    <span className="text-[14px]">Interface</span>
-                  </button>
-                  <button className="flex items-center gap-3 px-5 py-3 w-full text-left text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] transition-colors border-l-2 border-transparent">
-                    <Users className="w-[18px] h-[18px]" />
-                    <span className="text-[14px]">Social</span>
-                  </button>
-                  <button className="flex items-center gap-3 px-5 py-3 w-full text-left text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] transition-colors border-l-2 border-transparent">
-                    <GraduationCap className="w-[18px] h-[18px]" />
-                    <span className="text-[14px]">Coach</span>
-                  </button>
-                  <button className="flex items-center gap-3 px-5 py-3 w-full text-left text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] transition-colors border-l-2 border-transparent">
-                    <Bell className="w-[18px] h-[18px]" />
-                    <span className="text-[14px]">Notifications</span>
-                  </button>
-                  <button className="flex items-center gap-3 px-5 py-3 w-full text-left text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] transition-colors border-l-2 border-transparent">
-                    <CreditCard className="w-[18px] h-[18px]" />
-                    <span className="text-[14px]">Membership</span>
-                  </button>
-                  <button className="flex items-center gap-3 px-5 py-3 w-full text-left text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] transition-colors border-l-2 border-transparent">
-                    <Accessibility className="w-[18px] h-[18px]" />
-                    <span className="text-[14px]">Accessibility</span>
-                  </button>
                 </div>
 
                 {/* Main Content Area */}
-                <div className="flex-1 flex flex-col relative min-w-0 bg-[#1a1a1a]">
+                <div className="flex-1 flex flex-col relative min-w-0 bg-[var(--surface-alt)] text-[var(--text-primary)]">
                   {/* Header */}
                   <div className="px-8 pt-6 pb-3 shrink-0">
-                  <h2 className="text-[24px] font-bold text-white mb-1 font-sans">
-                    {activeSettingsTab === "engine" ? "Engine" : "Board & Pieces"}
+                  <h2 className="text-[24px] font-bold mb-1 font-sans">
+                    {activeSettingsTab === "engine" ? "Engine" : activeSettingsTab === "gameplay" ? "Gameplay" : "Board & Pieces"}
                   </h2>
-                  <p className="text-[#a1a1aa] text-[14px]">
+                  <p className="text-[var(--text-muted)] text-[14px]">
                     {activeSettingsTab === "engine"
                       ? "Configure analysis engine options and line depth."
+                      : activeSettingsTab === "gameplay"
+                        ? "Configure interaction and move behavior for Learn mode."
                       : "Customize the look and feel of your chess set."}
                   </p>
                   {preferencesLoading && (
@@ -974,29 +1020,24 @@ export default function OpeningPage() {
                   {/* Left Side: Tabs & Grid */}
                   <div className="w-full md:w-[55%] flex flex-col h-full min-h-0">
                     {/* Tabs */}
-                    <div className="flex border-b border-[#333] mb-4 shrink-0">
+                    {(activeSettingsTab === "boards" || activeSettingsTab === "pieces") && (
+                    <div className="flex border-b border-[var(--border)] mb-4 shrink-0">
                       <button
                         onClick={() => setActiveSettingsTab("boards")}
-                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "boards" ? "text-emerald-400" : "text-[#888] hover:text-gray-200"}`}
+                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "boards" ? "text-emerald-500" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
                       >
                         Boards
-                        {activeSettingsTab === "boards" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-emerald-400" />}
+                        {activeSettingsTab === "boards" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-emerald-500" />}
                       </button>
                       <button
                         onClick={() => setActiveSettingsTab("pieces")}
-                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "pieces" ? "text-emerald-400" : "text-[#888] hover:text-gray-200"}`}
+                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "pieces" ? "text-emerald-500" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
                       >
                         Pieces
-                        {activeSettingsTab === "pieces" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-emerald-400" />}
-                      </button>
-                      <button
-                        onClick={() => setActiveSettingsTab("engine")}
-                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "engine" ? "text-emerald-400" : "text-[#888] hover:text-gray-200"}`}
-                      >
-                        Engine
-                        {activeSettingsTab === "engine" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-emerald-400" />}
+                        {activeSettingsTab === "pieces" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-emerald-500" />}
                       </button>
                     </div>
+                    )}
 
                     {/* Grid Selection */}
                     <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
@@ -1022,7 +1063,7 @@ export default function OpeningPage() {
                                     </div>
                                   )}
                                 </div>
-                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-emerald-400" : "text-[#666] group-hover:text-gray-400"}`}>
+                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-emerald-500" : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]"}`}>
                                   {theme.replace(/_/g, " ")}
                                 </span>
                               </button>
@@ -1052,7 +1093,7 @@ export default function OpeningPage() {
                                     </div>
                                   )}
                                 </div>
-                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-emerald-400" : "text-[#666] group-hover:text-gray-400"}`}>
+                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-emerald-500" : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]"}`}>
                                   {theme.replace(/_/g, " ")}
                                 </span>
                               </button>
@@ -1061,13 +1102,13 @@ export default function OpeningPage() {
                         </div>
                       )}
                       {activeSettingsTab === "engine" && (
-                        <div className="px-2 py-2 space-y-4 text-[#d4d4d4]">
+                        <div className="px-2 py-2 space-y-4 text-[var(--text-primary)]">
                           <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[#8c8c8c]">Strength</label>
+                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Strength</label>
                             <select
                               value={analysisStrength}
                               onChange={(event) => setAnalysisStrength(event.target.value as AnalysisStrength)}
-                              className="w-full bg-[#242424] border border-[#3a3a3a] rounded-md px-3 py-2 text-[14px] text-white"
+                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
                             >
                               <option value="fast">Fast (~1 sec, 3270 Rating)</option>
                               <option value="standard">Standard (~5 sec, 3430 Rating)</option>
@@ -1077,11 +1118,11 @@ export default function OpeningPage() {
                           </div>
 
                           <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[#8c8c8c]">Analysis Engine</label>
+                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Analysis Engine</label>
                             <select
                               value={analysisEngineChoice}
                               onChange={(event) => setAnalysisEngineChoice(event.target.value as AnalysisEngineChoice)}
-                              className="w-full bg-[#242424] border border-[#3a3a3a] rounded-md px-3 py-2 text-[14px] text-white"
+                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
                             >
                               <option value="stockfish-18">Stockfish 18 (108MB download)</option>
                               <option value="stockfish-18-lite">Stockfish 18 Lite (7MB download)</option>
@@ -1092,11 +1133,11 @@ export default function OpeningPage() {
                           </div>
 
                           <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[#8c8c8c]">Number of Lines</label>
+                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Number of Lines</label>
                             <select
                               value={analysisMultiPv}
                               onChange={(event) => setAnalysisMultiPv(Number(event.target.value))}
-                              className="w-full bg-[#242424] border border-[#3a3a3a] rounded-md px-3 py-2 text-[14px] text-white"
+                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
                             >
                               <option value={1}>1</option>
                               <option value={2}>2</option>
@@ -1106,19 +1147,19 @@ export default function OpeningPage() {
                           </div>
 
                           <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[#8c8c8c]">Maximum Time (sec)</label>
+                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Maximum Time (sec)</label>
                             <input
                               type="number"
                               min={1}
                               max={180}
                               value={analysisMaxTimeSeconds}
                               onChange={(event) => setAnalysisMaxTimeSeconds(Math.max(1, Number(event.target.value) || 1))}
-                              className="w-full bg-[#242424] border border-[#3a3a3a] rounded-md px-3 py-2 text-[14px] text-white"
+                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
                             />
                           </div>
 
                           <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[#8c8c8c]">Threads</label>
+                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Threads</label>
                             <input
                               type="number"
                               min={1}
@@ -1140,6 +1181,85 @@ export default function OpeningPage() {
                                     : "Torch runtime detected but model file is missing. Analysis still runs through Stockfish."
                                   : "Torch runtime unavailable. Analysis runs through Stockfish."
                               : "Stockfish engine is used for live analysis in this build."}
+                          </div>
+                        </div>
+                      )}
+                      {activeSettingsTab === "gameplay" && (
+                        <div className="px-2 py-2 space-y-4 text-[var(--text-primary)]">
+                          <div className="space-y-1">
+                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Move Method</label>
+                            <select
+                              value={learnPreferences.moveMethod}
+                              onChange={(event) => updateLearnPreferences({ moveMethod: event.target.value as typeof learnPreferences.moveMethod })}
+                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                            >
+                              <option value="drag">Drag only</option>
+                              <option value="click">Click only</option>
+                              <option value="both">Both</option>
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Board Orientation</label>
+                            <select
+                              value={learnPreferences.boardOrientation}
+                              onChange={(event) => {
+                                const orientation = event.target.value as typeof learnPreferences.boardOrientation;
+                                updateLearnPreferences({ boardOrientation: orientation });
+                                if (orientation === "black") setIsBoardFlipped(true);
+                                if (orientation === "white") setIsBoardFlipped(false);
+                              }}
+                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                            >
+                              <option value="auto">Auto</option>
+                              <option value="white">White bottom</option>
+                              <option value="black">Black bottom</option>
+                            </select>
+                          </div>
+
+                          <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
+                            <span>Show legal moves</span>
+                            <input type="checkbox" checked={learnPreferences.showLegalMoves} onChange={(event) => updateLearnPreferences({ showLegalMoves: event.target.checked })} />
+                          </div>
+                          <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
+                            <span>Move confirmation</span>
+                            <input type="checkbox" checked={learnPreferences.moveConfirmation} onChange={(event) => updateLearnPreferences({ moveConfirmation: event.target.checked })} />
+                          </div>
+                          <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
+                            <span>Auto queen</span>
+                            <input type="checkbox" checked={learnPreferences.autoQueen} onChange={(event) => updateLearnPreferences({ autoQueen: event.target.checked })} />
+                          </div>
+                          <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
+                            <span>Show opening title</span>
+                            <input type="checkbox" checked={learnPreferences.showOpeningNames} onChange={(event) => updateLearnPreferences({ showOpeningNames: event.target.checked })} />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Engine Depth</label>
+                            <input
+                              type="range"
+                              min={10}
+                              max={24}
+                              value={learnPreferences.engineDepth}
+                              onChange={(event) => {
+                                const depth = Number(event.target.value);
+                                updateLearnPreferences({ engineDepth: depth });
+                                setAnalysisDepth(depth);
+                              }}
+                              className="w-full"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Sound Volume</label>
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              value={learnPreferences.masterVolume}
+                              onChange={(event) => updateLearnPreferences({ masterVolume: Number(event.target.value) })}
+                              className="w-full"
+                            />
                           </div>
                         </div>
                       )}
@@ -1261,7 +1381,7 @@ export default function OpeningPage() {
                     const square = toSquare(logicalRow, logicalCol);
                     const squarePiece = game.get(square);
                     const isLightSquare = (logicalRow + logicalCol) % 2 === 0;
-                    const isLegalTarget = legalTargets.includes(square);
+                    const isLegalTarget = learnPreferences.showLegalMoves && legalTargets.includes(square);
                     const isLastMoveSquare =
                       lastMove?.from === square || lastMove?.to === square;
                     const isDraggedSquare = draggedSquare === square;
@@ -1322,7 +1442,7 @@ export default function OpeningPage() {
                         )}
 
                         <div
-                          draggable={Boolean(squarePiece && squarePiece.color === game.turn())}
+                          draggable={Boolean(learnPreferences.moveMethod !== "click" && squarePiece && squarePiece.color === game.turn())}
                           onDragStart={(event) => handleDragStart(event, square)}
                           onDragEnd={() => setDraggedSquare(null)}
                           className={`relative z-10 h-full w-full p-[2.75%] ${isDraggedSquare ? "opacity-30" : "opacity-100"}`}

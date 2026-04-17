@@ -10,10 +10,18 @@ function isRouteMatch(pathname: string, routes: string[]) {
 }
 
 export async function updateSession(request: NextRequest) {
-  const { supabaseUrl, supabaseAnonKey } = getSupabaseEnv();
   let response = NextResponse.next({
     request,
   });
+
+  let supabaseUrl: string;
+  let supabaseAnonKey: string;
+  try {
+    ({ supabaseUrl, supabaseAnonKey } = getSupabaseEnv());
+  } catch {
+    // Keep public pages accessible if env vars are missing in a deployment.
+    return response;
+  }
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -34,9 +42,14 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user: { id: string } | null = null;
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch {
+    // If auth lookup fails, continue with passthrough response instead of failing the request.
+    return response;
+  }
 
   const { pathname, search } = request.nextUrl;
   const wantsProtectedRoute = isRouteMatch(pathname, PROTECTED_ROUTES);

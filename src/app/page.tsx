@@ -3,6 +3,7 @@
 import { ChevronDown, Bot, Sun, Moon } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "@/lib/theme-context";
+import { AuthMenu } from "@/components/auth-menu";
 
 export default function Home() {
   const { theme, toggleTheme, isDark } = useTheme();
@@ -39,11 +40,7 @@ export default function Home() {
           >
             {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
           </button>
-          <Link href="/login" className="relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all duration-300 hidden sm:block after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[1px] after:bg-[var(--text-primary)] hover:after:w-full after:transition-all after:duration-300">Login</Link>
-          <Link href="/signup" className="px-6 py-[8px] border border-transparent bg-[var(--cta-bg)] text-[var(--cta-text)] font-bold rounded-full hover:bg-[var(--cta-hover)] hover:scale-105 transition-all duration-300 relative overflow-hidden group">
-            <span className="relative z-10">Sign Up</span>
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-[150%] skew-x-[-20deg] group-hover:animate-[shimmer_1.5s_infinite]" />
-          </Link>
+          <AuthMenu />
         </div>
       </header>
 

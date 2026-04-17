@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronDown, ArrowLeft, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/lib/theme-context";
+import { AuthMenu } from "@/components/auth-menu";
 
 const openings = [
   {
@@ -86,10 +87,7 @@ export default function LearnPage() {
           >
             {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
           </button>
-          <a href="#" className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors hidden sm:block">Login</a>
-          <a href="#" className="px-6 py-[8px] border border-[var(--border)] rounded-full text-[var(--text-primary)] hover:bg-[var(--surface-alt)] transition-colors">
-            Sign In
-          </a>
+          <AuthMenu />
         </div>
       </header>
 

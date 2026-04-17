@@ -9,6 +9,7 @@ import { ArrowLeft, Settings, Play, Bot, RotateCcw, ChevronLeft, ChevronRight, M
 import themeManifest from "@/data/themeManifest.json";
 import { useTheme } from "@/lib/theme-context";
 import { useStockfishPlayer } from "./use-stockfish-player";
+import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreferences } from "@/lib/client-preferences";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 const DEFAULT_FEN = new Chess().fen();
@@ -155,6 +156,7 @@ export default function PlayComputerPage() {
   const [preferencesLoading, setPreferencesLoading] = useState(true);
   const [preferencesSaving, setPreferencesSaving] = useState(false);
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
+  const [clientPreferences, setClientPreferences] = useState(DEFAULT_CLIENT_PREFERENCES);
 
   // Game state
   const [eloIndex, setEloIndex] = useState<number>(5);
@@ -180,6 +182,20 @@ export default function PlayComputerPage() {
   );
 
   const { toggleTheme, isDark } = useTheme();
+  const botPreferences = clientPreferences.bot;
+  const updateBotPreferences = (updates: Partial<typeof botPreferences>) => {
+    setClientPreferences((previous) => ({
+      ...previous,
+      bot: {
+        ...previous.bot,
+        ...updates,
+      },
+    }));
+  };
+
+  useEffect(() => {
+    setClientPreferences(loadClientPreferences());
+  }, []);
 
   // Fetch preferences
   useEffect(() => {
@@ -211,7 +227,9 @@ export default function PlayComputerPage() {
 
   const playSound = (name: string) => {
     if (!soundEnabled) return;
-    new Audio(`/sounds/${name}.mp3`).play().catch(() => {});
+    const audio = new Audio(`/sounds/${name}.mp3`);
+    audio.volume = Math.min(1, Math.max(0, botPreferences.masterVolume / 100));
+    audio.play().catch(() => {});
   };
 
   const savePreferences = async () => {
@@ -227,6 +245,7 @@ export default function PlayComputerPage() {
         const payload = (await response.json()) as { error?: string };
         throw new Error(payload.error ?? "Failed to save preferences.");
       }
+      saveClientPreferences(clientPreferences);
       setIsSettingsOpen(false);
     } catch (error) {
       setPreferencesError(error instanceof Error ? error.message : "Failed to save preferences.");
@@ -264,13 +283,41 @@ export default function PlayComputerPage() {
     setGameState("setup");
   };
 
-  const commitMove = (from: Square, to: Square, promotion: string = "q") => {
+  const commitMove = (from: Square, to: Square, promotion?: string) => {
     const nextPosition = new Chess(fen);
+
+    let resolvedPromotion: "q" | "r" | "b" | "n" | undefined = undefined;
+    if (promotion && ["q", "r", "b", "n"].includes(promotion)) {
+      resolvedPromotion = promotion as "q" | "r" | "b" | "n";
+    } else {
+      const movingPiece = nextPosition.get(from);
+      const targetRank = Number(to[1]);
+      const isPawnPromotion =
+        movingPiece?.type === "p" &&
+        ((movingPiece.color === "w" && targetRank === 8) || (movingPiece.color === "b" && targetRank === 1));
+
+      if (isPawnPromotion) {
+        if (botPreferences.autoQueen || isBotTurn) {
+          resolvedPromotion = "q";
+        } else {
+          const selected = window.prompt("Promote to (q, r, b, n)", "q")?.trim().toLowerCase();
+          if (!selected) {
+            return false;
+          }
+          if (!["q", "r", "b", "n"].includes(selected)) {
+            playSound("illegal");
+            return false;
+          }
+          resolvedPromotion = selected as "q" | "r" | "b" | "n";
+        }
+      }
+    }
+
     try {
       const move = nextPosition.move({
         from,
         to,
-        promotion,
+        promotion: resolvedPromotion,
       });
 
       if (!move) {
@@ -323,6 +370,7 @@ export default function PlayComputerPage() {
   };
 
   const handleSquareClick = (square: Square) => {
+    if (botPreferences.moveMethod === "drag") return;
     if (gameState !== "playing" || isBotTurn) return;
 
     const game = gameRef.current;
@@ -335,6 +383,9 @@ export default function PlayComputerPage() {
     }
 
     if (selectedSquare && legalTargets.includes(square)) {
+      if (botPreferences.moveConfirmation && !window.confirm(`Confirm move ${selectedSquare} to ${square}?`)) {
+        return;
+      }
       commitMove(selectedSquare, square);
       return;
     }
@@ -351,6 +402,10 @@ export default function PlayComputerPage() {
   };
 
   const handleDragStart = (event: DragEvent<HTMLDivElement>, square: Square) => {
+    if (botPreferences.moveMethod === "click") {
+      event.preventDefault();
+      return;
+    }
     if (gameState !== "playing" || isBotTurn) {
       event.preventDefault();
       return;
@@ -380,6 +435,12 @@ export default function PlayComputerPage() {
     event.preventDefault();
     if (!draggedSquare || isBotTurn || gameState !== "playing") return;
 
+    if (botPreferences.moveConfirmation && !window.confirm(`Confirm move ${draggedSquare} to ${square}?`)) {
+      setDraggedSquare(null);
+      setSelectedSquare(null);
+      return;
+    }
+
     const didMove = commitMove(draggedSquare, square);
 
     if (!didMove) {
@@ -394,7 +455,12 @@ export default function PlayComputerPage() {
     ? game.moves({ square: selectedSquare, verbose: true }).map((move) => move.to)
     : [];
 
-  const isBoardFlipped = playerColor === "b";
+  const isBoardFlipped =
+    botPreferences.boardOrientation === "black"
+      ? true
+      : botPreferences.boardOrientation === "white"
+        ? false
+        : playerColor === "b";
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-[var(--bg)]">
@@ -736,7 +802,7 @@ export default function PlayComputerPage() {
                     const squarePiece = gameRef.current.get(square);
                     const isLightSquare = (logicalRow + logicalCol) % 2 === 0;
                     const isSelectedSquare = selectedSquare === square;
-                    const isLegalTarget = legalTargets.includes(square);
+                    const isLegalTarget = botPreferences.showLegalMoves && legalTargets.includes(square);
                     const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square;
                     const isDraggedSquare = draggedSquare === square;
                     const isKingInCheck = gameRef.current.isCheck() && squarePiece?.type === 'k' && squarePiece?.color === gameRef.current.turn();
@@ -789,7 +855,11 @@ export default function PlayComputerPage() {
                         )}
 
                         <div
-                          draggable={Boolean(squarePiece && squarePiece.color === gameRef.current.turn())}
+                          draggable={Boolean(
+                            botPreferences.moveMethod !== "click" &&
+                            squarePiece &&
+                            squarePiece.color === gameRef.current.turn(),
+                          )}
                           onDragStart={(event) => handleDragStart(event, square)}
                           onDragEnd={() => setDraggedSquare(null)}
                           className={`relative z-10 h-full w-full p-[2.75%] ${isDraggedSquare ? "opacity-30" : "opacity-100"}`}
@@ -955,6 +1025,77 @@ export default function PlayComputerPage() {
                       <h3 className="text-[11px] font-bold tracking-widest text-[var(--text-muted)] uppercase mb-3 px-1">Cloud</h3>
                       <div className="bg-[#0b243b] text-[#3ca2fb] w-full rounded-sm py-2 px-3 mb-2 font-medium text-[13px] flex items-center shadow-sm">
                         Upgrade to Diamond to enable Cloud Analysis
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeCategory === "gameplay" && (
+                  <div className="flex-1 px-8 pb-8 overflow-y-auto custom-scrollbar pt-2">
+                    <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Move Method</span>
+                        <select
+                          value={botPreferences.moveMethod}
+                          onChange={(event) => updateBotPreferences({ moveMethod: event.target.value as typeof botPreferences.moveMethod })}
+                          className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5"
+                        >
+                          <option value="drag">Drag only</option>
+                          <option value="click">Click only</option>
+                          <option value="both">Both</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Show Legal Moves</span>
+                        <input type="checkbox" checked={botPreferences.showLegalMoves} onChange={(event) => updateBotPreferences({ showLegalMoves: event.target.checked })} />
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Move Confirmation</span>
+                        <input type="checkbox" checked={botPreferences.moveConfirmation} onChange={(event) => updateBotPreferences({ moveConfirmation: event.target.checked })} />
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Auto Queen</span>
+                        <input type="checkbox" checked={botPreferences.autoQueen} onChange={(event) => updateBotPreferences({ autoQueen: event.target.checked })} />
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Lock Board On Bot Turn</span>
+                        <input type="checkbox" checked={botPreferences.boardLock} onChange={(event) => updateBotPreferences({ boardLock: event.target.checked })} />
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Low Time Warning</span>
+                        <input type="checkbox" checked={botPreferences.lowTimeWarning} onChange={(event) => updateBotPreferences({ lowTimeWarning: event.target.checked })} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeCategory === "interface" && (
+                  <div className="flex-1 px-8 pb-8 overflow-y-auto custom-scrollbar pt-2">
+                    <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Board Orientation</span>
+                        <select
+                          value={botPreferences.boardOrientation}
+                          onChange={(event) => updateBotPreferences({ boardOrientation: event.target.value as typeof botPreferences.boardOrientation })}
+                          className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5"
+                        >
+                          <option value="auto">Auto</option>
+                          <option value="white">White bottom</option>
+                          <option value="black">Black bottom</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Sound Volume</span>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={botPreferences.masterVolume}
+                            onChange={(event) => updateBotPreferences({ masterVolume: Number(event.target.value) })}
+                          />
+                          <span className="text-[12px] text-[var(--text-secondary)] w-9">{botPreferences.masterVolume}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
