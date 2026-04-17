@@ -945,7 +945,7 @@ export default function OpeningPage() {
 
           {isSettingsOpen && (
             <div 
-              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[var(--skeleton-soft)] backdrop-blur-sm animate-in fade-in duration-200"
               onClick={() => setIsSettingsOpen(false)}
             >
               <div 
@@ -1008,10 +1008,10 @@ export default function OpeningPage() {
                       : "Customize the look and feel of your chess set."}
                   </p>
                   {preferencesLoading && (
-                    <p className="text-[#8f8f8f] text-[12px] mt-2">Loading saved preferences...</p>
+                    <p className="text-[var(--text-muted)] text-[12px] mt-2">Loading saved preferences...</p>
                   )}
                   {preferencesError && (
-                    <p className="text-red-300 text-[12px] mt-2">{preferencesError}</p>
+                    <p className="text-[var(--error-text)] text-[12px] mt-2">{preferencesError}</p>
                   )}
                 </div>
 
@@ -1055,7 +1055,7 @@ export default function OpeningPage() {
                                 }}
                                 className={`group relative flex flex-col gap-1.5 transition-all ${isSelected ? "z-10" : "z-0"}`}
                               >
-                                <div className={`relative aspect-square rounded-lg border-2 overflow-hidden transition-all ${isSelected ? "border-emerald-500 scale-[1.05] shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "border-transparent group-hover:border-white/20"}`}>
+                                <div className={`relative aspect-square rounded-lg border-2 overflow-hidden transition-all ${isSelected ? "border-emerald-500 scale-[1.05] shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "border-transparent group-hover:border-[var(--border)]"}`}>
                                   <BoardThumbnail src={bgImage} className="w-full h-full" />
                                   {isSelected && (
                                     <div className="absolute top-1 right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center z-20">
@@ -1085,7 +1085,7 @@ export default function OpeningPage() {
                                 }}
                                 className={`group relative flex flex-col gap-1.5 transition-all ${isSelected ? "z-10" : "z-0"}`}
                               >
-                                <div className={`relative aspect-square rounded-lg border-2 bg-black/40 flex items-center justify-center transition-all p-2 ${isSelected ? "border-emerald-500 bg-black/60 scale-[1.05] shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "border-transparent group-hover:border-white/20 group-hover:bg-black/50"}`}>
+                                <div className={`relative aspect-square rounded-lg border-2 bg-[var(--skeleton)] flex items-center justify-center transition-all p-2 ${isSelected ? "border-emerald-500 bg-[var(--skeleton-soft)] scale-[1.05] shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "border-transparent group-hover:border-[var(--border)] group-hover:bg-[var(--skeleton-soft)]"}`}>
                                   <PieceThumbnail src={knightSrc} alt={theme} />
                                   {isSelected && (
                                     <div className="absolute top-1 right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center z-10">
@@ -1167,11 +1167,11 @@ export default function OpeningPage() {
                               value={analysisThreads}
                               onChange={(event) => setAnalysisThreads(Math.max(1, Number(event.target.value) || 1))}
                               disabled
-                              className="w-full bg-[#242424] border border-[#3a3a3a] rounded-md px-3 py-2 text-[14px] text-[#8a8a8a] cursor-not-allowed"
+                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-muted)] cursor-not-allowed"
                             />
                           </div>
 
-                          <div className="rounded-md border border-[#323234] bg-[#202022] px-3 py-2 text-[12px] text-[#a5a5a8]">
+                          <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[12px] text-[var(--text-muted)]">
                             {analysisEngineChoice === "torch-4" || analysisEngineChoice === "torch-4-lite"
                               ? torchLoading
                                 ? "Checking Torch runtime..."
@@ -1328,7 +1328,7 @@ export default function OpeningPage() {
                 </div>
 
                   {/* Footer / Actions */}
-                  <div className="mt-auto bg-[#1f1f1f] px-8 py-5 flex items-center justify-end border-t border-white/5 w-full shrink-0">
+                  <div className="mt-auto bg-[var(--surface-alt)] px-8 py-5 flex items-center justify-end border-t border-[var(--border)] w-full shrink-0">
                     <button 
                       onClick={() => {
                         savePreferences().catch(() => {});
