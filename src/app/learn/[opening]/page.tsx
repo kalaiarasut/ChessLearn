@@ -3,7 +3,7 @@
 import type { DragEvent, MouseEvent } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Square } from "chess.js";
 import { ArrowLeft, Settings, Play, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Monitor, User, Gamepad2, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, MoreHorizontal, ChevronDown, ChevronUp } from "lucide-react";
 import themeManifest from "@/data/themeManifest.json";
@@ -58,6 +58,12 @@ type OpeningApiPayload = {
 };
 
 const SAN_RESULT_TOKENS = new Set(["1-0", "0-1", "1/2-1/2", "*"]);
+const TRAINER_USER_COLOR: "w" | "b" = "w";
+
+const normalizeSan = (san: string) => san.replace(/[+#?!]+/g, "").trim();
+
+const isSanPrefixMatch = (left: string[], right: string[]) =>
+  left.every((move, index) => normalizeSan(move) === normalizeSan(right[index] ?? ""));
 
 const buildHistoryFromPgn = (pgn: string) => {
   const tokens = pgn
@@ -341,6 +347,7 @@ export default function OpeningPage() {
   const [preferencesSaving, setPreferencesSaving] = useState(false);
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
   const [isAnalysisMenuOpen, setIsAnalysisMenuOpen] = useState(false);
+  const [showAnalysisSection, setShowAnalysisSection] = useState(true);
   const [showEvaluationBar, setShowEvaluationBar] = useState(true);
   const [showEngineLines, setShowEngineLines] = useState(true);
   const [showSuggestionArrow, setShowSuggestionArrow] = useState(false);
@@ -358,6 +365,8 @@ export default function OpeningPage() {
   const [openingLoading, setOpeningLoading] = useState(true);
   const [openingError, setOpeningError] = useState<string | null>(null);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+  const [trainerHint, setTrainerHint] = useState<string | null>(null);
+  const autoMoveTriggerKeyRef = useRef<string>("");
 
   const formattedTitle = openingData?.name ?? formatOpeningTitle(openingSlug.replace(/-/g, " "));
   const learnPreferences = clientPreferences.learn;
@@ -445,13 +454,15 @@ export default function OpeningPage() {
       return;
     }
 
-    const seeded = buildHistoryFromPgn(openingData.mainLine.pgn);
-    setHistory(seeded.history);
-    setSanHistory(seeded.sanHistory);
-    setSoundHistory(seeded.soundHistory);
-    setCurrentMoveIndex(seeded.history.length - 1);
-    setFen(seeded.history[seeded.history.length - 1] ?? DEFAULT_FEN);
+    const firstRequiredMove = buildHistoryFromPgn(openingData.mainLine.pgn).sanHistory[0] ?? null;
+
+    setHistory([DEFAULT_FEN]);
+    setSanHistory([]);
+    setSoundHistory(["game-start"]);
+    setCurrentMoveIndex(0);
+    setFen(DEFAULT_FEN);
     setSelectedLineId(openingData.mainLine.id);
+    setTrainerHint(firstRequiredMove ? `Required move: ${firstRequiredMove}` : null);
     setIsPlaying(false);
     setSelectedSquare(null);
     setDraggedSquare(null);
@@ -459,14 +470,16 @@ export default function OpeningPage() {
     setLastMove(null);
   }, [openingData?.mainLine?.pgn]);
 
-  const applyOpeningLine = (lineId: string, pgn: string) => {
+  const applyOpeningLine = (lineId: string, pgn: string, startMoveIndex?: number) => {
     const seeded = buildHistoryFromPgn(pgn);
+    const boundedMoveIndex = Math.max(0, Math.min(startMoveIndex ?? (seeded.history.length - 1), seeded.history.length - 1));
     setHistory(seeded.history);
     setSanHistory(seeded.sanHistory);
     setSoundHistory(seeded.soundHistory);
-    setCurrentMoveIndex(seeded.history.length - 1);
-    setFen(seeded.history[seeded.history.length - 1] ?? DEFAULT_FEN);
+    setCurrentMoveIndex(boundedMoveIndex);
+    setFen(seeded.history[boundedMoveIndex] ?? DEFAULT_FEN);
     setSelectedLineId(lineId);
+    setTrainerHint(null);
     setIsPlaying(false);
     setSelectedSquare(null);
     setDraggedSquare(null);
@@ -474,9 +487,70 @@ export default function OpeningPage() {
     setLastMove(null);
   };
 
+  const playedSanMoves = sanHistory.slice(0, Math.max(0, currentMoveIndex));
+  const mainLinePreview = useMemo(
+    () => (openingData?.mainLine?.pgn ? buildHistoryFromPgn(openingData.mainLine.pgn) : null),
+    [openingData?.mainLine?.pgn],
+  );
+  const mainLineSan = mainLinePreview?.sanHistory ?? [];
+  const isFollowingMainLine = isSanPrefixMatch(playedSanMoves, mainLineSan);
+  const isMainLineComplete = isFollowingMainLine && playedSanMoves.length >= mainLineSan.length && mainLineSan.length > 0;
+  const expectedBaseMove = !isMainLineComplete && isFollowingMainLine
+    ? mainLineSan[playedSanMoves.length] ?? null
+    : null;
+
+  const availableBranchVariations = useMemo(() => {
+    if (!openingData || !isMainLineComplete) {
+      return [] as Array<{ id: string; name: string; pgn: string; continuation: string }>;
+    }
+
+    return openingData.variations
+      .filter((line) => line.id !== openingData.mainLine.id)
+      .map((line) => {
+        const parsed = buildHistoryFromPgn(line.pgn);
+        if (!isSanPrefixMatch(mainLineSan, parsed.sanHistory)) {
+          return null;
+        }
+
+        const continuationMoves = parsed.sanHistory.slice(mainLineSan.length);
+        if (continuationMoves.length === 0) {
+          return null;
+        }
+
+        const shortName = line.name.startsWith(`${openingData.name}:`)
+          ? line.name.slice(openingData.name.length + 1).trim()
+          : line.name;
+
+        return {
+          id: line.id,
+          name: shortName || "Branch variation",
+          pgn: line.pgn,
+          continuation: continuationMoves.slice(0, 6).join(" "),
+        };
+      })
+      .filter((line): line is { id: string; name: string; pgn: string; continuation: string } => Boolean(line))
+      .slice(0, 18);
+  }, [openingData, isMainLineComplete, mainLineSan]);
+
+  const expectedBaseLegalMove = useMemo(() => {
+    if (!expectedBaseMove) {
+      return null;
+    }
+
+    const expectedBoard = new Chess(fen);
+    return expectedBoard
+      .moves({ verbose: true })
+      .find((move) => normalizeSan(move.san) === normalizeSan(expectedBaseMove)) ?? null;
+  }, [expectedBaseMove, fen]);
+
   const game = new Chess(fen);
+  const isUserTurnInTrainer = game.turn() === TRAINER_USER_COLOR;
   const legalTargets = selectedSquare
-    ? game.moves({ square: selectedSquare, verbose: true }).map((move) => move.to)
+    ? expectedBaseLegalMove
+      ? selectedSquare === expectedBaseLegalMove.from
+        ? [expectedBaseLegalMove.to]
+        : []
+      : game.moves({ square: selectedSquare, verbose: true }).map((move) => move.to)
     : [];
   const boardState = game.board().map((row) => row.map((piece) => getPieceCode(piece)));
   const statusText = getPositionStatus(game);
@@ -491,6 +565,25 @@ export default function OpeningPage() {
     stockfishVariant,
   );
   const { status: torchStatus, loading: torchLoading } = useTorchStatus();
+
+  useEffect(() => {
+    if (!expectedBaseLegalMove || isUserTurnInTrainer) {
+      autoMoveTriggerKeyRef.current = "";
+      return;
+    }
+
+    const triggerKey = `${fen}|${expectedBaseLegalMove.from}${expectedBaseLegalMove.to}`;
+    if (autoMoveTriggerKeyRef.current === triggerKey) {
+      return;
+    }
+
+    autoMoveTriggerKeyRef.current = triggerKey;
+    const timer = window.setTimeout(() => {
+      commitMove(expectedBaseLegalMove.from, expectedBaseLegalMove.to);
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [expectedBaseLegalMove, isUserTurnInTrainer, fen]);
 
   useEffect(() => {
     const loaded = loadClientPreferences();
@@ -585,7 +678,29 @@ export default function OpeningPage() {
     setDraggedSquare(null);
     setDragOverSquare(null);
     setLastMove(null);
+    setSelectedLineId(openingData?.mainLine.id ?? null);
+    setTrainerHint(mainLineSan[0] ? `Required move: ${mainLineSan[0]}` : null);
     playSound("game-start");
+  };
+
+  const skipBaseLine = () => {
+    if (!mainLinePreview || !openingData?.mainLine.id) {
+      return;
+    }
+
+    setHistory(mainLinePreview.history);
+    setSanHistory(mainLinePreview.sanHistory);
+    setSoundHistory(mainLinePreview.soundHistory);
+    const lastIndex = mainLinePreview.history.length - 1;
+    setCurrentMoveIndex(lastIndex);
+    setFen(mainLinePreview.history[lastIndex] ?? DEFAULT_FEN);
+    setSelectedLineId(openingData.mainLine.id);
+    setTrainerHint(null);
+    setIsPlaying(false);
+    setSelectedSquare(null);
+    setDraggedSquare(null);
+    setDragOverSquare(null);
+    setLastMove(null);
   };
 
   const goToStart = () => {
@@ -667,6 +782,12 @@ export default function OpeningPage() {
         return false;
       }
 
+      if (expectedBaseMove && normalizeSan(move.san) !== normalizeSan(expectedBaseMove)) {
+        setTrainerHint(`Required move: ${expectedBaseMove}`);
+        playSound("illegal");
+        return false;
+      }
+
       const serializedMove: SerializableMove = {
         from: move.from,
         to: move.to,
@@ -689,6 +810,29 @@ export default function OpeningPage() {
       setSelectedSquare(null);
       setDraggedSquare(null);
       setLastMove(serializedMove);
+      if (expectedBaseMove) {
+        const nextExpected = mainLineSan[nextSanHistory.length] ?? null;
+        if (nextExpected) {
+          const shouldAutoOpponentMove = nextPosition.turn() !== TRAINER_USER_COLOR;
+          if (shouldAutoOpponentMove) {
+            const autoReply = nextPosition
+              .moves({ verbose: true })
+              .find((candidate) => normalizeSan(candidate.san) === normalizeSan(nextExpected));
+
+            if (autoReply) {
+              setTrainerHint(`Opponent auto move: ${autoReply.san}`);
+            } else {
+              setTrainerHint(`Required move: ${nextExpected}`);
+            }
+          } else {
+            setTrainerHint(`Required move: ${nextExpected}`);
+          }
+        } else {
+          setTrainerHint(null);
+        }
+      } else {
+        setTrainerHint(null);
+      }
 
       let soundToPlay = "move-self";
       if (serializedMove.isCheck) {
@@ -715,6 +859,33 @@ export default function OpeningPage() {
     if (learnPreferences.moveMethod === "drag") {
       return;
     }
+
+    if (expectedBaseLegalMove && !isUserTurnInTrainer) {
+      return;
+    }
+
+    if (expectedBaseLegalMove) {
+      if (selectedSquare && legalTargets.includes(square)) {
+        if (learnPreferences.moveConfirmation && !window.confirm(`Confirm move ${selectedSquare} to ${square}?`)) {
+          return;
+        }
+        commitMove(selectedSquare, square);
+        return;
+      }
+
+      if (square === expectedBaseLegalMove.from) {
+        setSelectedSquare(square);
+        return;
+      }
+
+      setTrainerHint(`Required move: ${expectedBaseLegalMove.san}`);
+      if (selectedSquare) {
+        playSound("illegal");
+      }
+      setSelectedSquare(null);
+      return;
+    }
+
     const clickedPiece = game.get(square);
 
     if (selectedSquare === square) {
@@ -753,6 +924,18 @@ export default function OpeningPage() {
       return;
     }
 
+    if (expectedBaseLegalMove && !isUserTurnInTrainer) {
+      event.preventDefault();
+      return;
+    }
+
+    if (expectedBaseLegalMove && square !== expectedBaseLegalMove.from) {
+      event.preventDefault();
+      setTrainerHint(`Required move: ${expectedBaseLegalMove.san}`);
+      playSound("illegal");
+      return;
+    }
+
     // Use the piece image as drag ghost to avoid multiple pieces appearing
     const pieceImg = event.currentTarget.querySelector('img');
     if (pieceImg) {
@@ -771,6 +954,17 @@ export default function OpeningPage() {
 
     if (!draggedSquare) {
       return;
+    }
+
+    if (expectedBaseLegalMove) {
+      const isRequiredMove = draggedSquare === expectedBaseLegalMove.from && square === expectedBaseLegalMove.to;
+      if (!isRequiredMove) {
+        setTrainerHint(`Required move: ${expectedBaseLegalMove.san}`);
+        setDraggedSquare(null);
+        setSelectedSquare(null);
+        playSound("illegal");
+        return;
+      }
     }
 
     if (learnPreferences.moveConfirmation && !window.confirm(`Confirm move ${draggedSquare} to ${square}?`)) {
@@ -894,7 +1088,7 @@ export default function OpeningPage() {
     };
   }, []);
 
-  const visibleSanMoves = sanHistory.slice(0, Math.max(0, currentMoveIndex));
+  const visibleSanMoves = playedSanMoves;
   const playedMoveRows: Array<{
     moveNumber: number;
     whiteMove: string;
@@ -926,8 +1120,82 @@ export default function OpeningPage() {
 
       <main className="flex-1 w-full flex flex-col lg:flex-row h-[calc(100vh-73px)]">
         <div className="w-full lg:w-[35%] p-6 lg:p-5 bg-[var(--bg)] relative z-10 shrink-0 border-r border-[var(--border)]">
-          <div className="w-full h-full max-h-[85vh] bg-[#1e1e1f] border border-[#2d2d2f] rounded-xl shadow-2xl overflow-visible flex flex-col">
-            <div className="h-12 px-3 border-b border-[#2c2c2d] flex items-center justify-between relative">
+          <div className="w-full h-full bg-[#1e1e1f] border border-[#2d2d2f] rounded-xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="border-b border-[var(--border)] px-3 py-2 bg-[var(--surface-alt)]">
+              <div className="text-[16px] font-serif font-[600] leading-tight text-[var(--text-primary)]">
+                {formattedTitle} - {statusText}
+              </div>
+            </div>
+            <div className="border-b border-[var(--border)] px-3 py-2 bg-[var(--surface)] flex flex-col shrink-0">
+              <div className="text-[14px] font-semibold tracking-wide text-[var(--text-primary)] mb-1 shrink-0">Opening Trainer</div>
+              {openingLoading ? (
+                <div className="text-[12px] text-[var(--text-muted)] shrink-0">Loading opening line...</div>
+              ) : openingError ? (
+                <div className="text-[12px] text-[var(--text-primary)] shrink-0">{openingError}</div>
+              ) : openingData ? (
+                <div className="flex flex-col shrink-0">
+                  <div className="flex items-center justify-between gap-3 mb-1 shrink-0">
+                    <div className="text-[12px] text-[var(--text-secondary)]">
+                      Base line progress: {Math.min(playedSanMoves.length, mainLineSan.length)}/{mainLineSan.length} plies
+                    </div>
+                    {!isMainLineComplete ? (
+                      <button
+                        onClick={skipBaseLine}
+                        className="text-[11px] font-semibold px-2 py-1 rounded border border-[var(--border)] text-[var(--text-primary)] bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] transition-colors"
+                      >
+                        Skip base line
+                      </button>
+                    ) : null}
+                  </div>
+                  {!isMainLineComplete ? (
+                    <div className="text-[12px] text-[var(--text-primary)] font-semibold mb-2 shrink-0">
+                      {isUserTurnInTrainer
+                        ? `Required move: ${expectedBaseLegalMove?.san ?? expectedBaseMove ?? "-"}`
+                        : `Opponent auto move: ${expectedBaseLegalMove?.san ?? expectedBaseMove ?? "-"}`}
+                    </div>
+                  ) : trainerHint ? (
+                    <div className="text-[12px] text-[var(--text-primary)] font-semibold mb-2 shrink-0">{trainerHint}</div>
+                  ) : null}
+                  <div className="mt-1 flex flex-col shrink-0" style={{ height: "180px", overflow: "hidden" }}>
+                    <div className="rounded-md border border-[var(--border)] bg-[var(--surface-alt)] flex flex-col h-full overflow-hidden">
+                      <div className="px-2 py-1 border-b border-[var(--border)] text-[11px] font-semibold uppercase tracking-wide text-[var(--text-primary)] shrink-0">
+                        Variations
+                      </div>
+                      <div
+                        className="overflow-y-auto overscroll-contain custom-scrollbar pr-1 flex-1 relative"
+                        style={{ scrollbarGutter: "stable" }}
+                      >
+                      {!isMainLineComplete ? (
+                        <div className="px-2 py-2 text-[12px] text-[var(--text-muted)]">
+                          Complete the base line (or skip) to unlock variations.
+                        </div>
+                      ) : availableBranchVariations.length === 0 ? (
+                        <div className="px-2 py-2 text-[12px] text-[var(--text-muted)]">
+                          No mapped continuations found after this base line.
+                        </div>
+                      ) : (
+                        <div className="space-y-1 p-1">
+                          {availableBranchVariations.map((line) => (
+                            <button
+                              key={line.id}
+                              onClick={() => applyOpeningLine(line.id, line.pgn, mainLineSan.length)}
+                              className={`w-full text-left rounded border px-2 py-1 transition-colors ${selectedLineId === line.id ? "border-[var(--border-hover)] bg-[var(--surface-hover)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
+                              title={line.pgn}
+                            >
+                              <div className="text-[11px] font-semibold uppercase tracking-wide mb-0.5">{line.name}</div>
+                              <div className="text-[11px] text-[var(--text-muted)] truncate">{line.continuation}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="h-12 px-3 border-b border-[#2c2c2d] flex items-center justify-between relative shrink-0">
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#3a3a3a] text-[var(--text-primary)] text-[10px]">v</span>
                 <span className="text-[#f0f0f0] text-[15px] font-[500] leading-none">Analysis</span>
@@ -952,6 +1220,10 @@ export default function OpeningPage() {
 
               {isAnalysisMenuOpen && (
                 <div className="absolute top-11 left-20 z-30 w-[230px] rounded-md border border-[#3a3a3d] bg-[#242426] shadow-2xl py-2">
+                  <button onClick={() => setShowAnalysisSection((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                    <span>Analysis Section</span>
+                    <span className={showAnalysisSection ? "text-emerald-500" : "text-[#7b7b7b]"}>{showAnalysisSection ? "On" : "Off"}</span>
+                  </button>
                   <button onClick={() => setShowEvaluationBar((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
                     <span>Evaluation Bar</span>
                     <span className={showEvaluationBar ? "text-emerald-500" : "text-[#7b7b7b]"}>{showEvaluationBar ? "On" : "Off"}</span>
@@ -972,8 +1244,9 @@ export default function OpeningPage() {
               )}
             </div>
 
+            {showAnalysisSection ? (
             <div className="flex-1 min-h-0 flex flex-col">
-              <div className="max-h-[255px] overflow-visible border-b border-[#2a2a2c]">
+              <div className="max-h-[255px] overflow-y-auto custom-scrollbar border-b border-[#2a2a2c]">
                 {showEngineLines ? (
                   <>
                     {analysis.lines.slice(0, analysisMultiPv).map((line) => {
@@ -1066,6 +1339,7 @@ export default function OpeningPage() {
                 </div>
               </div>
             </div>
+            ) : null}
 
             <div className="px-3 py-2 border-t border-[#2a2a2c] bg-[#1b1b1c]">
               <div className="flex items-center justify-center gap-2 mb-3 w-full">
@@ -1086,51 +1360,11 @@ export default function OpeningPage() {
                   </button>
                 </div>
 
-              <div className="text-[13px] text-[#a8a8aa] mb-2">
-                {learnPreferences.showOpeningNames ? `${formattedTitle} - ${statusText}` : statusText}
-              </div>
               {showMoveFeedback && (
                 <div className="text-[12px] text-[#b8e8d0] mb-2">
                   {topSuggestedMove ? `Suggested move: ${topSuggestedMove}` : "No suggestion yet."}
                 </div>
               )}
-              {openingLoading ? (
-                <div className="mb-3 rounded-md border border-[#2f2f32] bg-[#1d1d1f] px-3 py-2 text-[12px] text-[#a3a3a6]">
-                  Loading opening context...
-                </div>
-              ) : openingError ? (
-                <div className="mb-3 rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
-                  {openingError}
-                </div>
-              ) : openingData ? (
-                <div className="mb-3 rounded-md border border-[#2f2f32] bg-[#1d1d1f] px-3 py-2 text-[12px] text-[#cfcfd2]">
-                  <div className="font-semibold text-white mb-1">{openingData.name} ({openingData.eco})</div>
-                  <div className="text-[#b7b7ba] mb-1 break-words">Main line: {openingData.mainLine.pgn}</div>
-                  <div className="text-[#9f9fa3] mb-1">{openingData.variationCount} mapped variations</div>
-                  <div className="mt-2 max-h-[140px] overflow-y-auto space-y-1 pr-1">
-                    {openingData.variations.slice(0, 16).map((line, index) => {
-                      const isSelected = selectedLineId === line.id;
-                      const label = index === 0
-                        ? "Main line"
-                        : line.name.startsWith(`${openingData.name}:`)
-                          ? line.name.slice(openingData.name.length + 1).trim()
-                          : line.name;
-
-                      return (
-                        <button
-                          key={line.id}
-                          onClick={() => applyOpeningLine(line.id, line.pgn)}
-                          className={`w-full text-left rounded border px-2 py-1 transition-colors ${isSelected ? "border-emerald-500/70 bg-emerald-500/10 text-emerald-200" : "border-[#343437] bg-[#202023] text-[#c9c9cc] hover:bg-[#29292d]"}`}
-                          title={line.pgn}
-                        >
-                          <div className="text-[11px] font-semibold uppercase tracking-wide mb-0.5">{label || `Variation ${index + 1}`}</div>
-                          <div className="text-[11px] text-[#b7b7ba] truncate">{line.pgn}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
               <button
                 onClick={resetBoard}
                 className="w-full flex items-center justify-center px-4 py-2.5 bg-[#2f78cf] text-white rounded-md font-semibold text-[13px] hover:bg-[#3f88df] transition-colors"
@@ -1705,8 +1939,10 @@ export default function OpeningPage() {
         </div>
       </main>
       {hoverPreview ? (
-        <div className="pointer-events-none fixed z-[99999]" style={{ left: hoverPreview.left, top: hoverPreview.top }}>
-          <MiniBoardPreview fen={hoverPreview.fen} boardTheme={boardTheme} pieceTheme={pieceTheme} />
+        <div className="pointer-events-none fixed" style={{ left: hoverPreview.left, top: hoverPreview.top, zIndex: 999999 }}>
+          <div className="shadow-2xl rounded-sm overflow-hidden bg-[var(--surface-alt)] border border-[var(--border)]">
+            <MiniBoardPreview fen={hoverPreview.fen} boardTheme={boardTheme} pieceTheme={pieceTheme} />
+          </div>
         </div>
       ) : null}
     </div>
