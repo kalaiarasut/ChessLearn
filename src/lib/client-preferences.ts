@@ -1,5 +1,20 @@
 export type MoveMethod = "drag" | "click" | "both";
 export type BoardOrientation = "auto" | "white" | "black";
+export type LearnSortMode = "recommended" | "recent" | "mastery" | "new";
+
+export type LearnVariationProgress = {
+  attempts: number;
+  completions: number;
+  bestAccuracy: number;
+  lastAccuracy: number;
+  lastPracticedAt: string;
+};
+
+export type LearnOpeningProgress = {
+  lastPracticedLineId: string | null;
+  lastPracticedAt: string;
+  variations: Record<string, LearnVariationProgress>;
+};
 
 export type LearnClientPreferences = {
   autoQueen: boolean;
@@ -10,6 +25,8 @@ export type LearnClientPreferences = {
   engineDepth: number;
   showOpeningNames: boolean;
   masterVolume: number;
+  learnSortMode: LearnSortMode;
+  openingProgressBySlug: Record<string, LearnOpeningProgress>;
 };
 
 export type BotClientPreferences = {
@@ -40,6 +57,8 @@ export const DEFAULT_CLIENT_PREFERENCES: ClientPreferences = {
     engineDepth: 18,
     showOpeningNames: true,
     masterVolume: 80,
+    learnSortMode: "recommended",
+    openingProgressBySlug: {},
   },
   bot: {
     autoQueen: false,
@@ -72,6 +91,8 @@ export function loadClientPreferences(): ClientPreferences {
           ...parsed.learn,
           engineDepth: clampNumber(parsed.learn.engineDepth, 10, 24, DEFAULT_CLIENT_PREFERENCES.learn.engineDepth),
           masterVolume: clampNumber(parsed.learn.masterVolume, 0, 100, DEFAULT_CLIENT_PREFERENCES.learn.masterVolume),
+          learnSortMode: toLearnSortMode(parsed.learn.learnSortMode),
+          openingProgressBySlug: normalizeOpeningProgressBySlug(parsed.learn.openingProgressBySlug),
         },
         bot: {
           ...DEFAULT_CLIENT_PREFERENCES.bot,
@@ -94,6 +115,8 @@ export function loadClientPreferences(): ClientPreferences {
         engineDepth: clampNumber(asNumber(legacy.engineDepth), 10, 24, DEFAULT_CLIENT_PREFERENCES.learn.engineDepth),
         showOpeningNames: legacy.showOpeningNames !== false,
         masterVolume: clampNumber(asNumber(legacy.masterVolume), 0, 100, DEFAULT_CLIENT_PREFERENCES.learn.masterVolume),
+        learnSortMode: DEFAULT_CLIENT_PREFERENCES.learn.learnSortMode,
+        openingProgressBySlug: {},
       },
       bot: {
         ...DEFAULT_CLIENT_PREFERENCES.bot,
@@ -128,6 +151,56 @@ function clampNumber(value: number | undefined, min: number, max: number, fallba
   return Math.min(max, Math.max(min, Math.round(value)));
 }
 
+function normalizeOpeningProgressBySlug(value: unknown): Record<string, LearnOpeningProgress> {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>);
+  const normalized: Record<string, LearnOpeningProgress> = {};
+
+  for (const [slug, openingValue] of entries) {
+    if (!openingValue || typeof openingValue !== "object") {
+      continue;
+    }
+
+    const opening = openingValue as Record<string, unknown>;
+    const variationsValue = opening.variations;
+    const normalizedVariations: Record<string, LearnVariationProgress> = {};
+
+    if (variationsValue && typeof variationsValue === "object") {
+      for (const [variationId, variationValue] of Object.entries(variationsValue as Record<string, unknown>)) {
+        if (!variationValue || typeof variationValue !== "object") {
+          continue;
+        }
+
+        const variation = variationValue as Record<string, unknown>;
+        const attempts = clampNumber(asNumber(variation.attempts), 0, 1_000_000, 0);
+        const completions = clampNumber(asNumber(variation.completions), 0, 1_000_000, 0);
+        const bestAccuracy = clampNumber(asNumber(variation.bestAccuracy), 0, 100, 0);
+        const lastAccuracy = clampNumber(asNumber(variation.lastAccuracy), 0, 100, 0);
+        const lastPracticedAt = typeof variation.lastPracticedAt === "string" ? variation.lastPracticedAt : "";
+
+        normalizedVariations[variationId] = {
+          attempts,
+          completions,
+          bestAccuracy,
+          lastAccuracy,
+          lastPracticedAt,
+        };
+      }
+    }
+
+    normalized[slug] = {
+      lastPracticedLineId: typeof opening.lastPracticedLineId === "string" ? opening.lastPracticedLineId : null,
+      lastPracticedAt: typeof opening.lastPracticedAt === "string" ? opening.lastPracticedAt : "",
+      variations: normalizedVariations,
+    };
+  }
+
+  return normalized;
+}
+
 function asNumber(value: unknown) {
   return typeof value === "number" ? value : undefined;
 }
@@ -144,6 +217,13 @@ function toBoardOrientation(value: unknown): BoardOrientation {
     return value;
   }
   return DEFAULT_CLIENT_PREFERENCES.learn.boardOrientation;
+}
+
+function toLearnSortMode(value: unknown): LearnSortMode {
+  if (value === "recommended" || value === "recent" || value === "mastery" || value === "new") {
+    return value;
+  }
+  return DEFAULT_CLIENT_PREFERENCES.learn.learnSortMode;
 }
 
 function isScopedPreferences(value: Partial<ClientPreferences> & Record<string, unknown>): value is ClientPreferences {

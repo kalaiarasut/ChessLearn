@@ -149,8 +149,12 @@ export default function SettingsPage() {
 
   const resetScope = () => {
     if (activeScope === "learn") {
-      setLearnPrefs(DEFAULT_CLIENT_PREFERENCES.learn);
-      saveClientPreferences({ learn: DEFAULT_CLIENT_PREFERENCES.learn, bot: botPrefs });
+      const nextLearnPrefs = {
+        ...DEFAULT_CLIENT_PREFERENCES.learn,
+        openingProgressBySlug: learnPrefs.openingProgressBySlug,
+      };
+      setLearnPrefs(nextLearnPrefs);
+      saveClientPreferences({ learn: nextLearnPrefs, bot: botPrefs });
       setSaveMessage("Learn settings reset.");
       return;
     }

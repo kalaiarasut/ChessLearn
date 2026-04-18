@@ -3,14 +3,19 @@
 import type { DragEvent, MouseEvent } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Square } from "chess.js";
 import { ArrowLeft, Settings, Play, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Monitor, User, Gamepad2, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, MoreHorizontal, ChevronDown, ChevronUp } from "lucide-react";
 import themeManifest from "@/data/themeManifest.json";
 import { useStockfishAnalysis } from "./use-stockfish-analysis";
 import { useTorchStatus } from "./use-torch-status";
 import { useTheme } from "@/lib/theme-context";
-import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreferences } from "@/lib/client-preferences";
+import {
+  DEFAULT_CLIENT_PREFERENCES,
+  loadClientPreferences,
+  saveClientPreferences,
+  type LearnOpeningProgress,
+} from "@/lib/client-preferences";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 const DEFAULT_FEN = new Chess().fen();
@@ -57,8 +62,17 @@ type OpeningApiPayload = {
   }>;
 };
 
+type BranchVariation = {
+  id: string;
+  name: string;
+  pgn: string;
+  continuation: string;
+  sanHistory: string[];
+};
+
 const SAN_RESULT_TOKENS = new Set(["1-0", "0-1", "1/2-1/2", "*"]);
 const TRAINER_USER_COLOR: "w" | "b" = "w";
+const VARIATIONS_PAGE_SIZE = 8;
 
 const normalizeSan = (san: string) => san.replace(/[+#?!]+/g, "").trim();
 
@@ -366,10 +380,41 @@ export default function OpeningPage() {
   const [openingError, setOpeningError] = useState<string | null>(null);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
   const [trainerHint, setTrainerHint] = useState<string | null>(null);
+  const [variationQuery, setVariationQuery] = useState("");
+  const [variationVisibleCount, setVariationVisibleCount] = useState(VARIATIONS_PAGE_SIZE);
+  const [branchAttemptStats, setBranchAttemptStats] = useState<{ lineId: string; correct: number; wrong: number } | null>(null);
   const autoMoveTriggerKeyRef = useRef<string>("");
+  const branchCompletionTriggerRef = useRef<string>("");
 
   const formattedTitle = openingData?.name ?? formatOpeningTitle(openingSlug.replace(/-/g, " "));
   const learnPreferences = clientPreferences.learn;
+  const openingProgressSlug = openingData?.slug ?? openingSlug;
+  const openingProgress = learnPreferences.openingProgressBySlug[openingProgressSlug] ?? null;
+  const variationProgressById = openingProgress?.variations ?? {};
+  const updateOpeningProgress = useCallback((updater: (current: LearnOpeningProgress) => LearnOpeningProgress) => {
+    setClientPreferences((previous) => {
+      const currentOpeningProgress = previous.learn.openingProgressBySlug[openingProgressSlug] ?? {
+        lastPracticedLineId: null,
+        lastPracticedAt: "",
+        variations: {},
+      };
+      const nextOpeningProgress = updater(currentOpeningProgress);
+      const nextPreferences = {
+        ...previous,
+        learn: {
+          ...previous.learn,
+          openingProgressBySlug: {
+            ...previous.learn.openingProgressBySlug,
+            [openingProgressSlug]: nextOpeningProgress,
+          },
+        },
+      };
+
+      saveClientPreferences(nextPreferences);
+      return nextPreferences;
+    });
+  }, [openingProgressSlug]);
+
   const updateLearnPreferences = (updates: Partial<typeof learnPreferences>) => {
     setClientPreferences((previous) => ({
       ...previous,
@@ -468,18 +513,37 @@ export default function OpeningPage() {
     setDraggedSquare(null);
     setDragOverSquare(null);
     setLastMove(null);
+    setVariationQuery("");
+    setVariationVisibleCount(VARIATIONS_PAGE_SIZE);
+    setBranchAttemptStats(null);
+    branchCompletionTriggerRef.current = "";
   }, [openingData?.mainLine?.pgn]);
 
-  const applyOpeningLine = (lineId: string, pgn: string, startMoveIndex?: number) => {
+  const applyOpeningLine = (lineId: string, pgn: string, startMoveIndex?: number, lineName?: string) => {
     const seeded = buildHistoryFromPgn(pgn);
     const boundedMoveIndex = Math.max(0, Math.min(startMoveIndex ?? (seeded.history.length - 1), seeded.history.length - 1));
+    const nextExpectedMove = seeded.sanHistory[boundedMoveIndex] ?? null;
+    const isBranchLine = lineId !== openingData?.mainLine.id;
+    if (isBranchLine) {
+      const timestamp = new Date().toISOString();
+      updateOpeningProgress((current) => ({
+        ...current,
+        lastPracticedLineId: lineId,
+        lastPracticedAt: timestamp,
+      }));
+      setBranchAttemptStats({ lineId, correct: 0, wrong: 0 });
+      branchCompletionTriggerRef.current = "";
+    } else {
+      setBranchAttemptStats(null);
+      branchCompletionTriggerRef.current = "";
+    }
     setHistory(seeded.history);
     setSanHistory(seeded.sanHistory);
     setSoundHistory(seeded.soundHistory);
     setCurrentMoveIndex(boundedMoveIndex);
     setFen(seeded.history[boundedMoveIndex] ?? DEFAULT_FEN);
     setSelectedLineId(lineId);
-    setTrainerHint(null);
+    setTrainerHint(nextExpectedMove ? `Required move: ${nextExpectedMove}` : lineName ? `${lineName} loaded.` : null);
     setIsPlaying(false);
     setSelectedSquare(null);
     setDraggedSquare(null);
@@ -493,15 +557,24 @@ export default function OpeningPage() {
     [openingData?.mainLine?.pgn],
   );
   const mainLineSan = mainLinePreview?.sanHistory ?? [];
-  const isFollowingMainLine = isSanPrefixMatch(playedSanMoves, mainLineSan);
-  const isMainLineComplete = isFollowingMainLine && playedSanMoves.length >= mainLineSan.length && mainLineSan.length > 0;
-  const expectedBaseMove = !isMainLineComplete && isFollowingMainLine
-    ? mainLineSan[playedSanMoves.length] ?? null
-    : null;
+  const matchedMainLinePlies = useMemo(() => {
+    let count = 0;
+    const maxComparablePlies = Math.min(mainLineSan.length, playedSanMoves.length);
 
-  const availableBranchVariations = useMemo(() => {
+    while (
+      count < maxComparablePlies &&
+      normalizeSan(mainLineSan[count] ?? "") === normalizeSan(playedSanMoves[count] ?? "")
+    ) {
+      count += 1;
+    }
+
+    return count;
+  }, [mainLineSan, playedSanMoves]);
+  const isMainLineComplete = mainLineSan.length > 0 && matchedMainLinePlies >= mainLineSan.length;
+
+  const allBranchVariations = useMemo(() => {
     if (!openingData || !isMainLineComplete) {
-      return [] as Array<{ id: string; name: string; pgn: string; continuation: string }>;
+      return [] as BranchVariation[];
     }
 
     return openingData.variations
@@ -526,29 +599,166 @@ export default function OpeningPage() {
           name: shortName || "Branch variation",
           pgn: line.pgn,
           continuation: continuationMoves.slice(0, 6).join(" "),
+          sanHistory: parsed.sanHistory,
         };
       })
-      .filter((line): line is { id: string; name: string; pgn: string; continuation: string } => Boolean(line))
-      .slice(0, 18);
+      .filter((line): line is BranchVariation => Boolean(line));
   }, [openingData, isMainLineComplete, mainLineSan]);
 
-  const expectedBaseLegalMove = useMemo(() => {
-    if (!expectedBaseMove) {
+  const selectedBranchVariation = useMemo(
+    () => allBranchVariations.find((line) => line.id === selectedLineId) ?? null,
+    [allBranchVariations, selectedLineId],
+  );
+  const activeLineSan = selectedBranchVariation?.sanHistory ?? mainLineSan;
+  const isFollowingActiveLine = isSanPrefixMatch(playedSanMoves, activeLineSan);
+  const isActiveLineComplete = isFollowingActiveLine && playedSanMoves.length >= activeLineSan.length && activeLineSan.length > 0;
+  const expectedTrainerMove = !isActiveLineComplete ? activeLineSan[playedSanMoves.length] ?? null : null;
+  const expectedTrainerLegalMove = useMemo(() => {
+    if (!expectedTrainerMove) {
       return null;
     }
 
     const expectedBoard = new Chess(fen);
     return expectedBoard
       .moves({ verbose: true })
-      .find((move) => normalizeSan(move.san) === normalizeSan(expectedBaseMove)) ?? null;
-  }, [expectedBaseMove, fen]);
+      .find((move) => normalizeSan(move.san) === normalizeSan(expectedTrainerMove)) ?? null;
+  }, [expectedTrainerMove, fen]);
+  const isBranchMode = Boolean(selectedBranchVariation);
+  const isBranchComplete = isBranchMode && isActiveLineComplete;
+  const selectedBranchContinuationLength = selectedBranchVariation
+    ? Math.max(0, selectedBranchVariation.sanHistory.length - mainLineSan.length)
+    : 0;
+  const selectedBranchProgress = selectedBranchVariation
+    ? Math.max(
+      0,
+      Math.min(playedSanMoves.length, selectedBranchVariation.sanHistory.length) - mainLineSan.length,
+    )
+    : 0;
+  const filteredBranchVariations = useMemo(() => {
+    const query = variationQuery.trim().toLowerCase();
+    if (!query) {
+      return allBranchVariations;
+    }
+
+    return allBranchVariations.filter((line) =>
+      line.name.toLowerCase().includes(query) ||
+      line.continuation.toLowerCase().includes(query),
+    );
+  }, [allBranchVariations, variationQuery]);
+  const visibleBranchVariations = useMemo(
+    () => filteredBranchVariations.slice(0, variationVisibleCount),
+    [filteredBranchVariations, variationVisibleCount],
+  );
+  const hasMoreVariations = filteredBranchVariations.length > visibleBranchVariations.length;
+  const rankedBranchVariations = useMemo(() => {
+    return [...allBranchVariations].sort((left, right) => {
+      const leftProgress = variationProgressById[left.id];
+      const rightProgress = variationProgressById[right.id];
+      const leftIsNew = (leftProgress?.completions ?? 0) === 0 ? 0 : 1;
+      const rightIsNew = (rightProgress?.completions ?? 0) === 0 ? 0 : 1;
+      if (leftIsNew !== rightIsNew) {
+        return leftIsNew - rightIsNew;
+      }
+
+      const leftAccuracy = leftProgress?.bestAccuracy ?? 0;
+      const rightAccuracy = rightProgress?.bestAccuracy ?? 0;
+      if (leftAccuracy !== rightAccuracy) {
+        return leftAccuracy - rightAccuracy;
+      }
+
+      const leftLast = leftProgress?.lastPracticedAt ? Date.parse(leftProgress.lastPracticedAt) : -1;
+      const rightLast = rightProgress?.lastPracticedAt ? Date.parse(rightProgress.lastPracticedAt) : -1;
+      if (leftLast !== rightLast) {
+        return leftLast - rightLast;
+      }
+
+      const leftAttempts = leftProgress?.attempts ?? 0;
+      const rightAttempts = rightProgress?.attempts ?? 0;
+      if (leftAttempts !== rightAttempts) {
+        return leftAttempts - rightAttempts;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+  }, [allBranchVariations, variationProgressById]);
+  const recommendedNextBranch = useMemo(() => {
+    if (rankedBranchVariations.length === 0) {
+      return null;
+    }
+
+    const candidates = rankedBranchVariations.filter((line) => line.id !== selectedBranchVariation?.id);
+    return candidates[0] ?? null;
+  }, [rankedBranchVariations, selectedBranchVariation]);
+
+  useEffect(() => {
+    setVariationVisibleCount(VARIATIONS_PAGE_SIZE);
+  }, [variationQuery]);
+
+  useEffect(() => {
+    if (!selectedBranchVariation || !isBranchComplete) {
+      if (!selectedBranchVariation) {
+        branchCompletionTriggerRef.current = "";
+      }
+      return;
+    }
+
+    const attemptStats = branchAttemptStats?.lineId === selectedBranchVariation.id
+      ? branchAttemptStats
+      : { lineId: selectedBranchVariation.id, correct: 0, wrong: 0 };
+    const totalAttemptedMoves = attemptStats.correct + attemptStats.wrong;
+    const accuracy = totalAttemptedMoves === 0
+      ? 100
+      : Math.round((attemptStats.correct / totalAttemptedMoves) * 100);
+    const completionKey = `${selectedBranchVariation.id}:${attemptStats.correct}:${attemptStats.wrong}:${playedSanMoves.length}`;
+
+    if (branchCompletionTriggerRef.current === completionKey) {
+      return;
+    }
+    branchCompletionTriggerRef.current = completionKey;
+
+    const completedName = selectedBranchVariation.name;
+    const completedLineId = selectedBranchVariation.id;
+    const timestamp = new Date().toISOString();
+    updateOpeningProgress((current) => {
+      const previousVariation = current.variations[completedLineId] ?? {
+        attempts: 0,
+        completions: 0,
+        bestAccuracy: 0,
+        lastAccuracy: 0,
+        lastPracticedAt: "",
+      };
+
+      return {
+        ...current,
+        lastPracticedLineId: completedLineId,
+        lastPracticedAt: timestamp,
+        variations: {
+          ...current.variations,
+          [completedLineId]: {
+            attempts: previousVariation.attempts + 1,
+            completions: previousVariation.completions + 1,
+            bestAccuracy: Math.max(previousVariation.bestAccuracy, accuracy),
+            lastAccuracy: accuracy,
+            lastPracticedAt: timestamp,
+          },
+        },
+      };
+    });
+    setTrainerHint(`Completed ${completedName} (${accuracy}% accuracy).`);
+  }, [
+    branchAttemptStats,
+    isBranchComplete,
+    playedSanMoves.length,
+    selectedBranchVariation,
+    updateOpeningProgress,
+  ]);
 
   const game = new Chess(fen);
   const isUserTurnInTrainer = game.turn() === TRAINER_USER_COLOR;
   const legalTargets = selectedSquare
-    ? expectedBaseLegalMove
-      ? selectedSquare === expectedBaseLegalMove.from
-        ? [expectedBaseLegalMove.to]
+    ? expectedTrainerLegalMove
+      ? selectedSquare === expectedTrainerLegalMove.from
+        ? [expectedTrainerLegalMove.to]
         : []
       : game.moves({ square: selectedSquare, verbose: true }).map((move) => move.to)
     : [];
@@ -567,23 +777,23 @@ export default function OpeningPage() {
   const { status: torchStatus, loading: torchLoading } = useTorchStatus();
 
   useEffect(() => {
-    if (!expectedBaseLegalMove || isUserTurnInTrainer) {
+    if (!expectedTrainerLegalMove || isUserTurnInTrainer) {
       autoMoveTriggerKeyRef.current = "";
       return;
     }
 
-    const triggerKey = `${fen}|${expectedBaseLegalMove.from}${expectedBaseLegalMove.to}`;
+    const triggerKey = `${fen}|${expectedTrainerLegalMove.from}${expectedTrainerLegalMove.to}`;
     if (autoMoveTriggerKeyRef.current === triggerKey) {
       return;
     }
 
     autoMoveTriggerKeyRef.current = triggerKey;
     const timer = window.setTimeout(() => {
-      commitMove(expectedBaseLegalMove.from, expectedBaseLegalMove.to);
+      commitMove(expectedTrainerLegalMove.from, expectedTrainerLegalMove.to);
     }, 350);
 
     return () => window.clearTimeout(timer);
-  }, [expectedBaseLegalMove, isUserTurnInTrainer, fen]);
+  }, [expectedTrainerLegalMove, isUserTurnInTrainer, fen]);
 
   useEffect(() => {
     const loaded = loadClientPreferences();
@@ -680,6 +890,10 @@ export default function OpeningPage() {
     setLastMove(null);
     setSelectedLineId(openingData?.mainLine.id ?? null);
     setTrainerHint(mainLineSan[0] ? `Required move: ${mainLineSan[0]}` : null);
+    setVariationQuery("");
+    setVariationVisibleCount(VARIATIONS_PAGE_SIZE);
+    setBranchAttemptStats(null);
+    branchCompletionTriggerRef.current = "";
     playSound("game-start");
   };
 
@@ -701,6 +915,10 @@ export default function OpeningPage() {
     setDraggedSquare(null);
     setDragOverSquare(null);
     setLastMove(null);
+    setVariationQuery("");
+    setVariationVisibleCount(VARIATIONS_PAGE_SIZE);
+    setBranchAttemptStats(null);
+    branchCompletionTriggerRef.current = "";
   };
 
   const goToStart = () => {
@@ -744,8 +962,30 @@ export default function OpeningPage() {
 
   const togglePlay = () => setIsPlaying(!isPlaying);
 
+  const updateBranchAttempt = (field: "correct" | "wrong") => {
+    if (!selectedBranchVariation) {
+      return;
+    }
+
+    setBranchAttemptStats((previous) => {
+      if (!previous || previous.lineId !== selectedBranchVariation.id) {
+        return {
+          lineId: selectedBranchVariation.id,
+          correct: field === "correct" ? 1 : 0,
+          wrong: field === "wrong" ? 1 : 0,
+        };
+      }
+
+      return {
+        ...previous,
+        [field]: previous[field] + 1,
+      };
+    });
+  };
+
   const commitMove = (from: Square, to: Square) => {
     const nextPosition = new Chess(fen);
+    const shouldTrackBranchAttempt = Boolean(selectedBranchVariation && expectedTrainerMove && isUserTurnInTrainer);
 
     let promotion: "q" | "r" | "b" | "n" | undefined = undefined;
     const movingPiece = nextPosition.get(from);
@@ -782,10 +1022,17 @@ export default function OpeningPage() {
         return false;
       }
 
-      if (expectedBaseMove && normalizeSan(move.san) !== normalizeSan(expectedBaseMove)) {
-        setTrainerHint(`Required move: ${expectedBaseMove}`);
+      if (expectedTrainerMove && normalizeSan(move.san) !== normalizeSan(expectedTrainerMove)) {
+        if (shouldTrackBranchAttempt) {
+          updateBranchAttempt("wrong");
+        }
+        setTrainerHint(`Required move: ${expectedTrainerMove}`);
         playSound("illegal");
         return false;
+      }
+
+      if (shouldTrackBranchAttempt) {
+        updateBranchAttempt("correct");
       }
 
       const serializedMove: SerializableMove = {
@@ -810,8 +1057,8 @@ export default function OpeningPage() {
       setSelectedSquare(null);
       setDraggedSquare(null);
       setLastMove(serializedMove);
-      if (expectedBaseMove) {
-        const nextExpected = mainLineSan[nextSanHistory.length] ?? null;
+      if (expectedTrainerMove) {
+        const nextExpected = activeLineSan[nextSanHistory.length] ?? null;
         if (nextExpected) {
           const shouldAutoOpponentMove = nextPosition.turn() !== TRAINER_USER_COLOR;
           if (shouldAutoOpponentMove) {
@@ -860,11 +1107,11 @@ export default function OpeningPage() {
       return;
     }
 
-    if (expectedBaseLegalMove && !isUserTurnInTrainer) {
+    if (expectedTrainerLegalMove && !isUserTurnInTrainer) {
       return;
     }
 
-    if (expectedBaseLegalMove) {
+    if (expectedTrainerLegalMove) {
       if (selectedSquare && legalTargets.includes(square)) {
         if (learnPreferences.moveConfirmation && !window.confirm(`Confirm move ${selectedSquare} to ${square}?`)) {
           return;
@@ -873,12 +1120,12 @@ export default function OpeningPage() {
         return;
       }
 
-      if (square === expectedBaseLegalMove.from) {
+      if (square === expectedTrainerLegalMove.from) {
         setSelectedSquare(square);
         return;
       }
 
-      setTrainerHint(`Required move: ${expectedBaseLegalMove.san}`);
+      setTrainerHint(`Required move: ${expectedTrainerLegalMove.san}`);
       if (selectedSquare) {
         playSound("illegal");
       }
@@ -924,14 +1171,14 @@ export default function OpeningPage() {
       return;
     }
 
-    if (expectedBaseLegalMove && !isUserTurnInTrainer) {
+    if (expectedTrainerLegalMove && !isUserTurnInTrainer) {
       event.preventDefault();
       return;
     }
 
-    if (expectedBaseLegalMove && square !== expectedBaseLegalMove.from) {
+    if (expectedTrainerLegalMove && square !== expectedTrainerLegalMove.from) {
       event.preventDefault();
-      setTrainerHint(`Required move: ${expectedBaseLegalMove.san}`);
+      setTrainerHint(`Required move: ${expectedTrainerLegalMove.san}`);
       playSound("illegal");
       return;
     }
@@ -956,10 +1203,10 @@ export default function OpeningPage() {
       return;
     }
 
-    if (expectedBaseLegalMove) {
-      const isRequiredMove = draggedSquare === expectedBaseLegalMove.from && square === expectedBaseLegalMove.to;
+    if (expectedTrainerLegalMove) {
+      const isRequiredMove = draggedSquare === expectedTrainerLegalMove.from && square === expectedTrainerLegalMove.to;
       if (!isRequiredMove) {
-        setTrainerHint(`Required move: ${expectedBaseLegalMove.san}`);
+        setTrainerHint(`Required move: ${expectedTrainerLegalMove.san}`);
         setDraggedSquare(null);
         setSelectedSquare(null);
         playSound("illegal");
@@ -1136,7 +1383,7 @@ export default function OpeningPage() {
                 <div className="flex flex-col shrink-0">
                   <div className="flex items-center justify-between gap-3 mb-1 shrink-0">
                     <div className="text-[12px] text-[var(--text-secondary)]">
-                      Base line progress: {Math.min(playedSanMoves.length, mainLineSan.length)}/{mainLineSan.length} plies
+                      Base line progress: {Math.min(matchedMainLinePlies, mainLineSan.length)}/{mainLineSan.length} plies
                     </div>
                     {!isMainLineComplete ? (
                       <button
@@ -1147,14 +1394,51 @@ export default function OpeningPage() {
                       </button>
                     ) : null}
                   </div>
-                  {!isMainLineComplete ? (
+                  {selectedBranchVariation ? (
+                    <div className="text-[12px] text-[var(--text-secondary)] mb-1 shrink-0">
+                      Variation progress: {selectedBranchProgress}/{selectedBranchContinuationLength} plies
+                    </div>
+                  ) : null}
+                  {expectedTrainerMove ? (
                     <div className="text-[12px] text-[var(--text-primary)] font-semibold mb-2 shrink-0">
                       {isUserTurnInTrainer
-                        ? `Required move: ${expectedBaseLegalMove?.san ?? expectedBaseMove ?? "-"}`
-                        : `Opponent auto move: ${expectedBaseLegalMove?.san ?? expectedBaseMove ?? "-"}`}
+                        ? `Required move: ${expectedTrainerLegalMove?.san ?? expectedTrainerMove ?? "-"}`
+                        : `Opponent auto move: ${expectedTrainerLegalMove?.san ?? expectedTrainerMove ?? "-"}`}
                     </div>
                   ) : trainerHint ? (
                     <div className="text-[12px] text-[var(--text-primary)] font-semibold mb-2 shrink-0">{trainerHint}</div>
+                  ) : null}
+                  {isBranchComplete && selectedBranchVariation ? (
+                    <div className="mb-2 rounded-md border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-2">
+                      <div className="text-[12px] font-semibold text-[var(--text-primary)]">Variation complete: {selectedBranchVariation.name}</div>
+                      {variationProgressById[selectedBranchVariation.id] ? (
+                        <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                          Best {variationProgressById[selectedBranchVariation.id].bestAccuracy}% · Attempts {variationProgressById[selectedBranchVariation.id].attempts}
+                        </div>
+                      ) : null}
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        <button
+                          onClick={() => applyOpeningLine(selectedBranchVariation.id, selectedBranchVariation.pgn, mainLineSan.length, selectedBranchVariation.name)}
+                          className="text-[11px] font-semibold px-2 py-1 rounded border border-[var(--border)] text-[var(--text-primary)] bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] transition-colors"
+                        >
+                          Retry
+                        </button>
+                        <button
+                          onClick={skipBaseLine}
+                          className="text-[11px] font-semibold px-2 py-1 rounded border border-[var(--border)] text-[var(--text-primary)] bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] transition-colors"
+                        >
+                          Back to base
+                        </button>
+                        {recommendedNextBranch ? (
+                          <button
+                            onClick={() => applyOpeningLine(recommendedNextBranch.id, recommendedNextBranch.pgn, mainLineSan.length, recommendedNextBranch.name)}
+                            className="text-[11px] font-semibold px-2 py-1 rounded border border-[var(--border-hover)] text-[var(--text-primary)] bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] transition-colors"
+                          >
+                            Next branch
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
                   ) : null}
                   <div className="mt-1 flex flex-col shrink-0" style={{ height: "180px", overflow: "hidden" }}>
                     <div className="rounded-md border border-[var(--border)] bg-[var(--surface-alt)] flex flex-col h-full overflow-hidden">
@@ -1169,23 +1453,50 @@ export default function OpeningPage() {
                         <div className="px-2 py-2 text-[12px] text-[var(--text-muted)]">
                           Complete the base line (or skip) to unlock variations.
                         </div>
-                      ) : availableBranchVariations.length === 0 ? (
+                      ) : allBranchVariations.length === 0 ? (
                         <div className="px-2 py-2 text-[12px] text-[var(--text-muted)]">
                           No mapped continuations found after this base line.
                         </div>
                       ) : (
                         <div className="space-y-1 p-1">
-                          {availableBranchVariations.map((line) => (
+                          <div className="pb-1">
+                            <input
+                              type="text"
+                              value={variationQuery}
+                              onChange={(event) => setVariationQuery(event.target.value)}
+                              placeholder="Search variations"
+                              className="w-full rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-hover)]"
+                            />
+                          </div>
+                          {visibleBranchVariations.length === 0 ? (
+                            <div className="px-1 py-2 text-[11px] text-[var(--text-muted)]">No variation matches your search.</div>
+                          ) : null}
+                          {visibleBranchVariations.map((line) => (
                             <button
                               key={line.id}
-                              onClick={() => applyOpeningLine(line.id, line.pgn, mainLineSan.length)}
+                              onClick={() => applyOpeningLine(line.id, line.pgn, mainLineSan.length, line.name)}
                               className={`w-full text-left rounded border px-2 py-1 transition-colors ${selectedLineId === line.id ? "border-[var(--border-hover)] bg-[var(--surface-hover)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
                               title={line.pgn}
                             >
-                              <div className="text-[11px] font-semibold uppercase tracking-wide mb-0.5">{line.name}</div>
+                              <div className="mb-0.5 flex items-center justify-between gap-2">
+                                <div className="text-[11px] font-semibold uppercase tracking-wide truncate">{line.name}</div>
+                                <div className="shrink-0 text-[10px] text-[var(--text-muted)]">
+                                  {variationProgressById[line.id]?.completions
+                                    ? `${variationProgressById[line.id].bestAccuracy}%`
+                                    : "new"}
+                                </div>
+                              </div>
                               <div className="text-[11px] text-[var(--text-muted)] truncate">{line.continuation}</div>
                             </button>
                           ))}
+                          {hasMoreVariations ? (
+                            <button
+                              onClick={() => setVariationVisibleCount((previous) => previous + VARIATIONS_PAGE_SIZE)}
+                              className="w-full rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors"
+                            >
+                              Show more ({filteredBranchVariations.length - visibleBranchVariations.length})
+                            </button>
+                          ) : null}
                         </div>
                       )}
                     </div>
