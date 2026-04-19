@@ -1,7 +1,6 @@
 "use client";
 
 import type { DragEvent, MouseEvent } from "react";
-import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { Chess, type Square } from "chess.js";
@@ -306,7 +305,6 @@ const MiniBoardPreview = ({
 };
 
 export default function PlayComputerPage() {
-  const pathname = usePathname();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   // Settings state
@@ -363,6 +361,8 @@ export default function PlayComputerPage() {
   const [warnedBlackLowTime, setWarnedBlackLowTime] = useState(false);
 
   const gameRef = useRef(new Chess(fen));
+  const audioPoolRef = useRef<Record<string, HTMLAudioElement[]>>({});
+  const nextAudioIndexRef = useRef<Record<string, number>>({});
   const isReviewing = currentMoveIndex !== history.length - 1;
   const isBotMatchMode = playerColor === "bot-vs-bot";
   const playerSide: SideColor = isBotMatchMode ? "w" : playerColor;
@@ -410,6 +410,7 @@ export default function PlayComputerPage() {
     analysisMultiPv,
     analysisThreads,
     analysisEngineVariant,
+    analysisMaxTimeSeconds,
   );
 
   const { toggleTheme, isDark } = useTheme();
@@ -427,6 +428,17 @@ export default function PlayComputerPage() {
 
   useEffect(() => {
     setClientPreferences(loadClientPreferences());
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      Object.values(audioPoolRef.current)
+        .flat()
+        .forEach((audio) => {
+          audio.pause();
+          audio.src = "";
+        });
+    };
   }, []);
 
   useEffect(() => {
@@ -496,10 +508,26 @@ export default function PlayComputerPage() {
     };
   }, []);
 
-  const playSound = (name: string) => {
-    if (!soundEnabled) return;
-    const audio = new Audio(`/sounds/${name}.mp3`);
+  const playSound = (name: string, force = false) => {
+    if (!force && !soundEnabled) return;
+    if (typeof Audio === "undefined") return;
+
+    if (!audioPoolRef.current[name]) {
+      audioPoolRef.current[name] = Array.from({ length: 3 }, () => {
+        const audio = new Audio(`/sounds/${name}.mp3`);
+        audio.preload = "auto";
+        return audio;
+      });
+      nextAudioIndexRef.current[name] = 0;
+    }
+
+    const pool = audioPoolRef.current[name];
+    const currentIndex = nextAudioIndexRef.current[name] ?? 0;
+    const audio = pool[currentIndex];
+    nextAudioIndexRef.current[name] = (currentIndex + 1) % pool.length;
+
     audio.volume = Math.min(1, Math.max(0, botPreferences.masterVolume / 100));
+    audio.currentTime = 0;
     audio.play().catch(() => {});
   };
 
@@ -535,11 +563,6 @@ export default function PlayComputerPage() {
 
         if (!response.ok) {
           if (response.status === 401 || response.status === 403) {
-            const wantsLogin = window.confirm("Log in to save preferences to your account?");
-            if (wantsLogin) {
-              window.location.href = `/login?next=${encodeURIComponent(pathname)}`;
-              return;
-            }
             shouldFallbackToLocal = true;
           } else {
             const payload = (await response.json()) as { error?: string };
@@ -620,33 +643,6 @@ export default function PlayComputerPage() {
     bot2OpeningUsed,
     isBestMoveLegal,
   ]);
-
-  // Failsafe: if engine stalls while it's bot turn, play a legal move so the game never freezes.
-  useEffect(() => {
-    if (gameState !== "playing" || !isBotTurn || isBestMoveLegal) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      if (gameState !== "playing" || !isBotTurn || gameRef.current.isGameOver()) {
-        return;
-      }
-
-      const legalMoves = gameRef.current.moves({ verbose: true });
-      if (legalMoves.length === 0) {
-        return;
-      }
-
-      const fallbackMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
-      commitMove(
-        fallbackMove.from,
-        fallbackMove.to,
-        fallbackMove.promotion,
-      );
-    }, 3500);
-
-    return () => window.clearTimeout(timer);
-  }, [gameState, isBotTurn, isBestMoveLegal, fen]);
 
   const startGame = (color: "w" | "b" | "random" | "bot-vs-bot") => {
     const finalColor = color === "random" ? (Math.random() > 0.5 ? "w" : "b") : color;
@@ -1069,7 +1065,7 @@ export default function PlayComputerPage() {
                     Play vs Computer
                   </h1>
                   <p className="text-[var(--text-muted)] text-[14px]">
-                    Challenge Stockfish 16 at any level
+                    Challenge Stockfish 18 at any level
                   </p>
                 </div>
               </div>
@@ -1828,7 +1824,7 @@ export default function PlayComputerPage() {
                       <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                           <span className="text-[14px] text-[var(--text-primary)]">Chess Engine</span>
-                          <span className="text-[14px] text-[var(--text-secondary)] font-medium">Stockfish 16</span>
+                          <span className="text-[14px] text-[var(--text-secondary)] font-medium">Stockfish 18</span>
                         </div>
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                           <span className="text-[14px] text-[var(--text-primary)]">Strength</span>
@@ -1872,10 +1868,6 @@ export default function PlayComputerPage() {
                             onChange={(event) => {
                               const value = Number(event.target.value);
                               setAnalysisMaxTimeSeconds(value);
-                              if (value === 3) setAnalysisDepth(13);
-                              if (value === 5) setAnalysisDepth(15);
-                              if (value === 10) setAnalysisDepth(18);
-                              if (value === 0) setAnalysisDepth(22);
                             }}
                             className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
                           >
@@ -2118,7 +2110,7 @@ export default function PlayComputerPage() {
                           checked={soundEnabled} 
                           onChange={(e) => {
                             setSoundEnabled(e.target.checked);
-                            if (e.target.checked) new Audio("/sounds/move-self.mp3").play().catch(() => {});
+                            if (e.target.checked) playSound("move-self", true);
                           }} 
                           className="sr-only peer" 
                         />

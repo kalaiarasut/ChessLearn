@@ -11,6 +11,7 @@
     "download:openings": "node scripts/download-openings-db.mjs",
     "download:openings:ecojson": "node scripts/download-ecojson-source.mjs",
     "build:openings:combined": "node scripts/build-combined-openings.mjs",
+    "build:openings:descriptions": "node scripts/build-opening-descriptions.mjs",
     "refresh:openings": "npm run download:openings && npm run download:openings:ecojson && npm run build:openings:combined"
   },
   "dependencies": {

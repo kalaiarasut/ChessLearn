@@ -1250,11 +1250,6 @@ export default function OpeningPage() {
 
         if (!response.ok) {
           if (response.status === 401 || response.status === 403) {
-            const wantsLogin = window.confirm("Log in to save preferences to your account?");
-            if (wantsLogin) {
-              window.location.href = `/login?next=${encodeURIComponent(pathname)}`;
-              return;
-            }
             shouldFallbackToLocal = true;
           } else {
             const payload = (await response.json()) as { error?: string };

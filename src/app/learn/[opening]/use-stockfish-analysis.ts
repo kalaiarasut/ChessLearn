@@ -95,6 +95,7 @@ export function useStockfishAnalysis(
   multiPv = 3,
   threads = 1,
   engineVariant: StockfishEngineVariant = "stockfish-18-lite",
+  maxTimeSeconds?: number,
 ) {
   const [state, setState] = useState<AnalysisState>(DEFAULT_STATE);
   const workerRef = useRef<Worker | null>(null);
@@ -249,14 +250,23 @@ export function useStockfishAnalysis(
       worker.postMessage(`setoption name Threads value ${Math.max(1, threads)}`);
       worker.postMessage(`setoption name MultiPV value ${multiPv}`);
       worker.postMessage(`position fen ${fen}`);
-      worker.postMessage(`go depth ${depth}`);
+
+      if (typeof maxTimeSeconds === "number") {
+        if (maxTimeSeconds > 0) {
+          worker.postMessage(`go movetime ${Math.round(maxTimeSeconds * 1000)}`);
+        } else {
+          worker.postMessage("go infinite");
+        }
+      } else {
+        worker.postMessage(`go depth ${depth}`);
+      }
     }, 180);
 
     return () => {
       window.clearTimeout(timeoutId);
       worker.postMessage("stop");
     };
-  }, [depth, enabled, fen, multiPv, threads]);
+  }, [depth, enabled, fen, maxTimeSeconds, multiPv, threads]);
 
   return state;
 }

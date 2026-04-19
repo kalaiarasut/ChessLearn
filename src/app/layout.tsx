@@ -14,7 +14,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Play Chess Online | Perfect Copy",
+  title: "ChessLearn",
   description: "A premium chess platform for players of all levels",
 };
 

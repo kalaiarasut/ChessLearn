@@ -6,12 +6,15 @@ import { ChevronDown, ArrowLeft, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/lib/theme-context";
 import { AuthMenu } from "@/components/auth-menu";
 import { loadClientPreferences, saveClientPreferences, type LearnOpeningProgress, type LearnSortMode } from "@/lib/client-preferences";
+import openingDescriptions from "@/data/openingDescriptions.json";
 
 type OpeningCard = {
   slug: string;
   name: string;
+  eco?: string;
   moves: string;
   description: string;
+  variationCount?: number;
 };
 
 type OpeningProgressSummary = {
@@ -81,6 +84,55 @@ const formatLastPracticed = (iso: string) => {
   return `${Math.floor(diffMs / 86_400_000)}d ago`;
 };
 
+const normalizeSlug = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+const toBaseOpeningName = (name: string) => {
+  const colonRoot = name.split(":")[0]?.trim() ?? name;
+  const commaRoot = colonRoot.split(",")[0]?.trim() ?? colonRoot;
+  return commaRoot.replace(/\s+(variation|line|system|accepted|declined)\b.*$/i, "").trim() || name;
+};
+
+const toOpeningCoreKey = (name: string) => {
+  const baseName = toBaseOpeningName(name);
+  const normalizedBaseName = normalizeSlug(baseName);
+
+  if (normalizedBaseName.startsWith("caro-kann")) return "caro-kann";
+  if (normalizedBaseName.startsWith("sicilian")) return "sicilian";
+  if (normalizedBaseName.startsWith("french")) return "french";
+  if (normalizedBaseName.startsWith("queen-s-gambit")) return "queen-s-gambit";
+  if (normalizedBaseName.startsWith("ruy-lopez")) return "ruy-lopez";
+  if (normalizedBaseName.startsWith("king-s-indian")) return "king-s-indian";
+  if (normalizedBaseName.startsWith("italian")) return "italian";
+  if (normalizedBaseName.startsWith("english")) return "english";
+  if (normalizedBaseName.startsWith("scandinavian")) return "scandinavian";
+
+  const withoutTrailingLabel = baseName.replace(/\s+(defense|defence|opening|game)\b$/i, "").trim();
+  return normalizeSlug(withoutTrailingLabel || baseName);
+};
+
+const looksLikeVariationName = (name: string) => /:|,|\bvariation\b|\bline\b|\bsystem\b|\baccepted\b|\bdeclined\b/i.test(name);
+
+const openingSide = (opening: OpeningCard): "white" | "black" => {
+  const loweredName = opening.name.toLowerCase();
+  if (loweredName.includes("defense") || loweredName.includes("defence") || loweredName.includes("counter")) {
+    return "black";
+  }
+  return "white";
+};
+
+const sanitizeDescription = (value: string) =>
+  value
+    .replace(/\b\d+\.(\.\.)?/g, "")
+    .replace(/\b(?:O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?)(?:[!?+#]+)?\b/g, "")
+    .replace(/\b[a-h][1-8]\b/g, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .trim();
+
 const fallbackOpenings: OpeningCard[] = [
   {
     slug: "italian-game",
@@ -138,8 +190,57 @@ const fallbackOpenings: OpeningCard[] = [
   }
 ];
 
+const fallbackOpeningByCoreKey = new Map(fallbackOpenings.map((opening) => [toOpeningCoreKey(opening.name), opening]));
+const openingDescriptionByCoreKey = openingDescriptions as Record<string, string>;
+
+const getOpeningPreferenceScore = (opening: OpeningCard) => {
+  const variationPenalty = looksLikeVariationName(opening.name) ? 1000 : 0;
+  return variationPenalty + opening.name.length;
+};
+
+const normalizeOpeningCards = (openings: OpeningCard[]) => {
+  const grouped = new Map<string, OpeningCard>();
+
+  for (const opening of openings) {
+    const baseName = toBaseOpeningName(opening.name);
+    const groupKey = toOpeningCoreKey(baseName);
+    const fallbackOpening = fallbackOpeningByCoreKey.get(groupKey);
+    const normalizedCandidate: OpeningCard = {
+      ...opening,
+      name: fallbackOpening?.name ?? baseName,
+      description: sanitizeDescription(
+        openingDescriptionByCoreKey[groupKey] ??
+          fallbackOpening?.description ??
+          "A practical opening with clear development ideas, central control goals, and typical middlegame plans.",
+      ),
+      moves: fallbackOpening?.moves ?? opening.moves,
+    };
+
+    const existing = grouped.get(groupKey);
+    if (!existing) {
+      grouped.set(groupKey, normalizedCandidate);
+      continue;
+    }
+
+    const candidateScore = getOpeningPreferenceScore(normalizedCandidate);
+    const existingScore = getOpeningPreferenceScore(existing);
+    const candidateVariationCount = normalizedCandidate.variationCount ?? 0;
+    const existingVariationCount = existing.variationCount ?? 0;
+
+    if (
+      candidateScore < existingScore ||
+      (candidateScore === existingScore && candidateVariationCount > existingVariationCount)
+    ) {
+      grouped.set(groupKey, normalizedCandidate);
+    }
+  }
+
+  return Array.from(grouped.values()).sort((left, right) => left.name.localeCompare(right.name));
+};
+
 export default function LearnPage() {
   const { toggleTheme, isDark } = useTheme();
+  const [openingCards, setOpeningCards] = useState<OpeningCard[]>(fallbackOpenings);
   const [openingProgressBySlug, setOpeningProgressBySlug] = useState<Record<string, LearnOpeningProgress>>({});
   const [sortMode, setSortMode] = useState<LearnSortMode>("recommended");
 
@@ -147,6 +248,33 @@ export default function LearnPage() {
     const loaded = loadClientPreferences();
     setOpeningProgressBySlug(loaded.learn.openingProgressBySlug);
     setSortMode(loaded.learn.learnSortMode);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadOpenings = async () => {
+      try {
+        const response = await fetch("/api/openings?limit=200", { method: "GET" });
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as { openings?: OpeningCard[] };
+        if (!cancelled && Array.isArray(payload.openings) && payload.openings.length > 0) {
+          const normalized = normalizeOpeningCards(payload.openings);
+          setOpeningCards(normalized.length > 0 ? normalized : fallbackOpenings);
+        }
+      } catch {
+        // Keep fallback cards when API is unavailable.
+      }
+    };
+
+    loadOpenings().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleSortModeChange = (nextSortMode: LearnSortMode) => {
@@ -164,11 +292,11 @@ export default function LearnPage() {
 
   const openingsWithProgress = useMemo(
     () =>
-      fallbackOpenings.map((opening) => ({
+      openingCards.map((opening) => ({
         ...opening,
         progress: toOpeningProgressSummary(openingProgressBySlug[opening.slug] ?? null),
       })),
-    [openingProgressBySlug],
+    [openingCards, openingProgressBySlug],
   );
 
   const continueLearning = useMemo(() => {
@@ -191,7 +319,7 @@ export default function LearnPage() {
     }
 
     const summary = toOpeningProgressSummary(latest.progress);
-    const knownOpening = fallbackOpenings.find((opening) => opening.slug === latest.slug);
+    const knownOpening = openingCards.find((opening) => opening.slug === latest.slug);
 
     return {
       slug: latest.slug,
@@ -199,7 +327,7 @@ export default function LearnPage() {
       summary,
       lastPracticedLabel: formatLastPracticed(latest.progress.lastPracticedAt),
     };
-  }, [openingProgressBySlug]);
+  }, [openingCards, openingProgressBySlug]);
 
   const sortedOpenings = useMemo(() => {
     const openings = [...openingsWithProgress];
@@ -222,6 +350,29 @@ export default function LearnPage() {
           return right.progress.bestAccuracy - left.progress.bestAccuracy;
         }
         return right.progress.completedVariations - left.progress.completedVariations;
+      });
+    }
+
+    if (sortMode === "popularity") {
+      return openings.sort((left, right) => {
+        const leftPopularity = left.variationCount ?? 0;
+        const rightPopularity = right.variationCount ?? 0;
+        if (leftPopularity !== rightPopularity) {
+          return rightPopularity - leftPopularity;
+        }
+        return left.name.localeCompare(right.name);
+      });
+    }
+
+    if (sortMode === "white" || sortMode === "black") {
+      const primary = sortMode;
+      return openings.sort((left, right) => {
+        const leftRank = openingSide(left) === primary ? 0 : 1;
+        const rightRank = openingSide(right) === primary ? 0 : 1;
+        if (leftRank !== rightRank) {
+          return leftRank - rightRank;
+        }
+        return left.name.localeCompare(right.name);
       });
     }
 
@@ -293,9 +444,17 @@ export default function LearnPage() {
                 <h2 className="mt-1 text-[28px] md:text-[34px] font-serif text-[var(--text-primary)] leading-tight">
                   {continueLearning.name}
                 </h2>
-                <p className="mt-2 text-[14px] text-[var(--text-muted)]">
-                  {continueLearning.summary.completedVariations} completed variations • Best {continueLearning.summary.bestAccuracy}% • Last practiced {continueLearning.lastPracticedLabel || "recently"}
-                </p>
+                <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
+                  <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 font-semibold text-[var(--text-secondary)]">
+                    {continueLearning.summary.completedVariations} completed
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 font-semibold text-[var(--text-secondary)]">
+                    Best {continueLearning.summary.bestAccuracy}%
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 font-semibold text-[var(--text-secondary)]">
+                    Last {continueLearning.lastPracticedLabel || "recently"}
+                  </span>
+                </div>
               </div>
               <Link
                 href={`/learn/${continueLearning.slug}`}
@@ -307,21 +466,24 @@ export default function LearnPage() {
           </div>
         ) : null}
 
-        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="inline-flex h-9 items-center text-[13px] font-semibold uppercase tracking-[0.12em] text-[var(--text-dimmed)]">Opening Library</div>
-          <label className="inline-flex h-9 items-center justify-between gap-2 text-[12px] font-semibold text-[var(--text-secondary)] sm:justify-end">
-            Sort
+        <div className="mb-8 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+          <div className="inline-flex h-10 items-center text-[13px] font-semibold uppercase tracking-[0.12em] text-[var(--text-dimmed)]">Opening Library</div>
+          <div className="grid h-10 w-full grid-cols-[auto_1fr] items-center gap-2 md:w-auto md:grid-cols-[auto_220px]">
+            <span className="text-[12px] font-semibold text-[var(--text-secondary)]">Sort</span>
             <select
               value={sortMode}
               onChange={(event) => handleSortModeChange(event.target.value as LearnSortMode)}
-              className="h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-medium text-[var(--text-primary)] outline-none hover:border-[var(--border-hover)]"
+              className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-medium text-[var(--text-primary)] outline-none hover:border-[var(--border-hover)]"
             >
               <option value="recommended">Recommended</option>
               <option value="recent">Recently Practiced</option>
               <option value="mastery">Highest Mastery</option>
+              <option value="popularity">Most Popular</option>
               <option value="new">New First</option>
+              <option value="white">White Openings First</option>
+              <option value="black">Black Openings First</option>
             </select>
-          </label>
+          </div>
         </div>
 
         {/* Cards Grid */}

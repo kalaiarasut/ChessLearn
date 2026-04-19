@@ -1,6 +1,6 @@
 export type MoveMethod = "drag" | "click" | "both";
 export type BoardOrientation = "auto" | "white" | "black";
-export type LearnSortMode = "recommended" | "recent" | "mastery" | "new";
+export type LearnSortMode = "recommended" | "recent" | "mastery" | "new" | "white" | "black" | "popularity";
 
 export type LearnVariationProgress = {
   attempts: number;
@@ -220,7 +220,15 @@ function toBoardOrientation(value: unknown): BoardOrientation {
 }
 
 function toLearnSortMode(value: unknown): LearnSortMode {
-  if (value === "recommended" || value === "recent" || value === "mastery" || value === "new") {
+  if (
+    value === "recommended" ||
+    value === "recent" ||
+    value === "mastery" ||
+    value === "new" ||
+    value === "white" ||
+    value === "black" ||
+    value === "popularity"
+  ) {
     return value;
   }
   return DEFAULT_CLIENT_PREFERENCES.learn.learnSortMode;

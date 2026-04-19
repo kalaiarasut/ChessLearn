@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
-const PROTECTED_ROUTES = ["/learn"];
+const PROTECTED_ROUTES: string[] = [];
 const AUTH_ROUTES = ["/login", "/signup"];
 
 function isRouteMatch(pathname: string, routes: string[]) {

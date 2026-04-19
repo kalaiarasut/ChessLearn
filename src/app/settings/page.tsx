@@ -142,26 +142,78 @@ export default function SettingsPage() {
     };
   }, [supabase]);
 
-  const saveAll = () => {
-    saveClientPreferences({ learn: learnPrefs, bot: botPrefs });
-    setSaveMessage(activeScope === "learn" ? "Learn settings saved." : "Bot settings saved.");
+  const resolvePersistenceMode = async (): Promise<"persist" | "session" | "redirect"> => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.user?.id) {
+      return "persist";
+    }
+
+    const wantsLogin = window.confirm(
+      "Sign in to save settings across sessions? Click Cancel to apply changes for this session only.",
+    );
+
+    if (wantsLogin) {
+      window.location.href = "/login?next=%2Fsettings";
+      return "redirect";
+    }
+
+    return "session";
   };
 
-  const resetScope = () => {
+  const saveAll = async () => {
+    const mode = await resolvePersistenceMode();
+    if (mode === "redirect") {
+      return;
+    }
+
+    if (mode === "persist") {
+      saveClientPreferences({ learn: learnPrefs, bot: botPrefs });
+      setSaveMessage(activeScope === "learn" ? "Learn settings saved." : "Bot settings saved.");
+      return;
+    }
+
+    setSaveMessage("Settings applied for this session only. Sign in to keep them after refresh.");
+  };
+
+  const resetScope = async () => {
     if (activeScope === "learn") {
       const nextLearnPrefs = {
         ...DEFAULT_CLIENT_PREFERENCES.learn,
         openingProgressBySlug: learnPrefs.openingProgressBySlug,
       };
+
+      const mode = await resolvePersistenceMode();
+      if (mode === "redirect") {
+        return;
+      }
+
       setLearnPrefs(nextLearnPrefs);
-      saveClientPreferences({ learn: nextLearnPrefs, bot: botPrefs });
-      setSaveMessage("Learn settings reset.");
+
+      if (mode === "persist") {
+        saveClientPreferences({ learn: nextLearnPrefs, bot: botPrefs });
+        setSaveMessage("Learn settings reset.");
+      } else {
+        setSaveMessage("Learn settings reset for this session only.");
+      }
+      return;
+    }
+
+    const mode = await resolvePersistenceMode();
+    if (mode === "redirect") {
       return;
     }
 
     setBotPrefs(DEFAULT_CLIENT_PREFERENCES.bot);
-    saveClientPreferences({ learn: learnPrefs, bot: DEFAULT_CLIENT_PREFERENCES.bot });
-    setSaveMessage("Bot settings reset.");
+
+    if (mode === "persist") {
+      saveClientPreferences({ learn: learnPrefs, bot: DEFAULT_CLIENT_PREFERENCES.bot });
+      setSaveMessage("Bot settings reset.");
+    } else {
+      setSaveMessage("Bot settings reset for this session only.");
+    }
   };
 
   const saveUsername = async () => {
@@ -334,10 +386,10 @@ export default function SettingsPage() {
             <div className="mt-8 pt-6 border-t border-[var(--border)] flex items-center justify-between">
               <p className="text-[12px] text-[var(--text-muted)]">{saveMessage ?? "Local settings are scoped by mode."}</p>
               <div className="flex gap-3">
-                <button onClick={resetScope} className="px-5 py-2.5 rounded-xl text-[14px] bg-[var(--surface-alt)] border border-[var(--border)]">
+                <button onClick={() => resetScope().catch(() => {})} className="px-5 py-2.5 rounded-xl text-[14px] bg-[var(--surface-alt)] border border-[var(--border)]">
                   Reset Scope
                 </button>
-                <button onClick={saveAll} className="px-5 py-2.5 rounded-xl text-[14px] bg-[var(--cta-bg)] text-[var(--cta-text)] font-bold">
+                <button onClick={() => saveAll().catch(() => {})} className="px-5 py-2.5 rounded-xl text-[14px] bg-[var(--cta-bg)] text-[var(--cta-text)] font-bold">
                   Save Changes
                 </button>
               </div>
