@@ -307,9 +307,9 @@ export default function LearnPage() {
           </div>
         ) : null}
 
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="inline-flex h-9 items-center text-[13px] font-semibold uppercase tracking-[0.12em] text-[var(--text-dimmed)]">Opening Library</div>
-          <label className="inline-flex h-9 items-center gap-2 text-[12px] font-semibold text-[var(--text-secondary)]">
+          <label className="inline-flex h-9 items-center justify-between gap-2 text-[12px] font-semibold text-[var(--text-secondary)] sm:justify-end">
             Sort
             <select
               value={sortMode}

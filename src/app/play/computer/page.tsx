@@ -1056,7 +1056,7 @@ export default function PlayComputerPage() {
       <main className="flex-1 w-full flex flex-col lg:flex-row h-[calc(100vh-73px)]">
         {/* Left Side: Setup & Status */}
         <div className={gameState === "setup" ? "w-full lg:w-[35%] flex flex-col items-center justify-center p-10 bg-[var(--bg)] relative z-10 shrink-0" : "w-full lg:w-[35%] p-6 lg:p-5 bg-[var(--bg)] relative z-10 shrink-0 border-r border-[var(--border)]"}>
-          <div className={gameState === "setup" ? "w-full max-w-[440px] bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-8 shadow-2xl relative overflow-hidden" : "w-full h-full max-h-[85vh] bg-[#1e1e1f] border border-[#2d2d2f] rounded-xl shadow-2xl overflow-visible flex flex-col"}>
+          <div className={gameState === "setup" ? "w-full max-w-[440px] bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-8 shadow-2xl relative overflow-hidden" : "w-full h-full max-h-[85vh] bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-2xl overflow-visible flex flex-col"}>
             {gameState === "setup" && <div className="absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r from-blue-500 to-emerald-400" />}
 
             {gameState === "setup" && (
@@ -1340,23 +1340,23 @@ export default function PlayComputerPage() {
               </div>
             ) : (
               <>
-                <div className="h-12 px-3 border-b border-[#2c2c2d] flex items-center justify-between relative">
+                <div className="h-12 px-3 border-b border-[var(--border)] flex items-center justify-between relative">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#3a3a3a] text-[var(--text-primary)] text-[10px]">v</span>
-                    <span className="text-[#f0f0f0] text-[15px] font-[500] leading-none">Analysis</span>
+                    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[var(--surface-hover)] text-[var(--text-primary)] text-[10px]">v</span>
+                    <span className="text-[var(--text-primary)] text-[15px] font-[500] leading-none">Analysis</span>
                     <button
                       onClick={() => setIsAnalysisMenuOpen((open) => !open)}
-                      className="p-1 rounded hover:bg-white/10 text-[#b8b8b8]"
+                      className="p-1 rounded hover:bg-[var(--surface-hover)] text-[var(--text-muted)]"
                       title="Analysis menu"
                     >
                       <MoreHorizontal className="w-4 h-4" />
                     </button>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-[#cfcfcf] text-[14px]">depth-{analysis.depth || analysisDepth}</span>
+                    <span className="text-[var(--text-secondary)] text-[14px]">depth-{analysis.depth || analysisDepth}</span>
                     <button
                       onClick={() => setIsSettingsOpen(true)}
-                      className="text-[#bfbfbf] hover:text-white"
+                      className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                       title="Engine settings"
                     >
                       <Settings className="w-4 h-4" />
@@ -1364,29 +1364,29 @@ export default function PlayComputerPage() {
                   </div>
 
                   {isAnalysisMenuOpen && (
-                    <div className="absolute top-11 left-20 z-30 w-[230px] rounded-md border border-[#3a3a3d] bg-[#242426] shadow-2xl py-2">
-                      <button onClick={() => setShowEvaluationBar((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                    <div className="absolute top-11 left-20 z-30 w-[230px] rounded-md border border-[var(--border-subtle)] bg-[var(--surface-alt)] shadow-2xl py-2">
+                      <button onClick={() => setShowEvaluationBar((v) => !v)} className="w-full px-3 py-2 text-left text-[var(--text-primary)] hover:bg-[var(--surface-hover)] text-[14px] flex items-center justify-between">
                         <span>Evaluation Bar</span>
-                        <span className={showEvaluationBar ? "text-emerald-500" : "text-[#7b7b7b]"}>{showEvaluationBar ? "On" : "Off"}</span>
+                        <span className={showEvaluationBar ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}>{showEvaluationBar ? "On" : "Off"}</span>
                       </button>
-                      <button onClick={() => setShowEngineLines((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                      <button onClick={() => setShowEngineLines((v) => !v)} className="w-full px-3 py-2 text-left text-[var(--text-primary)] hover:bg-[var(--surface-hover)] text-[14px] flex items-center justify-between">
                         <span>Engine Lines</span>
-                        <span className={showEngineLines ? "text-emerald-500" : "text-[#7b7b7b]"}>{showEngineLines ? "On" : "Off"}</span>
+                        <span className={showEngineLines ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}>{showEngineLines ? "On" : "Off"}</span>
                       </button>
-                      <button onClick={() => setShowSuggestionArrow((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                      <button onClick={() => setShowSuggestionArrow((v) => !v)} className="w-full px-3 py-2 text-left text-[var(--text-primary)] hover:bg-[var(--surface-hover)] text-[14px] flex items-center justify-between">
                         <span>Suggestion Arrow</span>
-                        <span className={showSuggestionArrow ? "text-emerald-500" : "text-[#7b7b7b]"}>{showSuggestionArrow ? "On" : "Off"}</span>
+                        <span className={showSuggestionArrow ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}>{showSuggestionArrow ? "On" : "Off"}</span>
                       </button>
-                      <button onClick={() => setShowMoveFeedback((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                      <button onClick={() => setShowMoveFeedback((v) => !v)} className="w-full px-3 py-2 text-left text-[var(--text-primary)] hover:bg-[var(--surface-hover)] text-[14px] flex items-center justify-between">
                         <span>Move Feedback</span>
-                        <span className={showMoveFeedback ? "text-emerald-500" : "text-[#7b7b7b]"}>{showMoveFeedback ? "On" : "Off"}</span>
+                        <span className={showMoveFeedback ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}>{showMoveFeedback ? "On" : "Off"}</span>
                       </button>
                     </div>
                   )}
                 </div>
 
                 <div className="flex-1 min-h-0 flex flex-col">
-                  <div className="max-h-[255px] overflow-visible border-b border-[#2a2a2c]">
+                  <div className="max-h-[255px] overflow-visible border-b border-[var(--border)]">
                     {showEngineLines ? (
                       <>
                         {analysis.lines.slice(0, analysisMultiPv).map((line) => {
@@ -1396,12 +1396,12 @@ export default function PlayComputerPage() {
                           const visibleMoves = isExpanded ? pvMoves : pvMoves.slice(0, 6);
 
                           return (
-                            <div key={line.id} className="min-h-[44px] px-2 py-1 border-b border-[#2a2a2c] flex items-start gap-2 text-[#d8d8d8] relative z-0 hover:z-40">
-                              <div className="min-w-[52px] h-6 rounded bg-[#151515] border border-[#3a3a3c] flex items-center justify-center text-[12px] font-bold leading-none text-white mt-[2px]">
+                            <div key={line.id} className="min-h-[44px] px-2 py-1 border-b border-[var(--border)] flex items-start gap-2 text-[var(--text-secondary)] relative z-0 hover:z-40">
+                              <div className="min-w-[52px] h-6 rounded bg-[var(--surface-alt)] border border-[var(--border-subtle)] flex items-center justify-center text-[12px] font-bold leading-none text-[var(--text-primary)] mt-[2px]">
                                 {line.scoreText}
                               </div>
                               <div className="min-w-0 flex-1 flex items-start justify-between gap-2">
-                                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] leading-[1.1] text-[#d7d7d7]">
+                                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] leading-[1.1] text-[var(--text-secondary)]">
                                   {visibleMoves.map((pvMove) => (
                                     <div key={pvMove.key} className="relative z-0">
                                       <span
@@ -1422,7 +1422,7 @@ export default function PlayComputerPage() {
                                         [line.id]: !isExpanded,
                                       }))
                                     }
-                                    className="h-6 w-6 shrink-0 rounded text-[#c1c1c4] hover:bg-white/10 hover:text-white flex items-center justify-center"
+                                    className="h-6 w-6 shrink-0 rounded text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] flex items-center justify-center"
                                     title={isExpanded ? "Collapse line" : "Show full line"}
                                   >
                                     {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -1433,29 +1433,29 @@ export default function PlayComputerPage() {
                           );
                         })}
                         {analysis.error ? (
-                          <div className="px-3 py-3 text-rose-300 text-[14px] border-b border-[#2a2a2c]">
+                          <div className="px-3 py-3 text-[var(--error-text)] text-[14px] border-b border-[var(--border)]">
                             Engine failed: {analysis.error}
                           </div>
                         ) : analysis.lines.length === 0 && (
-                          <div className="px-3 py-3 text-[#9a9a9a] text-[14px] border-b border-[#2a2a2c]">
+                          <div className="px-3 py-3 text-[var(--text-muted)] text-[14px] border-b border-[var(--border)]">
                             {analysis.ready ? "Analyzing current position..." : "Starting engine..."}
                           </div>
                         )}
                       </>
                     ) : (
-                      <div className="px-3 py-3 text-[#9a9a9a] text-[14px] border-b border-[#2a2a2c]">
+                      <div className="px-3 py-3 text-[var(--text-muted)] text-[14px] border-b border-[var(--border)]">
                         Engine lines hidden from menu.
                       </div>
                     )}
                   </div>
 
-                  <div className="flex-1 min-h-0 flex flex-col bg-[#1d1d1f]">
-                    <div className="px-3 py-2 border-b border-[#2a2a2c] text-[13px] font-semibold text-white">
+                  <div className="flex-1 min-h-0 flex flex-col bg-[var(--surface-alt)]">
+                    <div className="px-3 py-2 border-b border-[var(--border)] text-[13px] font-semibold text-[var(--text-primary)]">
                       White - Black
                     </div>
                     <div className="flex-1 overflow-y-auto">
                       {playedMoveRows.length === 0 ? (
-                        <div className="px-3 py-3 text-[13px] text-[#8f8f92]">No moves yet.</div>
+                        <div className="px-3 py-3 text-[13px] text-[var(--text-muted)]">No moves yet.</div>
                       ) : (
                         playedMoveRows.map((row, rowIndex) => {
                           const whitePlyIndex = rowIndex * 2 + 1;
@@ -1480,36 +1480,36 @@ export default function PlayComputerPage() {
                   </div>
                 </div>
 
-                <div className="px-3 py-2 border-t border-[#2a2a2c] bg-[#1b1b1c]">
+                <div className="px-3 py-2 border-t border-[var(--border)] bg-[var(--surface)]">
                   <div className="flex items-center justify-center gap-2 mb-3 w-full">
-                    <button onClick={goToStart} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                    <button onClick={goToStart} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[var(--surface-alt)] border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] transition-colors disabled:cursor-not-allowed">
                       <ChevronsLeft className="w-6 h-6" />
                     </button>
-                    <button onClick={goToPrev} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                    <button onClick={goToPrev} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[var(--surface-alt)] border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] transition-colors disabled:cursor-not-allowed">
                       <ChevronLeft className="w-6 h-6" />
                     </button>
-                    <button onClick={toggleHistoryPlayback} className="p-2 px-4 rounded-md bg-emerald-600/30 text-white hover:bg-emerald-600/50 transition-colors flex items-center justify-center min-w-[56px]">
-                      {isPlayingHistory ? <Pause className="w-6 h-6 fill-white" /> : <Play className="w-6 h-6 fill-white" />}
+                    <button onClick={toggleHistoryPlayback} className="p-2 px-4 rounded-md bg-[var(--surface-alt)] border border-[var(--border-hover)] text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors flex items-center justify-center min-w-[56px]">
+                      {isPlayingHistory ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
                     </button>
-                    <button onClick={goToNext} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                    <button onClick={goToNext} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[var(--surface-alt)] border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] transition-colors disabled:cursor-not-allowed">
                       <ChevronRight className="w-6 h-6" />
                     </button>
-                    <button onClick={goToEnd} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                    <button onClick={goToEnd} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[var(--surface-alt)] border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] transition-colors disabled:cursor-not-allowed">
                       <ChevronsRight className="w-6 h-6" />
                     </button>
                   </div>
 
-                  <div className="text-[13px] text-[#a8a8aa] mb-2">
+                  <div className="text-[13px] text-[var(--text-muted)] mb-2">
                     {timeoutStatus ?? getPositionStatus(gameRef.current)}
                   </div>
                   {showMoveFeedback && (
-                    <div className="text-[12px] text-[#b8e8d0] mb-2">
+                    <div className="text-[12px] text-[var(--text-secondary)] mb-2">
                       {topSuggestedMove ? `Suggested move: ${topSuggestedMove}` : "No suggestion yet."}
                     </div>
                   )}
                   <button
                     onClick={resetBoardReview}
-                    className="w-full flex items-center justify-center px-4 py-2.5 bg-[#2f78cf] text-white rounded-md font-semibold text-[13px] hover:bg-[#3f88df] transition-colors"
+                    className="w-full flex items-center justify-center px-4 py-2.5 bg-[var(--cta-bg)] text-[var(--cta-text)] rounded-md font-semibold text-[13px] hover:bg-[var(--cta-hover)] transition-colors"
                   >
                     Reset Board
                   </button>
@@ -1750,8 +1750,10 @@ export default function PlayComputerPage() {
         </div>
 
         {hoverPreview ? (
-          <div className="pointer-events-none fixed z-[99999]" style={{ left: hoverPreview.left, top: hoverPreview.top }}>
-            <MiniBoardPreview fen={hoverPreview.fen} boardTheme={boardTheme} pieceTheme={pieceTheme} />
+          <div className="pointer-events-none fixed" style={{ left: hoverPreview.left, top: hoverPreview.top, zIndex: 999999 }}>
+            <div className="shadow-2xl rounded-sm overflow-hidden bg-[var(--surface-alt)] border border-[var(--border)]">
+              <MiniBoardPreview fen={hoverPreview.fen} boardTheme={boardTheme} pieceTheme={pieceTheme} />
+            </div>
           </div>
         ) : null}
 
@@ -1772,25 +1774,25 @@ export default function PlayComputerPage() {
                 </div>
                 <button 
                   onClick={() => setActiveCategory("board")}
-                  className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${activeCategory === "board" ? "bg-[var(--surface-alt)] text-emerald-400 font-medium border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]" : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"}`}>
+                  className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${activeCategory === "board" ? "bg-[var(--surface-alt)] text-[var(--text-primary)] font-medium border-[var(--border-hover)] shadow-[-10px_0_20px_rgba(0,0,0,0.12)]" : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"}`}>
                   <LayoutGrid className="w-[18px] h-[18px]" />
                   <span className="text-[14px]">Board & Pieces</span>
                 </button>
                 <button 
                   onClick={() => setActiveCategory("gameplay")}
-                  className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${activeCategory === "gameplay" ? "bg-[var(--surface-alt)] text-emerald-400 font-medium border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]" : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"}`}>
+                  className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${activeCategory === "gameplay" ? "bg-[var(--surface-alt)] text-[var(--text-primary)] font-medium border-[var(--border-hover)] shadow-[-10px_0_20px_rgba(0,0,0,0.12)]" : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"}`}>
                   <Gamepad2 className="w-[18px] h-[18px]" />
                   <span className="text-[14px]">Gameplay</span>
                 </button>
                 <button 
                   onClick={() => setActiveCategory("engine")}
-                  className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${activeCategory === "engine" ? "bg-[var(--surface-alt)] text-emerald-400 font-medium border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]" : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"}`}>
+                  className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${activeCategory === "engine" ? "bg-[var(--surface-alt)] text-[var(--text-primary)] font-medium border-[var(--border-hover)] shadow-[-10px_0_20px_rgba(0,0,0,0.12)]" : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"}`}>
                   <Bot className="w-[18px] h-[18px]" />
                   <span className="text-[14px]">Engine</span>
                 </button>
                 <button 
                   onClick={() => setActiveCategory("interface")}
-                  className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${activeCategory === "interface" ? "bg-[var(--surface-alt)] text-emerald-400 font-medium border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]" : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"}`}>
+                  className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${activeCategory === "interface" ? "bg-[var(--surface-alt)] text-[var(--text-primary)] font-medium border-[var(--border-hover)] shadow-[-10px_0_20px_rgba(0,0,0,0.12)]" : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"}`}>
                   <Monitor className="w-[18px] h-[18px]" />
                   <span className="text-[14px]">Interface</span>
                 </button>
@@ -1823,9 +1825,6 @@ export default function PlayComputerPage() {
                     {/* GAME REVIEW Section */}
                     <div>
                       <h3 className="text-[11px] font-bold tracking-widest text-[var(--text-muted)] uppercase mb-3 px-1">Game Review</h3>
-                      <div className="bg-[#0b243b] text-[#3ca2fb] w-full rounded-sm py-2 px-3 mb-2 font-medium text-[13px] flex items-center shadow-sm">
-                        Upgrade to Diamond for increased Game Review strength
-                      </div>
                       <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                           <span className="text-[14px] text-[var(--text-primary)]">Chess Engine</span>
@@ -1841,7 +1840,7 @@ export default function PlayComputerPage() {
                               if (next === "standard") setAnalysisDepth(17);
                               if (next === "deep") setAnalysisDepth(20);
                             }}
-                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTUgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTUgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
                           >
                             <option value="fast">Fast (~1 sec, 3270 Rating)</option>
                             <option value="standard">Standard (~3 sec, 3500 Rating)</option>
@@ -1860,7 +1859,7 @@ export default function PlayComputerPage() {
                           <select
                             value={analysisEngineVariant}
                             onChange={(event) => setAnalysisEngineVariant(event.target.value as "stockfish-18" | "stockfish-18-lite")}
-                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
                           >
                             <option value="stockfish-18-lite">Stockfish 18 Lite (7MB download)</option>
                             <option value="stockfish-18">Stockfish 18.1 NNUE (Full)</option>
@@ -1878,7 +1877,7 @@ export default function PlayComputerPage() {
                               if (value === 10) setAnalysisDepth(18);
                               if (value === 0) setAnalysisDepth(22);
                             }}
-                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
                           >
                             <option value="0">Unlimited</option>
                             <option value="3">3 sec</option>
@@ -1891,7 +1890,7 @@ export default function PlayComputerPage() {
                           <select
                             value={String(analysisMultiPv)}
                             onChange={(event) => setAnalysisMultiPv(Number(event.target.value))}
-                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
                           >
                             <option value="1">1</option>
                             <option value="2">2</option>
@@ -1908,17 +1907,9 @@ export default function PlayComputerPage() {
                             onChange={(event) => setAnalysisThreads(Math.max(1, Math.min(32, Number(event.target.value) || 1)))}
                             min="1"
                             max="32"
-                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-emerald-500 w-[200px]"
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] w-[200px]"
                           />
                         </div>
-                      </div>
-                    </div>
-
-                    {/* CLOUD Section */}
-                    <div>
-                      <h3 className="text-[11px] font-bold tracking-widest text-[var(--text-muted)] uppercase mb-3 px-1">Cloud</h3>
-                      <div className="bg-[#0b243b] text-[#3ca2fb] w-full rounded-sm py-2 px-3 mb-2 font-medium text-[13px] flex items-center shadow-sm">
-                        Upgrade to Diamond to enable Cloud Analysis
                       </div>
                     </div>
                   </div>
@@ -2001,17 +1992,17 @@ export default function PlayComputerPage() {
                     <div className="flex border-b border-[var(--border)] mb-4 shrink-0">
                       <button
                         onClick={() => setActiveSettingsTab("boards")}
-                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "boards" ? "text-emerald-500" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
+                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "boards" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
                       >
                         Boards
-                        {activeSettingsTab === "boards" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-emerald-500" />}
+                        {activeSettingsTab === "boards" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[var(--border-hover)]" />}
                       </button>
                       <button
                         onClick={() => setActiveSettingsTab("pieces")}
-                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "pieces" ? "text-emerald-500" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
+                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "pieces" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
                       >
                         Pieces
-                        {activeSettingsTab === "pieces" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-emerald-500" />}
+                        {activeSettingsTab === "pieces" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[var(--border-hover)]" />}
                       </button>
                     </div>
 
@@ -2030,15 +2021,15 @@ export default function PlayComputerPage() {
                                 }}
                                 className={`group relative flex flex-col gap-1.5 transition-all ${isSelected ? "z-10" : "z-0"}`}
                               >
-                                <div className={`relative aspect-square rounded-lg border-2 overflow-hidden transition-all ${isSelected ? "border-emerald-500 scale-[1.05] shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "border-transparent group-hover:border-[var(--border-hover)]"}`}>
+                                <div className={`relative aspect-square rounded-lg border-2 overflow-hidden transition-all ${isSelected ? "border-[var(--border-hover)] scale-[1.05] shadow-[0_0_15px_rgba(0,0,0,0.25)]" : "border-transparent group-hover:border-[var(--border-hover)]"}`}>
                                   <BoardThumbnail src={bgImage} className="w-full h-full" />
                                   {isSelected && (
-                                    <div className="absolute top-1 right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center z-20">
-                                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    <div className="absolute top-1 right-1 w-4 h-4 bg-[var(--text-primary)] rounded-full flex items-center justify-center z-20">
+                                      <svg className="w-2.5 h-2.5 text-[var(--surface)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                                     </div>
                                   )}
                                 </div>
-                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-emerald-500" : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]"}`}>
+                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]"}`}>
                                   {theme.replace(/_/g, " ")}
                                 </span>
                               </button>
@@ -2060,15 +2051,15 @@ export default function PlayComputerPage() {
                                 }}
                                 className={`group relative flex flex-col gap-1.5 transition-all ${isSelected ? "z-10" : "z-0"}`}
                               >
-                                <div className={`relative aspect-square rounded-lg border-2 bg-[var(--skeleton)] flex items-center justify-center transition-all p-2 ${isSelected ? "border-emerald-500 scale-[1.05] shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "border-transparent group-hover:border-[var(--border-hover)] group-hover:bg-[var(--skeleton-soft)]"}`}>
+                                <div className={`relative aspect-square rounded-lg border-2 bg-[var(--skeleton)] flex items-center justify-center transition-all p-2 ${isSelected ? "border-[var(--border-hover)] scale-[1.05] shadow-[0_0_15px_rgba(0,0,0,0.25)]" : "border-transparent group-hover:border-[var(--border-hover)] group-hover:bg-[var(--skeleton-soft)]"}`}>
                                   <PieceThumbnail src={knightSrc} alt={theme} />
                                   {isSelected && (
-                                    <div className="absolute top-1 right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center z-10">
-                                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    <div className="absolute top-1 right-1 w-4 h-4 bg-[var(--text-primary)] rounded-full flex items-center justify-center z-10">
+                                      <svg className="w-2.5 h-2.5 text-[var(--surface)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                                     </div>
                                   )}
                                 </div>
-                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-emerald-500" : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]"}`}>
+                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]"}`}>
                                   {theme.replace(/_/g, " ")}
                                 </span>
                               </button>
@@ -2131,7 +2122,7 @@ export default function PlayComputerPage() {
                           }} 
                           className="sr-only peer" 
                         />
-                        <div className="w-11 h-6 bg-[var(--skeleton)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--text-muted)] after:border border-[var(--border)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-white peer-checked:after:border-white group-hover:after:scale-[1.05]"></div>
+                        <div className="w-11 h-6 bg-[var(--skeleton)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-[var(--border)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--text-muted)] after:border border-[var(--border)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--border-hover)] peer-checked:after:bg-[var(--surface)] group-hover:after:scale-[1.05]"></div>
                         <span className="ml-3 text-[14px] text-[var(--text-secondary)] font-medium group-hover:text-[var(--text-primary)] transition-colors">Enable Sounds</span>
                       </label>
                     </div>
@@ -2143,7 +2134,7 @@ export default function PlayComputerPage() {
                   <button 
                     onClick={() => savePreferences().catch(() => {})}
                     disabled={preferencesSaving || preferencesLoading}
-                    className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="px-8 py-2.5 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] font-bold rounded-lg transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {preferencesSaving ? "Saving..." : "Save"}
                   </button>

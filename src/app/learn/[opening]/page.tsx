@@ -310,8 +310,8 @@ const MiniBoardPreview = ({
   const board = game.board().map((row) => row.map((piece) => getPieceCode(piece)));
 
   return (
-    <div className="w-[170px] rounded-md border border-[#4a4a4d] bg-[#18181a] p-2 shadow-2xl">
-      <div className="relative aspect-square overflow-hidden rounded-sm border border-[#2f2f32]">
+    <div className="w-[170px] rounded-md border border-[var(--border-subtle)] bg-[var(--surface-alt)] p-2 shadow-2xl">
+      <div className="relative aspect-square overflow-hidden rounded-sm border border-[var(--border)]">
         <img
           src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`}
           alt="Preview board"
@@ -1367,7 +1367,7 @@ export default function OpeningPage() {
 
       <main className="flex-1 w-full flex flex-col lg:flex-row h-[calc(100vh-73px)]">
         <div className="w-full lg:w-[35%] p-6 lg:p-5 bg-[var(--bg)] relative z-10 shrink-0 border-r border-[var(--border)]">
-          <div className="w-full h-full bg-[#1e1e1f] border border-[#2d2d2f] rounded-xl shadow-2xl overflow-hidden flex flex-col">
+          <div className="w-full h-full bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden flex flex-col">
             <div className="border-b border-[var(--border)] px-3 py-2 bg-[var(--surface-alt)]">
               <div className="text-[16px] font-serif font-[600] leading-tight text-[var(--text-primary)]">
                 {formattedTitle} - {statusText}
@@ -1506,23 +1506,23 @@ export default function OpeningPage() {
               ) : null}
             </div>
 
-            <div className="h-12 px-3 border-b border-[#2c2c2d] flex items-center justify-between relative shrink-0">
+            <div className="h-12 px-3 border-b border-[var(--border)] flex items-center justify-between relative shrink-0">
               <div className="flex items-center gap-2">
-                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#3a3a3a] text-[var(--text-primary)] text-[10px]">v</span>
-                <span className="text-[#f0f0f0] text-[15px] font-[500] leading-none">Analysis</span>
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[var(--surface-hover)] text-[var(--text-primary)] text-[10px]">v</span>
+                <span className="text-[var(--text-primary)] text-[15px] font-[500] leading-none">Analysis</span>
                 <button
                   onClick={() => setIsAnalysisMenuOpen((open) => !open)}
-                  className="p-1 rounded hover:bg-white/10 text-[#b8b8b8]"
+                  className="p-1 rounded hover:bg-[var(--surface-hover)] text-[var(--text-muted)]"
                   title="Analysis menu"
                 >
                   <MoreHorizontal className="w-4 h-4" />
                 </button>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-[#cfcfcf] text-[14px]">depth-{analysis.depth || analysisDepth}</span>
+                <span className="text-[var(--text-secondary)] text-[14px]">depth-{analysis.depth || analysisDepth}</span>
                 <button
                   onClick={() => setIsSettingsOpen(true)}
-                  className="text-[#bfbfbf] hover:text-white"
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                   title="Engine settings"
                 >
                   <Settings className="w-4 h-4" />
@@ -1530,26 +1530,26 @@ export default function OpeningPage() {
               </div>
 
               {isAnalysisMenuOpen && (
-                <div className="absolute top-11 left-20 z-30 w-[230px] rounded-md border border-[#3a3a3d] bg-[#242426] shadow-2xl py-2">
-                  <button onClick={() => setShowAnalysisSection((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                <div className="absolute top-11 left-20 z-30 w-[230px] rounded-md border border-[var(--border-subtle)] bg-[var(--surface-alt)] shadow-2xl py-2">
+                  <button onClick={() => setShowAnalysisSection((v) => !v)} className="w-full px-3 py-2 text-left text-[var(--text-primary)] hover:bg-[var(--surface-hover)] text-[14px] flex items-center justify-between">
                     <span>Analysis Section</span>
-                    <span className={showAnalysisSection ? "text-emerald-500" : "text-[#7b7b7b]"}>{showAnalysisSection ? "On" : "Off"}</span>
+                    <span className={showAnalysisSection ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}>{showAnalysisSection ? "On" : "Off"}</span>
                   </button>
-                  <button onClick={() => setShowEvaluationBar((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                  <button onClick={() => setShowEvaluationBar((v) => !v)} className="w-full px-3 py-2 text-left text-[var(--text-primary)] hover:bg-[var(--surface-hover)] text-[14px] flex items-center justify-between">
                     <span>Evaluation Bar</span>
-                    <span className={showEvaluationBar ? "text-emerald-500" : "text-[#7b7b7b]"}>{showEvaluationBar ? "On" : "Off"}</span>
+                    <span className={showEvaluationBar ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}>{showEvaluationBar ? "On" : "Off"}</span>
                   </button>
-                  <button onClick={() => setShowEngineLines((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                  <button onClick={() => setShowEngineLines((v) => !v)} className="w-full px-3 py-2 text-left text-[var(--text-primary)] hover:bg-[var(--surface-hover)] text-[14px] flex items-center justify-between">
                     <span>Engine Lines</span>
-                    <span className={showEngineLines ? "text-emerald-500" : "text-[#7b7b7b]"}>{showEngineLines ? "On" : "Off"}</span>
+                    <span className={showEngineLines ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}>{showEngineLines ? "On" : "Off"}</span>
                   </button>
-                  <button onClick={() => setShowSuggestionArrow((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                  <button onClick={() => setShowSuggestionArrow((v) => !v)} className="w-full px-3 py-2 text-left text-[var(--text-primary)] hover:bg-[var(--surface-hover)] text-[14px] flex items-center justify-between">
                     <span>Suggestion Arrow</span>
-                    <span className={showSuggestionArrow ? "text-emerald-500" : "text-[#7b7b7b]"}>{showSuggestionArrow ? "On" : "Off"}</span>
+                    <span className={showSuggestionArrow ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}>{showSuggestionArrow ? "On" : "Off"}</span>
                   </button>
-                  <button onClick={() => setShowMoveFeedback((v) => !v)} className="w-full px-3 py-2 text-left text-[#e8e8e8] hover:bg-white/5 text-[14px] flex items-center justify-between">
+                  <button onClick={() => setShowMoveFeedback((v) => !v)} className="w-full px-3 py-2 text-left text-[var(--text-primary)] hover:bg-[var(--surface-hover)] text-[14px] flex items-center justify-between">
                     <span>Move Feedback</span>
-                    <span className={showMoveFeedback ? "text-emerald-500" : "text-[#7b7b7b]"}>{showMoveFeedback ? "On" : "Off"}</span>
+                    <span className={showMoveFeedback ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}>{showMoveFeedback ? "On" : "Off"}</span>
                   </button>
                 </div>
               )}
@@ -1557,7 +1557,7 @@ export default function OpeningPage() {
 
             {showAnalysisSection ? (
             <div className="flex-1 min-h-0 flex flex-col">
-              <div className="max-h-[255px] overflow-y-auto custom-scrollbar border-b border-[#2a2a2c]">
+              <div className="max-h-[255px] overflow-y-auto custom-scrollbar border-b border-[var(--border)]">
                 {showEngineLines ? (
                   <>
                     {analysis.lines.slice(0, analysisMultiPv).map((line) => {
@@ -1567,12 +1567,12 @@ export default function OpeningPage() {
                       const visibleMoves = isExpanded ? pvMoves : pvMoves.slice(0, 6);
 
                       return (
-                        <div key={line.id} className="min-h-[44px] px-2 py-1 border-b border-[#2a2a2c] flex items-start gap-2 text-[#d8d8d8] relative z-0 hover:z-40">
-                          <div className="min-w-[52px] h-6 rounded bg-[#151515] border border-[#3a3a3c] flex items-center justify-center text-[12px] font-bold leading-none text-white mt-[2px]">
+                        <div key={line.id} className="min-h-[44px] px-2 py-1 border-b border-[var(--border)] flex items-start gap-2 text-[var(--text-secondary)] relative z-0 hover:z-40">
+                          <div className="min-w-[52px] h-6 rounded bg-[var(--surface)] border border-[var(--border-subtle)] flex items-center justify-center text-[12px] font-bold leading-none text-[var(--text-primary)] mt-[2px]">
                             {line.scoreText}
                           </div>
                           <div className="min-w-0 flex-1 flex items-start justify-between gap-2">
-                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] leading-[1.1] text-[#d7d7d7]">
+                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] leading-[1.1] text-[var(--text-secondary)]">
                               {visibleMoves.map((pvMove) => (
                                 <div key={pvMove.key} className="relative z-0">
                                   <span
@@ -1593,7 +1593,7 @@ export default function OpeningPage() {
                                     [line.id]: !isExpanded,
                                   }))
                                 }
-                                className="h-6 w-6 shrink-0 rounded text-[#c1c1c4] hover:bg-white/10 hover:text-white flex items-center justify-center"
+                                className="h-6 w-6 shrink-0 rounded text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] flex items-center justify-center"
                                 title={isExpanded ? "Collapse line" : "Show full line"}
                               >
                                 {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -1604,29 +1604,29 @@ export default function OpeningPage() {
                       );
                     })}
                     {analysis.error ? (
-                      <div className="px-3 py-3 text-rose-300 text-[14px] border-b border-[#2a2a2c]">
+                      <div className="px-3 py-3 text-[var(--error-text)] text-[14px] border-b border-[var(--border)]">
                         Engine failed: {analysis.error}
                       </div>
                     ) : analysis.lines.length === 0 && (
-                      <div className="px-3 py-3 text-[#9a9a9a] text-[14px] border-b border-[#2a2a2c]">
+                      <div className="px-3 py-3 text-[var(--text-muted)] text-[14px] border-b border-[var(--border)]">
                         {analysis.ready ? "Analyzing current position..." : "Starting engine..."}
                       </div>
                     )}
                   </>
                 ) : (
-                  <div className="px-3 py-3 text-[#9a9a9a] text-[14px] border-b border-[#2a2a2c]">
+                  <div className="px-3 py-3 text-[var(--text-muted)] text-[14px] border-b border-[var(--border)]">
                     Engine lines hidden from menu.
                   </div>
                 )}
               </div>
 
-              <div className="flex-1 min-h-0 flex flex-col bg-[#1d1d1f]">
-                <div className="px-3 py-2 border-b border-[#2a2a2c] text-[13px] font-semibold text-white">
+              <div className="flex-1 min-h-0 flex flex-col bg-[var(--surface)]">
+                <div className="px-3 py-2 border-b border-[var(--border)] text-[13px] font-semibold text-[var(--text-primary)]">
                   White - Black
                 </div>
                 <div className="flex-1 overflow-y-auto">
                   {playedMoveRows.length === 0 ? (
-                    <div className="px-3 py-3 text-[13px] text-[#8f8f92]">No moves yet.</div>
+                    <div className="px-3 py-3 text-[13px] text-[var(--text-muted)]">No moves yet.</div>
                   ) : (
                     playedMoveRows.map((row, rowIndex) => {
                       const whitePlyIndex = rowIndex * 2 + 1;
@@ -1635,12 +1635,12 @@ export default function OpeningPage() {
                       const isCurrentBlack = currentMoveIndex === blackPlyIndex;
 
                       return (
-                        <div key={row.moveNumber} className="grid grid-cols-[36px_1fr_1fr] items-center px-3 py-1.5 border-b border-[#252527] text-[14px]">
-                          <span className="text-[#a5a5a8]">{row.moveNumber}.</span>
-                          <span className={`truncate ${isCurrentWhite ? "text-white font-semibold" : "text-[#d4d4d6]"}`}>
+                        <div key={row.moveNumber} className="grid grid-cols-[36px_1fr_1fr] items-center px-3 py-1.5 border-b border-[var(--border)] text-[14px]">
+                          <span className="text-[var(--text-dimmed)]">{row.moveNumber}.</span>
+                          <span className={`truncate ${isCurrentWhite ? "text-[var(--text-primary)] font-semibold" : "text-[var(--text-secondary)]"}`}>
                             {row.whiteMove || ""}
                           </span>
-                          <span className={`truncate ${isCurrentBlack ? "text-white font-semibold" : "text-[#d4d4d6]"}`}>
+                          <span className={`truncate ${isCurrentBlack ? "text-[var(--text-primary)] font-semibold" : "text-[var(--text-secondary)]"}`}>
                             {row.blackMove || ""}
                           </span>
                         </div>
@@ -1652,33 +1652,33 @@ export default function OpeningPage() {
             </div>
             ) : null}
 
-            <div className="px-3 py-2 border-t border-[#2a2a2c] bg-[#1b1b1c]">
+            <div className="px-3 py-2 border-t border-[var(--border)] bg-[var(--surface-alt)]">
               <div className="flex items-center justify-center gap-2 mb-3 w-full">
-                  <button onClick={goToStart} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                  <button onClick={goToStart} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] transition-colors disabled:cursor-not-allowed">
                     <ChevronsLeft className="w-6 h-6" />
                   </button>
-                  <button onClick={goToPrev} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                  <button onClick={goToPrev} disabled={currentMoveIndex === 0} className="p-2 rounded-md bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] transition-colors disabled:cursor-not-allowed">
                     <ChevronLeft className="w-6 h-6" />
                   </button>
-                  <button onClick={togglePlay} className="p-2 px-4 rounded-md bg-emerald-600/30 text-white hover:bg-emerald-600/50 transition-colors flex items-center justify-center min-w-[56px]">
-                    {isPlaying ? <Pause className="w-6 h-6 fill-white" /> : <Play className="w-6 h-6 fill-white" />}
+                  <button onClick={togglePlay} className="p-2 px-4 rounded-md bg-[var(--surface)] border border-[var(--border-hover)] text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors flex items-center justify-center min-w-[56px]">
+                    {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
                   </button>
-                  <button onClick={goToNext} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                  <button onClick={goToNext} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] transition-colors disabled:cursor-not-allowed">
                     <ChevronRight className="w-6 h-6" />
                   </button>
-                  <button onClick={goToEnd} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[#2b2b2c] hover:bg-[#353537] text-white transition-colors disabled:cursor-not-allowed">
+                  <button onClick={goToEnd} disabled={currentMoveIndex === history.length - 1} className="p-2 rounded-md bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] transition-colors disabled:cursor-not-allowed">
                     <ChevronsRight className="w-6 h-6" />
                   </button>
                 </div>
 
               {showMoveFeedback && (
-                <div className="text-[12px] text-[#b8e8d0] mb-2">
+                <div className="text-[12px] text-[var(--text-secondary)] mb-2">
                   {topSuggestedMove ? `Suggested move: ${topSuggestedMove}` : "No suggestion yet."}
                 </div>
               )}
               <button
                 onClick={resetBoard}
-                className="w-full flex items-center justify-center px-4 py-2.5 bg-[#2f78cf] text-white rounded-md font-semibold text-[13px] hover:bg-[#3f88df] transition-colors"
+                className="w-full flex items-center justify-center px-4 py-2.5 bg-[var(--cta-bg)] text-[var(--cta-text)] rounded-md font-semibold text-[13px] hover:bg-[var(--cta-hover)] transition-colors"
               >
                 Reset Board
               </button>
@@ -1732,7 +1732,7 @@ export default function OpeningPage() {
                     onClick={() => setActiveSettingsTab("boards")}
                     className={`flex items-center gap-3 px-5 py-3 w-full text-left font-medium border-l-2 transition-colors ${
                       activeSettingsTab === "boards" || activeSettingsTab === "pieces"
-                        ? "bg-[var(--surface-alt)] text-emerald-500 border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]"
+                        ? "bg-[var(--surface-alt)] text-[var(--text-primary)] border-[var(--border-hover)] shadow-[-10px_0_20px_rgba(0,0,0,0.12)]"
                         : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"
                     }`}
                   >
@@ -1743,7 +1743,7 @@ export default function OpeningPage() {
                     onClick={() => setActiveSettingsTab("gameplay")}
                     className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${
                       activeSettingsTab === "gameplay"
-                        ? "bg-[var(--surface-alt)] text-emerald-500 font-medium border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]"
+                        ? "bg-[var(--surface-alt)] text-[var(--text-primary)] font-medium border-[var(--border-hover)] shadow-[-10px_0_20px_rgba(0,0,0,0.12)]"
                         : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"
                     }`}
                   >
@@ -1754,7 +1754,7 @@ export default function OpeningPage() {
                     onClick={() => setActiveSettingsTab("engine")}
                     className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${
                       activeSettingsTab === "engine"
-                        ? "bg-[var(--surface-alt)] text-emerald-500 font-medium border-emerald-500 shadow-[-10px_0_20px_rgba(16,185,129,0.05)]"
+                        ? "bg-[var(--surface-alt)] text-[var(--text-primary)] font-medium border-[var(--border-hover)] shadow-[-10px_0_20px_rgba(0,0,0,0.12)]"
                         : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"
                     }`}
                   >
@@ -1794,17 +1794,17 @@ export default function OpeningPage() {
                     <div className="flex border-b border-[var(--border)] mb-4 shrink-0">
                       <button
                         onClick={() => setActiveSettingsTab("boards")}
-                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "boards" ? "text-emerald-500" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
+                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "boards" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
                       >
                         Boards
-                        {activeSettingsTab === "boards" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-emerald-500" />}
+                        {activeSettingsTab === "boards" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[var(--border-hover)]" />}
                       </button>
                       <button
                         onClick={() => setActiveSettingsTab("pieces")}
-                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "pieces" ? "text-emerald-500" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
+                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "pieces" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
                       >
                         Pieces
-                        {activeSettingsTab === "pieces" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-emerald-500" />}
+                        {activeSettingsTab === "pieces" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[var(--border-hover)]" />}
                       </button>
                     </div>
                     )}
@@ -1825,15 +1825,15 @@ export default function OpeningPage() {
                                 }}
                                 className={`group relative flex flex-col gap-1.5 transition-all ${isSelected ? "z-10" : "z-0"}`}
                               >
-                                <div className={`relative aspect-square rounded-lg border-2 overflow-hidden transition-all ${isSelected ? "border-emerald-500 scale-[1.05] shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "border-transparent group-hover:border-[var(--border)]"}`}>
+                                <div className={`relative aspect-square rounded-lg border-2 overflow-hidden transition-all ${isSelected ? "border-[var(--border-hover)] scale-[1.05] shadow-[0_0_15px_rgba(0,0,0,0.25)]" : "border-transparent group-hover:border-[var(--border)]"}`}>
                                   <BoardThumbnail src={bgImage} className="w-full h-full" />
                                   {isSelected && (
-                                    <div className="absolute top-1 right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center z-20">
-                                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    <div className="absolute top-1 right-1 w-4 h-4 bg-[var(--text-primary)] rounded-full flex items-center justify-center z-20">
+                                      <svg className="w-2.5 h-2.5 text-[var(--surface)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                                     </div>
                                   )}
                                 </div>
-                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-emerald-500" : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]"}`}>
+                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]"}`}>
                                   {theme.replace(/_/g, " ")}
                                 </span>
                               </button>
@@ -1855,15 +1855,15 @@ export default function OpeningPage() {
                                 }}
                                 className={`group relative flex flex-col gap-1.5 transition-all ${isSelected ? "z-10" : "z-0"}`}
                               >
-                                <div className={`relative aspect-square rounded-lg border-2 bg-[var(--skeleton)] flex items-center justify-center transition-all p-2 ${isSelected ? "border-emerald-500 bg-[var(--skeleton-soft)] scale-[1.05] shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "border-transparent group-hover:border-[var(--border)] group-hover:bg-[var(--skeleton-soft)]"}`}>
+                                <div className={`relative aspect-square rounded-lg border-2 bg-[var(--skeleton)] flex items-center justify-center transition-all p-2 ${isSelected ? "border-[var(--border-hover)] bg-[var(--skeleton-soft)] scale-[1.05] shadow-[0_0_15px_rgba(0,0,0,0.25)]" : "border-transparent group-hover:border-[var(--border)] group-hover:bg-[var(--skeleton-soft)]"}`}>
                                   <PieceThumbnail src={knightSrc} alt={theme} />
                                   {isSelected && (
-                                    <div className="absolute top-1 right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center z-10">
-                                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    <div className="absolute top-1 right-1 w-4 h-4 bg-[var(--text-primary)] rounded-full flex items-center justify-center z-10">
+                                      <svg className="w-2.5 h-2.5 text-[var(--surface)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                                     </div>
                                   )}
                                 </div>
-                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-emerald-500" : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]"}`}>
+                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]"}`}>
                                   {theme.replace(/_/g, " ")}
                                 </span>
                               </button>
@@ -2090,7 +2090,7 @@ export default function OpeningPage() {
                           }} 
                           className="sr-only peer" 
                         />
-                        <div className="w-11 h-6 bg-[var(--skeleton)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--text-muted)] after:border-[var(--border)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 peer-checked:after:bg-white group-hover:after:scale-[1.05]"></div>
+                        <div className="w-11 h-6 bg-[var(--skeleton)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-[var(--border)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--text-muted)] after:border-[var(--border)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--border-hover)] peer-checked:after:bg-[var(--surface)] group-hover:after:scale-[1.05]"></div>
                         <span className="ml-3 text-[14px] text-[var(--text-secondary)] font-medium group-hover:text-[var(--text-primary)] transition-colors">Enable Sounds</span>
                       </label>
                     </div>
@@ -2104,7 +2104,7 @@ export default function OpeningPage() {
                         savePreferences().catch(() => {});
                       }}
                       disabled={preferencesSaving || preferencesLoading}
-                      className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="px-8 py-2.5 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] font-bold rounded-lg transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {preferencesSaving ? "Saving..." : "Save"}
                     </button>
