@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ArrowLeft, Sun, Moon } from "lucide-react";
+import { ChevronDown, ArrowLeft, Sun, Moon, Search } from "lucide-react";
 import { useTheme } from "@/lib/theme-context";
 import { AuthMenu } from "@/components/auth-menu";
 import { loadClientPreferences, saveClientPreferences, type LearnOpeningProgress, type LearnSortMode } from "@/lib/client-preferences";
@@ -89,6 +89,90 @@ const normalizeSlug = (value: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+
+const normalizeSearchText = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const tokenizeSearchText = (value: string) =>
+  normalizeSearchText(value)
+    .split(" ")
+    .filter(Boolean);
+
+const levenshteinDistance = (left: string, right: string) => {
+  if (left === right) {
+    return 0;
+  }
+
+  const rows = left.length + 1;
+  const cols = right.length + 1;
+  const matrix = Array.from({ length: rows }, () => new Array<number>(cols).fill(0));
+
+  for (let row = 0; row < rows; row += 1) {
+    matrix[row][0] = row;
+  }
+
+  for (let col = 0; col < cols; col += 1) {
+    matrix[0][col] = col;
+  }
+
+  for (let row = 1; row < rows; row += 1) {
+    for (let col = 1; col < cols; col += 1) {
+      const cost = left[row - 1] === right[col - 1] ? 0 : 1;
+      matrix[row][col] = Math.min(
+        matrix[row - 1][col] + 1,
+        matrix[row][col - 1] + 1,
+        matrix[row - 1][col - 1] + cost,
+      );
+    }
+  }
+
+  return matrix[rows - 1][cols - 1];
+};
+
+const isFuzzyTokenMatch = (queryToken: string, candidateToken: string) => {
+  if (candidateToken.includes(queryToken) || queryToken.includes(candidateToken)) {
+    return true;
+  }
+
+  if (queryToken.length < 4 || candidateToken.length < 4) {
+    return false;
+  }
+
+  const maxDistance = queryToken.length >= 7 ? 2 : 1;
+  return levenshteinDistance(queryToken, candidateToken) <= maxDistance;
+};
+
+const matchesNameOrMoves = (query: string, name: string, moves: string) => {
+  const queryTokens = tokenizeSearchText(query);
+  if (queryTokens.length === 0) {
+    return true;
+  }
+
+  const nameText = normalizeSearchText(name);
+  const movesText = normalizeSearchText(moves);
+  const nameTokens = tokenizeSearchText(nameText).filter((token) => token.length >= 2);
+  const moveTokens = tokenizeSearchText(movesText).filter((token) => token.length >= 2);
+
+  return queryTokens.every((token) => {
+    if (token.length === 1) {
+      return nameTokens.some((candidate) => candidate.startsWith(token));
+    }
+
+    if (token.length <= 2) {
+      return moveTokens.includes(token) || nameTokens.some((candidate) => candidate.startsWith(token));
+    }
+
+    const directMatch = nameText.includes(token) || movesText.includes(token);
+    if (directMatch) {
+      return true;
+    }
+
+    return nameTokens.some((candidate) => isFuzzyTokenMatch(token, candidate));
+  });
+};
 
 const toBaseOpeningName = (name: string) => {
   const colonRoot = name.split(":")[0]?.trim() ?? name;
@@ -289,6 +373,7 @@ export default function LearnPage() {
   const [openingCards, setOpeningCards] = useState<OpeningCard[]>(fallbackOpenings);
   const [openingProgressBySlug, setOpeningProgressBySlug] = useState<Record<string, LearnOpeningProgress>>({});
   const [sortMode, setSortMode] = useState<LearnSortMode>("recommended");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const loaded = loadClientPreferences();
@@ -376,7 +461,14 @@ export default function LearnPage() {
   }, [openingCards, openingProgressBySlug]);
 
   const sortedOpenings = useMemo(() => {
-    const openings = [...openingsWithProgress];
+    let openings = [...openingsWithProgress];
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim();
+      openings = openings.filter(
+        (opening) => matchesNameOrMoves(query, opening.name, opening.moves ?? "")
+      );
+    }
 
     if (sortMode === "recommended") {
       return openings;
@@ -430,7 +522,10 @@ export default function LearnPage() {
       }
       return left.name.localeCompare(right.name);
     });
-  }, [openingsWithProgress, sortMode]);
+  }, [openingsWithProgress, sortMode, searchQuery]);
+
+  const totalOpeningsCount = openingsWithProgress.length;
+  const visibleOpeningsCount = sortedOpenings.length;
 
   return (
     <div className="min-h-screen flex flex-col items-center overflow-x-hidden bg-[var(--bg)]">
@@ -512,14 +607,35 @@ export default function LearnPage() {
           </div>
         ) : null}
 
-        <div className="mb-8 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
-          <div className="inline-flex h-10 items-center text-[13px] font-semibold uppercase tracking-[0.12em] text-[var(--text-dimmed)]">Opening Library</div>
-          <div className="grid h-10 w-full grid-cols-[auto_1fr] items-center gap-2 md:w-auto md:grid-cols-[auto_220px]">
+        <div className="mb-4 flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
+          <div className="flex flex-col md:flex-row md:items-center gap-4 flex-1">
+            <div className="inline-flex h-10 items-center text-[13px] font-semibold uppercase tracking-[0.12em] text-[var(--text-dimmed)] whitespace-nowrap">
+              Opening Library
+            </div>
+            {/* Search Bar */}
+            <div className="relative w-full max-w-md">
+              <div
+                className="absolute top-1/2 flex items-center pointer-events-none"
+                style={{ left: "18px", transform: "translateY(-50%)" }}
+              >
+                <Search className="h-5 w-5 text-[var(--text-muted)]" />
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search like Sicilian, c4, Indian, etc."
+                className="block w-full py-3 bg-[var(--surface-alt)] border border-[var(--border)] rounded-full text-[14px] font-medium text-[var(--text-primary)] placeholder:text-[var(--text-dimmed)] focus:outline-none focus:ring-2 focus:ring-[var(--border-hover)] focus:border-transparent transition-all shadow-sm"
+                style={{ paddingLeft: "52px", paddingRight: "24px" }}
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
             <span className="text-[12px] font-semibold text-[var(--text-secondary)]">Sort</span>
             <select
               value={sortMode}
               onChange={(event) => handleSortModeChange(event.target.value as LearnSortMode)}
-              className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-medium text-[var(--text-primary)] outline-none hover:border-[var(--border-hover)]"
+              className="h-10 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-[12px] font-medium text-[var(--text-primary)] outline-none hover:border-[var(--border-hover)]"
             >
               <option value="recommended">Recommended</option>
               <option value="recent">Recently Practiced</option>
@@ -532,11 +648,17 @@ export default function LearnPage() {
           </div>
         </div>
 
+        <div className="mb-6 text-[12px] font-medium text-[var(--text-secondary)]">
+          {searchQuery.trim()
+            ? `Showing ${visibleOpeningsCount} of ${totalOpeningsCount} openings`
+            : `Showing ${totalOpeningsCount} openings`}
+        </div>
+
         {/* Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-          {sortedOpenings.map((opening, idx) => (
+          {sortedOpenings.map((opening) => (
             <div 
-              key={idx} 
+              key={opening.slug} 
               className="relative bg-gradient-to-b from-[var(--card-from)] to-[var(--card-to)] border border-[var(--border)] hover:border-[var(--border-hover)] rounded-2xl p-8 hover:bg-[var(--surface-hover)] transition-all cursor-pointer group shadow-lg hover:shadow-2xl hover:-translate-y-1 duration-300"
             >
               <div className="flex items-center justify-between mb-4">
@@ -565,6 +687,15 @@ export default function LearnPage() {
             </div>
           ))}
         </div>
+
+        {sortedOpenings.length === 0 ? (
+          <div className="mt-10 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-8 text-center">
+            <p className="text-[var(--text-primary)] text-lg font-semibold">No openings found</p>
+            <p className="mt-2 text-[var(--text-muted)] text-sm">
+              Try another search term like "Sicilian", "Queen", or "e4 c5".
+            </p>
+          </div>
+        ) : null}
       </main>
     </div>
   );
