@@ -47,16 +47,16 @@ export default function Home() {
 
       {/* Main Hero Content */}
       <main className="flex-1 flex flex-col items-center text-center w-full px-4 mt-6 md:mt-16">
-        <h1 className="text-[52px] md:text-[80px] font-serif text-[var(--text-primary)] font-[500] leading-[1.05] max-w-4xl mx-auto tracking-normal lg:tracking-[-0.02em]">
+        <h1 className="relative z-10 text-[52px] md:text-[80px] font-serif text-[var(--text-primary)] font-[500] leading-[1.05] max-w-4xl mx-auto tracking-normal lg:tracking-[-0.02em]">
           Play Chess Online<br />on the #1 Site!
         </h1>
         
-        <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-6 mt-8 text-[var(--text-muted)] text-[16px] font-medium">
+        <div className="relative z-10 flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-6 mt-8 text-[var(--text-muted)] text-[16px] font-medium">
           <div><span className="text-[var(--text-primary)] font-[600]">18,123,165+</span> Games Today</div>
           <div><span className="text-[var(--text-primary)] font-[600]">301,512</span> Playing Now</div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-5 mt-12 w-full max-w-md sm:max-w-none justify-center">
+        <div className="relative z-10 flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-5 mt-12 w-full max-w-md sm:max-w-none justify-center">
           <button className="w-full sm:w-auto flex items-center justify-center px-10 py-5 bg-[var(--cta-bg)] text-[var(--cta-text)] rounded-full font-bold text-xl hover:bg-[var(--cta-hover)] transition-colors shadow-[0_0_40px_rgba(0,0,0,0.1)]">
             {/* Custom SVG for Knight */}
             <svg 
@@ -89,7 +89,7 @@ export default function Home() {
 
         {/* Hero Chessboard image */}
         <div
-          className="w-full max-w-[1200px] mt-8 md:-mt-5 relative mb-24 aspect-[16/10] flex items-center justify-center translate-x-0 md:translate-x-[16%] lg:translate-x-[26%] md:scale-[1.2] lg:scale-[1.3]"
+          className="z-0 w-full max-w-[1200px] mt-8 md:-mt-5 relative mb-24 aspect-[16/10] flex items-center justify-center translate-x-0 md:translate-x-[16%] lg:translate-x-[26%] md:scale-[1.2] lg:scale-[1.3]"
           style={{
             maskImage: "linear-gradient(to bottom, black 50%, transparent 100%)",
             WebkitMaskImage: "linear-gradient(to bottom, black 50%, transparent 100%)",
