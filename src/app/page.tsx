@@ -2,6 +2,7 @@
 
 import { ChevronDown, Bot, Sun, Moon } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useTheme } from "@/lib/theme-context";
 import { AuthMenu } from "@/components/auth-menu";
 
@@ -86,19 +87,25 @@ export default function Home() {
           </Link>
         </div>
 
-        {/* Video / 3D Chessboard container */}
-        <div className="w-full max-w-[1000px] mt-24 relative mb-24 aspect-[16/10] overflow-hidden flex items-center justify-center group" style={{ maskImage: "linear-gradient(to bottom, black 50%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, black 50%, transparent 100%)", mixBlendMode: isDark ? "lighten" : "normal" }}>
-          
-          <video 
-            src="/chessboard.mp4" 
-            autoPlay 
-            loop 
-            muted 
-            playsInline 
-            className={`w-full h-full object-cover z-0 ${isDark ? "grayscale" : "grayscale-[30%]"}`}
+        {/* Hero Chessboard image */}
+        <div
+          className="w-full max-w-[1200px] mt-8 md:-mt-12 relative mb-24 aspect-[16/10] flex items-center justify-center translate-x-0 md:translate-x-[20%] lg:translate-x-[30%] md:scale-[1.2] lg:scale-[1.3]"
+          style={{
+            maskImage: "linear-gradient(to bottom, black 50%, transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to bottom, black 50%, transparent 100%)",
+            mixBlendMode: isDark ? "lighten" : "darken",
+          }}
+        >
+          <Image
+            src={isDark ? "/images/hero/chessboard.png" : "/images/hero/chesslight.png"}
+            alt="3D chessboard with black and white pieces"
+            fill
+            priority
+            sizes="(max-width: 768px) 100vw, 1000px"
+            className={`object-cover z-0 ${isDark ? "grayscale" : ""}`}
           />
-
         </div>
+
       </main>
     </div>
   );

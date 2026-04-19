@@ -127,66 +127,107 @@ const openingSide = (opening: OpeningCard): "white" | "black" => {
 const sanitizeDescription = (value: string) =>
   value
     .replace(/\b\d+\.(\.\.)?/g, "")
+    .replace(/\b\d+\.[a-h][1-8]\b/gi, "")
     .replace(/\b(?:O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?)(?:[!?+#]+)?\b/g, "")
+    .replace(/(^|[^a-zA-Z])([a-h][1-8])(?=[^a-zA-Z]|$)/gi, "$1")
     .replace(/\b[a-h][1-8]\b/g, "")
+    .replace(/\bmove\s+[.,]/gi, "")
     .replace(/\s{2,}/g, " ")
     .replace(/\s+([,.;:!?])/g, "$1")
     .trim();
+
+const fallbackDescriptionForName = (name: string) => {
+  const lowered = name.toLowerCase();
+  if (lowered.includes("gambit")) {
+    return `${name} is an aggressive opening that sacrifices material to gain initiative and attacking momentum.`;
+  }
+  if (lowered.includes("defense") || lowered.includes("defence")) {
+    return `${name} is a defensive setup focused on structure, development, and timely counterplay.`;
+  }
+  if (lowered.includes("attack")) {
+    return `${name} is an assertive opening plan aimed at early pressure and active piece play.`;
+  }
+  return `${name} is a practical chess opening with strategic plans around development, central control, and king safety.`;
+};
+
+const isUsableOpeningDescription = (value: string) => {
+  const text = value.toLowerCase();
+  if (!text || text.length < 40) {
+    return false;
+  }
+
+  if (
+    text.includes("usually refers to") ||
+    text.includes("may refer to") ||
+    text.includes("can refer to") ||
+    text.includes("is a chess opening") ||
+    text.includes("is an opening in chess") ||
+    text.includes("opening in chess")
+  ) {
+    return false;
+  }
+
+  if (!/[a-z0-9][.!?]$/i.test(value.trim())) {
+    return false;
+  }
+
+  return true;
+};
 
 const fallbackOpenings: OpeningCard[] = [
   {
     slug: "italian-game",
     name: "Italian Game",
     moves: "1. e4 e5 2. Nf3 Nc6 3. Bc4",
-    description: "A classical opening that develops pieces quickly and controls the center. Perfect for beginners and masters alike."
+    description: "A classical opening focused on rapid development, central influence, and active piece play in open positions."
   },
   {
     slug: "sicilian-defense",
     name: "Sicilian Defense",
     moves: "1. e4 c5",
-    description: "The most popular and best-scoring response to White's first move 1.e4. Highly tactical and aggressive."
+    description: "A combative defense that creates asymmetrical structures and rich counterattacking chances for Black."
   },
   {
     slug: "queens-gambit",
     name: "Queen's Gambit",
     moves: "1. d4 d5 2. c4",
-    description: "White offers a pawn to gain control of the center. A staple of positional and strategic chess."
+    description: "A strategic opening that prioritizes long-term central control, healthy development, and positional pressure."
   },
   {
     slug: "ruy-lopez",
     name: "Ruy Lopez",
     moves: "1. e4 e5 2. Nf3 Nc6 3. Bb5",
-    description: "Named after a Spanish bishop, this opening aims to apply pressure on the knight defending the e5 pawn."
+    description: "A foundational classical opening that builds steady pressure and often leads to deep strategic middlegames."
   },
   {
     slug: "french-defense",
     name: "French Defense",
     moves: "1. e4 e6",
-    description: "A solid and resilient opening for Black that immediately challenges White's central pawn on e4."
+    description: "A resilient defense built around a compact pawn structure and well-timed central counterplay."
   },
   {
     slug: "caro-kann-defense",
     name: "Caro-Kann Defense",
     moves: "1. e4 c6",
-    description: "Known for its extreme solidity, Black prepares to challenge the center with d5 on the next move."
+    description: "A solid defense known for structural reliability, smooth piece development, and durable endgame prospects."
   },
   {
     slug: "kings-indian-defense",
     name: "King's Indian Defense",
     moves: "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7",
-    description: "A hypermodern opening where Black allows White to build a pawn center, aiming to attack it later."
+    description: "A dynamic hypermodern defense where Black invites central expansion and then strikes with active kingside play."
   },
   {
     slug: "english-opening",
     name: "English Opening",
     moves: "1. c4",
-    description: "A flexible and flank opening where White fights for the center using the c-pawn instead of the d or e pawns."
+    description: "A flexible flank opening that supports positional maneuvering, transpositions, and nuanced central control."
   },
   {
     slug: "scandinavian-defense",
     name: "Scandinavian Defense",
     moves: "1. e4 d5",
-    description: "Directly challenging White's central e4 pawn. It leads to open and complex positions."
+    description: "A direct defense that challenges White's center immediately and often leads to practical, active play."
   }
 ];
 
@@ -205,14 +246,19 @@ const normalizeOpeningCards = (openings: OpeningCard[]) => {
     const baseName = toBaseOpeningName(opening.name);
     const groupKey = toOpeningCoreKey(baseName);
     const fallbackOpening = fallbackOpeningByCoreKey.get(groupKey);
+    const importedDescription = sanitizeDescription(openingDescriptionByCoreKey[groupKey] ?? "");
+    const resolvedDescription = sanitizeDescription(
+      fallbackOpening?.description
+        ? fallbackOpening.description
+        : isUsableOpeningDescription(importedDescription)
+          ? importedDescription
+          : fallbackDescriptionForName(fallbackOpening?.name ?? baseName),
+    );
+
     const normalizedCandidate: OpeningCard = {
       ...opening,
       name: fallbackOpening?.name ?? baseName,
-      description: sanitizeDescription(
-        openingDescriptionByCoreKey[groupKey] ??
-          fallbackOpening?.description ??
-          "A practical opening with clear development ideas, central control goals, and typical middlegame plans.",
-      ),
+      description: resolvedDescription,
       moves: fallbackOpening?.moves ?? opening.moves,
     };
 
