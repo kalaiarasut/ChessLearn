@@ -89,20 +89,40 @@ export default function Home() {
 
         {/* Hero Chessboard image */}
         <div
-          className="w-full max-w-[1200px] mt-8 md:-mt-8 relative mb-24 aspect-[16/10] flex items-center justify-center translate-x-0 md:translate-x-[16%] lg:translate-x-[26%] md:scale-[1.2] lg:scale-[1.3]"
+          className="w-full max-w-[1200px] mt-8 md:-mt-2 relative mb-24 aspect-[16/10] flex items-center justify-center translate-x-0 md:translate-x-[16%] lg:translate-x-[26%] md:scale-[1.2] lg:scale-[1.3]"
           style={{
             maskImage: "linear-gradient(to bottom, black 50%, transparent 100%)",
             WebkitMaskImage: "linear-gradient(to bottom, black 50%, transparent 100%)",
-            mixBlendMode: isDark ? "lighten" : "darken",
+            backgroundColor: "var(--bg)",
           }}
         >
           <Image
-            src={isDark ? "/images/hero/chessboard.png" : "/images/hero/chesslight.png"}
+            src="/images/hero/chessboard.png"
             alt="3D chessboard with black and white pieces"
             fill
             priority
             sizes="(max-width: 768px) 100vw, 1000px"
-            className={`object-cover z-0 ${isDark ? "grayscale" : ""}`}
+            className={`object-cover z-0 grayscale transition-opacity duration-500 ease-in-out ${isDark ? "opacity-100" : "opacity-0"}`}
+            style={{
+              mixBlendMode: "lighten",
+              maskImage: "radial-gradient(130% 95% at 52% 52%, black 68%, transparent 100%)",
+              WebkitMaskImage: "radial-gradient(130% 95% at 52% 52%, black 68%, transparent 100%)",
+            }}
+          />
+          <Image
+            src="/images/hero/chesslight.png"
+            alt=""
+            aria-hidden
+            fill
+            priority
+            sizes="(max-width: 768px) 100vw, 1000px"
+            className={`object-cover z-0 transition-opacity duration-500 ease-in-out ${isDark ? "opacity-0" : "opacity-100"}`}
+            style={{
+              mixBlendMode: "darken",
+              opacity: isDark ? 0 : 1,
+              maskImage: "radial-gradient(130% 95% at 52% 52%, black 68%, transparent 100%)",
+              WebkitMaskImage: "radial-gradient(130% 95% at 52% 52%, black 68%, transparent 100%)",
+            }}
           />
         </div>
 
