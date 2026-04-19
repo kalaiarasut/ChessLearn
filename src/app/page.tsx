@@ -89,7 +89,7 @@ export default function Home() {
 
         {/* Hero Chessboard image */}
         <div
-          className="w-full max-w-[1200px] mt-8 md:-mt-2 relative mb-24 aspect-[16/10] flex items-center justify-center translate-x-0 md:translate-x-[16%] lg:translate-x-[26%] md:scale-[1.2] lg:scale-[1.3]"
+          className="w-full max-w-[1200px] mt-8 md:-mt-5 relative mb-24 aspect-[16/10] flex items-center justify-center translate-x-0 md:translate-x-[16%] lg:translate-x-[26%] md:scale-[1.2] lg:scale-[1.3]"
           style={{
             maskImage: "linear-gradient(to bottom, black 50%, transparent 100%)",
             WebkitMaskImage: "linear-gradient(to bottom, black 50%, transparent 100%)",
