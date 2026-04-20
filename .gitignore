@@ -36,6 +36,7 @@ OPENINGS_DATA_SOURCES.md
 src/data/openings/
 src/data/openings_hf/
 src/data/openings_ecojson/
-src/data/openings_combined/
+src/data/openings_combined/*
+!src/data/openings_combined/openings.catalog.json
 .gitignore
 
