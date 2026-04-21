@@ -4,10 +4,10 @@ import type { DragEvent, MouseEvent } from "react";
 import Link from "next/link";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { Chess, type Square } from "chess.js";
-import { ArrowLeft, Settings, Play, Pause, Bot, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, ChevronUp, MoreHorizontal, Monitor, User, Gamepad2, MessageSquare, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, Crosshair, Crown } from "lucide-react";
+import { ArrowLeft, Settings, Play, Pause, Bot, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, ChevronUp, MoreHorizontal, Monitor, User, Gamepad2, MessageSquare, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, Crosshair, Crown, Info } from "lucide-react";
 import themeManifest from "@/data/themeManifest.json";
 import { useTheme } from "@/lib/theme-context";
-import { useStockfishPlayer } from "./use-stockfish-player";
+import { STOCKFISH_ELO_LIMITS, useStockfishPlayer, type PlayerEngineVariant, type PlayerStrengthMode, type PlayerTimeMode } from "./use-stockfish-player";
 import { useStockfishAnalysis } from "../../learn/[opening]/use-stockfish-analysis";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreferences } from "@/lib/client-preferences";
@@ -19,7 +19,12 @@ const AVAILABLE_PIECE_THEMES = themeManifest.pieceThemes;
 const BOARD_THEME_ASSETS = themeManifest.boardAssets as Record<string, string>;
 const PIECE_THEME_ASSETS = themeManifest.pieceAssets as Record<string, string>;
 
-const ELOS = [250, 400, 700, 1000, 1300, 1500, 1800, 2000, 2400, 3200];
+const ELOS = [1320, 1400, 1500, 1650, 1800, 2000, 2200, 2500, 2850, 3190];
+const ELO_MIN = STOCKFISH_ELO_LIMITS["stockfish-18"].min;
+const ELO_MAX = STOCKFISH_ELO_LIMITS["stockfish-18"].max;
+const BEGINNER_ESTIMATED_ELOS = [400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300];
+const BEGINNER_ELO_MIN = BEGINNER_ESTIMATED_ELOS[0];
+const BEGINNER_ELO_MAX = BEGINNER_ESTIMATED_ELOS[BEGINNER_ESTIMATED_ELOS.length - 1];
 const BOT_OPENING_MOVES = [
   { id: "engine", label: "Engine Choice", uci: null as string | null },
   { id: "e4", label: "King Pawn (e4)", uci: "e2e4" },
@@ -52,6 +57,20 @@ const CAPTURE_DISPLAY_ORDER = ["q", "r", "b", "n", "p"] as const;
 
 type MaterialPieceType = Exclude<keyof typeof MATERIAL_VALUES, "k">;
 type SideColor = "w" | "b";
+type StrengthMode = PlayerStrengthMode | "beginner";
+type EngineVariant = PlayerEngineVariant;
+type TimeMode = PlayerTimeMode;
+
+const toBeginnerEngineProfile = (estimatedElo: number) => {
+  const clamped = Math.max(BEGINNER_ELO_MIN, Math.min(BEGINNER_ELO_MAX, Math.round(estimatedElo)));
+  const span = BEGINNER_ELO_MAX - BEGINNER_ELO_MIN;
+  const ratio = span > 0 ? (clamped - BEGINNER_ELO_MIN) / span : 0;
+
+  return {
+    skillLevel: Math.max(0, Math.min(7, Math.round(ratio * 7))),
+    fixedMoveTimeMs: Math.max(50, Math.min(250, Math.round(50 + ratio * 200))),
+  };
+};
 
 type SerializableMove = {
   from: Square;
@@ -264,6 +283,15 @@ const buildPvDisplayMoves = (fen: string, pv: string[]) => {
   return moves;
 };
 
+const InfoHint = ({ text }: { text: string }) => (
+  <span className="relative inline-flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer group transition-colors ml-1 align-bottom z-50">
+    <Info className="w-3.5 h-3.5" />
+    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[min(260px,90vw)] px-3 py-2 bg-[var(--surface-hover)] border border-[var(--border-hover)] text-[var(--text-primary)] text-[12px] font-normal normal-case tracking-normal rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all text-center pointer-events-none before:content-[''] before:absolute before:top-full before:left-1/2 before:-translate-x-1/2 before:border-[5px] before:border-transparent before:border-t-[var(--border-hover)]">
+      {text}
+    </span>
+  </span>
+);
+
 const MiniBoardPreview = ({
   fen,
   boardTheme,
@@ -320,8 +348,15 @@ export default function PlayComputerPage() {
   const [clientPreferences, setClientPreferences] = useState(DEFAULT_CLIENT_PREFERENCES);
 
   // Game state
-  const [eloIndex, setEloIndex] = useState<number>(5);
-  const elo = ELOS[eloIndex];
+  const [eloIndex, setEloIndex] = useState<number>(2);
+  const [beginnerEloIndex, setBeginnerEloIndex] = useState<number>(5);
+  const [strengthMode, setStrengthMode] = useState<StrengthMode>("skill");
+  const [skillLevel, setSkillLevel] = useState<number>(20);
+  const [botEngineVariant, setBotEngineVariant] = useState<EngineVariant>("stockfish-18");
+  const [botTimeMode, setBotTimeMode] = useState<TimeMode>("clock");
+  const [botFixedMoveTimeMs, setBotFixedMoveTimeMs] = useState<number>(1000);
+  const elo = ELOS[Math.min(Math.max(eloIndex, 0), ELOS.length - 1)] ?? ELOS[0];
+  const beginnerEstimatedElo = BEGINNER_ESTIMATED_ELOS[Math.min(Math.max(beginnerEloIndex, 0), BEGINNER_ESTIMATED_ELOS.length - 1)] ?? BEGINNER_ESTIMATED_ELOS[0];
   const [timeLimit, setTimeLimit] = useState<number>(10);
   const [playerColor, setPlayerColor] = useState<"w" | "b" | "bot-vs-bot">("w");
   const [gameState, setGameState] = useState<"setup" | "playing" | "game_over">("setup");
@@ -335,14 +370,14 @@ export default function PlayComputerPage() {
   const [showEngineLines, setShowEngineLines] = useState(true);
   const [showSuggestionArrow, setShowSuggestionArrow] = useState(false);
   const [showMoveFeedback, setShowMoveFeedback] = useState(false);
-  const [analysisEngineVariant, setAnalysisEngineVariant] = useState<"stockfish-18" | "stockfish-18-lite">("stockfish-18-lite");
-  const [analysisMaxTimeSeconds, setAnalysisMaxTimeSeconds] = useState(5);
+  const [analysisEngineVariant, setAnalysisEngineVariant] = useState<EngineVariant>("stockfish-18");
+  const [analysisMaxTimeSeconds, setAnalysisMaxTimeSeconds] = useState(0);
   const [analysisMultiPv, setAnalysisMultiPv] = useState(3);
   const [analysisDepth, setAnalysisDepth] = useState(15);
   const [analysisThreads, setAnalysisThreads] = useState(1);
   const [expandedEngineLineIds, setExpandedEngineLineIds] = useState<Record<number, boolean>>({});
-  const [bot1EloIndex, setBot1EloIndex] = useState<number>(5);
-  const [bot2EloIndex, setBot2EloIndex] = useState<number>(5);
+  const [bot1EloIndex, setBot1EloIndex] = useState<number>(2);
+  const [bot2EloIndex, setBot2EloIndex] = useState<number>(2);
   const [bot1OpeningId, setBot1OpeningId] = useState<string>("c5");
   const [bot2OpeningId, setBot2OpeningId] = useState<string>("e4");
   const [bot1OpeningUsed, setBot1OpeningUsed] = useState(false);
@@ -367,9 +402,24 @@ export default function PlayComputerPage() {
   const isBotMatchMode = playerColor === "bot-vs-bot";
   const playerSide: SideColor = isBotMatchMode ? "w" : playerColor;
   const botSide: SideColor = playerSide === "w" ? "b" : "w";
-  const bot1Elo = ELOS[bot1EloIndex];
-  const bot2Elo = ELOS[bot2EloIndex];
+  const bot1Elo = ELOS[Math.min(Math.max(bot1EloIndex, 0), ELOS.length - 1)] ?? ELOS[0];
+  const bot2Elo = ELOS[Math.min(Math.max(bot2EloIndex, 0), ELOS.length - 1)] ?? ELOS[0];
+  const beginnerEngineProfile = useMemo(
+    () => toBeginnerEngineProfile(beginnerEstimatedElo),
+    [beginnerEstimatedElo],
+  );
+  const activeStrengthMode: StrengthMode = isBotMatchMode ? "elo" : strengthMode;
+  const engineStrengthMode: PlayerStrengthMode = activeStrengthMode === "elo" ? "elo" : "skill";
+  const activeSkillLevel = isBotMatchMode
+    ? 20
+    : activeStrengthMode === "beginner"
+      ? beginnerEngineProfile.skillLevel
+      : skillLevel;
   const activeEngineElo = isBotMatchMode ? (gameRef.current.turn() === botSide ? bot1Elo : bot2Elo) : elo;
+  const activeTimeMode: TimeMode = !isBotMatchMode && activeStrengthMode === "beginner" ? "fixed" : botTimeMode;
+  const activeFixedMoveTimeMs = !isBotMatchMode && activeStrengthMode === "beginner"
+    ? beginnerEngineProfile.fixedMoveTimeMs
+    : botFixedMoveTimeMs;
 
   const isBotTurn =
     gameState === "playing" &&
@@ -380,7 +430,16 @@ export default function PlayComputerPage() {
   const { ready: engineReady, bestMove } = useStockfishPlayer(
     fen,
     isBotTurn,
-    activeEngineElo,
+    {
+      elo: activeEngineElo,
+      skillLevel: activeSkillLevel,
+      strengthMode: engineStrengthMode,
+      whiteTimeSeconds,
+      blackTimeSeconds,
+      engineVariant: botEngineVariant,
+      timeMode: activeTimeMode,
+      fixedMoveTimeMs: activeFixedMoveTimeMs,
+    },
   );
   const isBestMoveLegal = useMemo(() => {
     if (!bestMove || !/^[a-h][1-8][a-h][1-8][nbrq]?$/.test(bestMove)) {
@@ -965,7 +1024,13 @@ export default function PlayComputerPage() {
   const topCapturedPieceCodes = toCapturedPieceCodes(topSideColor, capturedByTopTypes);
   const bottomCapturedPieceCodes = toCapturedPieceCodes(bottomSideColor, capturedByBottomTypes);
   const topDisplayName = isBotMatchMode ? "Bot 1" : "MT Model";
-  const topDisplaySubtitle = isBotMatchMode ? `ELO ${bot1Elo}` : `Bot Level ${eloIndex + 1}`;
+  const topDisplaySubtitle = isBotMatchMode
+    ? `ELO ${bot1Elo}`
+    : strengthMode === "elo"
+      ? `ELO ${elo}`
+      : strengthMode === "beginner"
+        ? `Est. Elo ${beginnerEstimatedElo}`
+        : `Skill ${skillLevel}`;
   const bottomDisplayName = isBotMatchMode ? "Bot 2" : viewerName;
   const bottomDisplaySubtitle = isBotMatchMode ? `ELO ${bot2Elo}` : null;
   const whiteWinChance = Math.max(0, Math.min(100, analysis.whiteWinChance));
@@ -1052,8 +1117,8 @@ export default function PlayComputerPage() {
       <main className="flex-1 w-full flex flex-col lg:flex-row h-[calc(100vh-73px)]">
         {/* Left Side: Setup & Status */}
         <div className={gameState === "setup" ? "w-full lg:w-[35%] flex flex-col items-center justify-center p-10 bg-[var(--bg)] relative z-10 shrink-0" : "w-full lg:w-[35%] p-6 lg:p-5 bg-[var(--bg)] relative z-10 shrink-0 border-r border-[var(--border)]"}>
-          <div className={gameState === "setup" ? "w-full max-w-[440px] bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-8 shadow-2xl relative overflow-hidden" : "w-full h-full max-h-[85vh] bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-2xl overflow-visible flex flex-col"}>
-            {gameState === "setup" && <div className="absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r from-blue-500 to-emerald-400" />}
+          <div className={gameState === "setup" ? "w-full max-w-[440px] bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-8 shadow-2xl relative" : "w-full h-full max-h-[85vh] bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-2xl flex flex-col"}>
+            {gameState === "setup" && <div className="absolute top-0 left-0 w-full h-[4px] rounded-t-2xl bg-gradient-to-r from-[var(--border-hover)] to-[var(--text-secondary)] opacity-30" />}
 
             {gameState === "setup" && (
               <div className="flex items-center gap-3 mb-6">
@@ -1074,42 +1139,93 @@ export default function PlayComputerPage() {
             {gameState === "setup" ? (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="mb-6">
-                  <label className="text-[14px] font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2 px-1 mb-3">
-                     Difficulty
-                  </label>
-                  <div className="grid grid-cols-4 gap-2 mb-8">
-                    {[
-                      { label: "Easy", icon: <User className="w-4 h-4" />, val: 2 }, 
-                      { label: "Med", icon: <GraduationCap className="w-4 h-4" />, val: 4 }, 
-                      { label: "Hard", icon: <Crosshair className="w-4 h-4" />, val: 7 }, 
-                      { label: "Pro", icon: <Crown className="w-4 h-4" />, val: 9 } 
-                    ].map((diff) => (
-                      <button
-                        key={diff.label}
-                        onClick={() => setEloIndex(diff.val)}
-                        className={`flex flex-col items-center justify-center py-3 rounded-xl border transition-all gap-1.5 ${
-                          eloIndex === diff.val
-                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
-                            : "bg-[var(--surface-alt)] border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                        }`}
-                      >
-                         {diff.icon}
-                         <span className="text-[12px] font-bold">{diff.label}</span>
-                      </button>
-                    ))}
-                  </div>
-
                   <div className="flex items-center justify-between mb-3 px-1">
-                    <label className="text-[14px] font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
-                       Engine ELO
+                    <label className="text-[14px] font-bold text-[var(--text-secondary)] uppercase tracking-wider flex flex-wrap items-center gap-1.5 align-middle">
+                      Strength Mode
+                      <InfoHint text="Pick one mode: Beginner (estimated under 1320), Skill (0-20), or Elo-limited (1320-3190)." />
                     </label>
-                    <div className="px-3 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-[18px] shadow-[0_0_10px_rgba(16,185,129,0.1)]">
-                      {elo}
+                    <div className="px-3 py-1 rounded-md bg-[var(--surface-hover)] border border-[var(--border-hover)] text-[var(--text-primary)]  shadow-sm">
+                      {strengthMode === "skill"
+                        ? `Skill ${skillLevel}`
+                        : strengthMode === "elo"
+                          ? `ELO ${elo}`
+                          : `Est. Elo ${beginnerEstimatedElo}`}
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-3 gap-2 mb-5">
+                    <button
+                      onClick={() => setStrengthMode("beginner")}
+                      className={`py-2.5 rounded-lg border font-bold text-[13px] transition-all ${
+                        strengthMode === "beginner"
+                          ? "bg-[var(--text-primary)] border-[var(--text-primary)] text-[var(--bg)] shadow-sm"
+                          : "bg-[var(--surface-alt)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      Beginner
+                    </button>
+                    <button
+                      onClick={() => setStrengthMode("skill")}
+                      className={`py-2.5 rounded-lg border font-bold text-[13px] transition-all ${
+                        strengthMode === "skill"
+                          ? "bg-[var(--text-primary)] border-[var(--text-primary)] text-[var(--bg)] shadow-sm"
+                          : "bg-[var(--surface-alt)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      Skill
+                    </button>
+                    <button
+                      onClick={() => setStrengthMode("elo")}
+                      className={`py-2.5 rounded-lg border font-bold text-[13px] transition-all ${
+                        strengthMode === "elo"
+                          ? "bg-[var(--text-primary)] border-[var(--text-primary)] text-[var(--bg)] shadow-sm"
+                          : "bg-[var(--surface-alt)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                      }`}
+                    >
+                      ELO
+                    </button>
+                  </div>
+
+                  {strengthMode === "elo" && (
+                    <>
+                      <label className="text-[14px] font-bold text-[var(--text-secondary)] uppercase tracking-wider flex flex-wrap items-center gap-1.5 align-middle px-1 mb-3">
+                        Difficulty
+                        <InfoHint text="Quick presets for Elo-limited mode." />
+                      </label>
+                      <div className="grid grid-cols-4 gap-2 mb-8">
+                        {[
+                          { label: "Easy", icon: <User className="w-4 h-4" />, val: 2 },
+                          { label: "Med", icon: <GraduationCap className="w-4 h-4" />, val: 4 },
+                          { label: "Hard", icon: <Crosshair className="w-4 h-4" />, val: 7 },
+                          { label: "Pro", icon: <Crown className="w-4 h-4" />, val: 9 },
+                        ].map((diff) => (
+                          <button
+                            key={diff.label}
+                            onClick={() => setEloIndex(diff.val)}
+                            className={`flex flex-col items-center justify-center py-3 rounded-xl border transition-all gap-1.5 ${
+                              eloIndex === diff.val
+                                ? "bg-[var(--text-primary)] border-[var(--text-primary)] text-[var(--bg)] shadow-md"
+                                : "bg-[var(--surface-alt)] border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                            }`}
+                          >
+                            {diff.icon}
+                            <span className="text-[12px] font-bold">{diff.label}</span>
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between mb-3 px-1">
+                        <label className="text-[14px] font-bold text-[var(--text-secondary)] uppercase tracking-wider flex flex-wrap items-center gap-1.5 align-middle">
+                          Engine ELO
+                          <InfoHint text={`Elo-limited mode targets a reduced strength. Stockfish 18 supports ${ELO_MIN}-${ELO_MAX}.`} />
+                        </label>
+                        <div className="px-3 py-1 rounded-md bg-[var(--surface-hover)] border border-[var(--border-hover)] text-[var(--text-primary)]  shadow-sm">
+                          {elo}
+                        </div>
+                      </div>
                   
-                  {/* ELO Slider */}
-                  <div className="w-full mt-8 mb-2 space-y-3 px-1 relative">
+                      {/* ELO Slider */}
+                      <div className="w-full mt-8 mb-2 space-y-3 px-1 relative">
                     <style dangerouslySetInnerHTML={{__html: `
                       input[type=range].elo-slider {
                         -webkit-appearance: none;
@@ -1164,7 +1280,7 @@ export default function PlayComputerPage() {
                       {/* The custom visual track */}
                       <div className="absolute left-0 right-0 h-[10px] bg-[var(--skeleton)] rounded-full border border-[var(--border-subtle)] shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] pointer-events-none overflow-hidden">
                         <div 
-                          className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-400 to-[#10b981]"
+                          className="absolute top-0 left-0 h-full bg-gradient-to-r from-[var(--text-secondary)] to-[var(--text-primary)]"
                           style={{ width: `${(eloIndex / (ELOS.length - 1)) * 100}%` }}
                         />
                       </div>
@@ -1202,15 +1318,78 @@ export default function PlayComputerPage() {
                       />
                     </div>
                     <div className="flex justify-between text-[13px] font-bold text-[var(--text-muted)]">
-                      <span className="flex flex-col items-start"><span className="text-[11px] uppercase tracking-widest opacity-70">Beginner</span>250</span>
-                      <span className="flex flex-col items-end"><span className="text-[11px] uppercase tracking-widest opacity-70">Master</span>3200</span>
+                      <span className="flex flex-col items-start"><span className="text-[11px] uppercase tracking-widest opacity-70">Min</span>{ELO_MIN}</span>
+                      <span className="flex flex-col items-end"><span className="text-[11px] uppercase tracking-widest opacity-70">Max</span>{ELO_MAX}</span>
                     </div>
-                  </div>
+                      </div>
+                    </>
+                  )}
+
+                  {strengthMode === "beginner" && (
+                    <div className="w-full mt-4 mb-2 space-y-3 px-1 relative">
+                      <div className="flex items-start justify-between gap-4">
+                        <label className="text-[14px] font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-start gap-1.5 align-middle mt-1">
+                          <span className="flex flex-col">
+                            <span>Beginner Strength</span>
+                            <span className="text-[11px] opacity-80">(Est. Elo)</span>
+                          </span>
+                          <InfoHint text="For Elo below 1320, this uses tuned Skill + fixed move time. Values are estimates, not official UCI Elo." />
+                        </label>
+                        <div className="px-3 py-1 rounded-md bg-[var(--surface-hover)] border border-[var(--border-hover)] text-[var(--text-primary)] shadow-sm shrink-0 mt-1">
+                          {beginnerEstimatedElo}
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max={BEGINNER_ESTIMATED_ELOS.length - 1}
+                        step="1"
+                        value={beginnerEloIndex}
+                        onChange={(event) => setBeginnerEloIndex(Number(event.target.value))}
+                        className="elo-slider w-full"
+                      />
+                      <div className="flex justify-between text-[13px] font-bold text-[var(--text-muted)]">
+                        <span>Est. {BEGINNER_ELO_MIN}</span>
+                        <span>Est. {BEGINNER_ELO_MAX}</span>
+                      </div>
+                      <p className="text-[12px] text-[var(--text-muted)] px-0.5">
+                        Auto-mapped to Skill {beginnerEngineProfile.skillLevel} and {beginnerEngineProfile.fixedMoveTimeMs}ms/move.
+                      </p>
+                    </div>
+                  )}
+
+                  {strengthMode === "skill" && (
+                    <div className="w-full mt-4 mb-2 space-y-3 px-1 relative">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[14px] font-bold text-[var(--text-secondary)] uppercase tracking-wider flex flex-wrap items-center gap-1.5 align-middle">
+                          Skill Level
+                          <InfoHint text="Skill mode is direct engine skill from 0 to 20. Level 20 is strongest." />
+                        </label>
+                        <div className="px-3 py-1 rounded-md bg-[var(--surface-hover)] border border-[var(--border-hover)] text-[var(--text-primary)]  shadow-sm">
+                          {skillLevel}
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="20"
+                        step="1"
+                        value={skillLevel}
+                        onChange={(event) => setSkillLevel(Number(event.target.value))}
+                        className="elo-slider w-full"
+                      />
+                      <div className="flex justify-between text-[13px] font-bold text-[var(--text-muted)]">
+                        <span>0 (Beginner)</span>
+                        <span>20 (Strongest)</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mb-8 mt-10">
-                  <label className="block text-[14px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4 px-1">
+                  <label className="block text-[14px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4 px-1 flex items-center gap-2">
                     Time Limit
+                    <InfoHint text="Game clock for both sides. The engine manages its own thinking time from this clock by default." />
                   </label>
                   <div className="grid grid-cols-4 gap-3">
                     {[1, 3, 5, 10].map((mins) => (
@@ -1260,17 +1439,17 @@ export default function PlayComputerPage() {
                     </button>
                     <button 
                       onClick={() => setBotMatchConfigOpen((open) => !open)}
-                      className="relative overflow-hidden py-4 px-2 rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 hover:from-emerald-500/20 hover:to-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition-all flex flex-col items-center gap-3 group shadow-[0_4px_15px_rgba(16,185,129,0.1)] hover:shadow-[0_8px_25px_rgba(16,185,129,0.2)] hover:-translate-y-1"
+                      className="relative overflow-hidden py-4 px-2 rounded-2xl border border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--bg)] hover:opacity-90 transition-all flex flex-col items-center gap-3 group shadow-md hover:shadow-lg hover:-translate-y-1"
                     >
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-colors duration-500" />
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-[var(--bg)] opacity-10 rounded-full blur-xl transition-colors duration-500" />
                       <Bot className="w-8 h-8 group-hover:scale-110 transition-transform filter drop-shadow-[0_0_8px_rgba(16,185,129,0.5)] relative z-10"/>
                       <span className="text-[13px] font-bold tracking-wide relative z-10">Bot Match</span>
                     </button>
                   </div>
 
                   {botMatchConfigOpen && (
-                    <div className="mt-5 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4 space-y-3">
-                      <div className="text-[12px] uppercase tracking-wider font-semibold text-emerald-600 dark:text-emerald-400">
+                    <div className="mt-5 rounded-xl border border-[var(--border-hover)] bg-[var(--surface-alt)] p-4 space-y-3">
+                      <div className="text-[12px] uppercase tracking-wider font-semibold text-[var(--text-primary)]">
                         Bot Match Setup
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1279,7 +1458,7 @@ export default function PlayComputerPage() {
                           <select
                             value={bot1EloIndex}
                             onChange={(event) => setBot1EloIndex(Number(event.target.value))}
-                            className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-emerald-500"
+                            className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
                           >
                             {ELOS.map((value, index) => (
                               <option key={`bot1-${value}`} value={index}>{value}</option>
@@ -1291,7 +1470,7 @@ export default function PlayComputerPage() {
                           <select
                             value={bot2EloIndex}
                             onChange={(event) => setBot2EloIndex(Number(event.target.value))}
-                            className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-emerald-500"
+                            className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
                           >
                             {ELOS.map((value, index) => (
                               <option key={`bot2-${value}`} value={index}>{value}</option>
@@ -1304,7 +1483,7 @@ export default function PlayComputerPage() {
                         <select
                           value={bot1OpeningId}
                           onChange={(event) => setBot1OpeningId(event.target.value)}
-                          className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-emerald-500"
+                          className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
                         >
                           {BOT_OPENING_MOVES.map((opening) => (
                             <option key={opening.id} value={opening.id}>{opening.label}</option>
@@ -1316,7 +1495,7 @@ export default function PlayComputerPage() {
                         <select
                           value={bot2OpeningId}
                           onChange={(event) => setBot2OpeningId(event.target.value)}
-                          className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-emerald-500"
+                          className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
                         >
                           {BOT_OPENING_MOVES.map((opening) => (
                             <option key={`bot2-${opening.id}`} value={opening.id}>{opening.label}</option>
@@ -1326,7 +1505,7 @@ export default function PlayComputerPage() {
 
                       <button
                         onClick={() => startGame("bot-vs-bot")}
-                        className="w-full py-2.5 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-500 transition-colors"
+                        className="w-full py-2.5 rounded-lg bg-[var(--text-primary)] text-[var(--bg)]  hover:opacity-90 transition-colors"
                       >
                         Start Bot Match
                       </button>
@@ -1571,7 +1750,7 @@ export default function PlayComputerPage() {
                       />
                     ))}
                     {topMaterialLead > 0 ? (
-                      <span className="ml-1 text-[11px] font-bold text-emerald-500">+{topMaterialLead}</span>
+                      <span className="ml-1 text-[11px] font-bold text-[var(--text-primary)]">+{topMaterialLead}</span>
                     ) : null}
                   </div>
                   <div className="px-2 py-0.5 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[14px] text-[var(--text-primary)] shadow-inner w-[68px] text-center">
@@ -1733,7 +1912,7 @@ export default function PlayComputerPage() {
                       />
                     ))}
                     {bottomMaterialLead > 0 ? (
-                      <span className="ml-1 text-[11px] font-bold text-emerald-500">+{bottomMaterialLead}</span>
+                      <span className="ml-1 text-[11px] font-bold text-[var(--text-primary)]">+{bottomMaterialLead}</span>
                     ) : null}
                   </div>
                   <div className="px-2 py-0.5 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[14px] text-[var(--text-primary)] shadow-inner w-[68px] text-center">
@@ -1823,11 +2002,100 @@ export default function PlayComputerPage() {
                       <h3 className="text-[11px] font-bold tracking-widest text-[var(--text-muted)] uppercase mb-3 px-1">Game Review</h3>
                       <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
-                          <span className="text-[14px] text-[var(--text-primary)]">Chess Engine</span>
-                          <span className="text-[14px] text-[var(--text-secondary)] font-medium">Stockfish 18</span>
+                          <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Bot Engine <InfoHint text="Full engine is stronger but heavier. Lite is faster and lighter." /></span>
+                          <select
+                            value={botEngineVariant}
+                            onChange={(event) => setBotEngineVariant(event.target.value as EngineVariant)}
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                          >
+                            <option value="stockfish-18">Stockfish 18.1 NNUE (Full)</option>
+                            <option value="stockfish-18-lite">Stockfish 18 Lite</option>
+                          </select>
                         </div>
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
-                          <span className="text-[14px] text-[var(--text-primary)]">Strength</span>
+                          <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Bot Strength Mode <InfoHint text="Choose one: Beginner (estimated sub-1320), Skill, or Elo-limited." /></span>
+                          <select
+                            value={strengthMode}
+                            onChange={(event) => setStrengthMode(event.target.value as StrengthMode)}
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                          >
+                            <option value="beginner">Beginner (estimated)</option>
+                            <option value="skill">Skill (0-20)</option>
+                            <option value="elo">Elo-limited</option>
+                          </select>
+                        </div>
+                        {strengthMode === "beginner" ? (
+                          <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                            <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-1.5 shrink-0">Beginner Elo <span className="opacity-70 text-[12px]">(Est.)</span> <InfoHint text="Below 1320 is estimated by tuning Skill + fixed move time, not official UCI Elo." /></span>
+                            <select
+                              value={beginnerEloIndex}
+                              onChange={(event) => setBeginnerEloIndex(Number(event.target.value))}
+                              className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px]"
+                            >
+                              {BEGINNER_ESTIMATED_ELOS.map((value, index) => (
+                                <option key={`beginner-elo-${value}`} value={index}>Est. {value}</option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : strengthMode === "skill" ? (
+                          <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                            <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Skill Level <InfoHint text="Lower values make weaker play. 20 is strongest." /></span>
+                            <input
+                              type="number"
+                              value={skillLevel}
+                              onChange={(event) => setSkillLevel(Math.max(0, Math.min(20, Number(event.target.value) || 0)))}
+                              min="0"
+                              max="20"
+                              className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] w-[200px]"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                            <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Target Elo <InfoHint text={`Engine intentionally limits strength. Valid range for both Stockfish 18 variants is ${ELO_MIN}-${ELO_MAX}.`} /></span>
+                            <select
+                              value={eloIndex}
+                              onChange={(event) => setEloIndex(Number(event.target.value))}
+                              className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px]"
+                            >
+                              {ELOS.map((value, index) => (
+                                <option key={`elo-mode-${value}`} value={index}>{value}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                        {strengthMode === "beginner" ? (
+                          <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                            <span className="text-[14px] text-[var(--text-primary)]">Beginner Mapping</span>
+                            <span className="text-[13px] text-[var(--text-secondary)]">Skill {beginnerEngineProfile.skillLevel}, {beginnerEngineProfile.fixedMoveTimeMs}ms/move</span>
+                          </div>
+                        ) : null}
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Bot Time Mode <InfoHint text={strengthMode === "beginner" ? "Beginner mode forces fixed time based on your estimated Elo." : "Clock-managed uses game clocks. Fixed uses the same think time per move."} /></span>
+                          <select
+                            value={strengthMode === "beginner" ? "fixed" : botTimeMode}
+                            onChange={(event) => setBotTimeMode(event.target.value as TimeMode)}
+                            disabled={strengthMode === "beginner"}
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                          >
+                            <option value="clock">Clock-managed (recommended)</option>
+                            <option value="fixed">Fixed per move</option>
+                          </select>
+                        </div>
+                        {strengthMode !== "beginner" && botTimeMode === "fixed" ? (
+                          <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                            <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Fixed Move Time (ms) <InfoHint text="Used only in fixed mode. Higher values produce stronger but slower moves." /></span>
+                            <input
+                              type="number"
+                              value={botFixedMoveTimeMs}
+                              onChange={(event) => setBotFixedMoveTimeMs(Math.max(50, Number(event.target.value) || 1000))}
+                              min="50"
+                              max="120000"
+                              className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] w-[200px]"
+                            />
+                          </div>
+                        ) : null}
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Review Depth Preset <InfoHint text="Controls analysis depth presets in review pane." /></span>
                           <select
                             value={analysisDepth <= 13 ? "fast" : analysisDepth <= 17 ? "standard" : "deep"}
                             onChange={(event) => {
@@ -1851,10 +2119,10 @@ export default function PlayComputerPage() {
                       <h3 className="text-[11px] font-bold tracking-widest text-[var(--text-muted)] uppercase mb-3 px-1">Analysis</h3>
                       <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
-                          <span className="text-[14px] text-[var(--text-primary)]">Chess Engine</span>
+                          <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Chess Engine <InfoHint text="Analysis engine variant used for eval bar and lines." /></span>
                           <select
                             value={analysisEngineVariant}
-                            onChange={(event) => setAnalysisEngineVariant(event.target.value as "stockfish-18" | "stockfish-18-lite")}
+                            onChange={(event) => setAnalysisEngineVariant(event.target.value as EngineVariant)}
                             className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
                           >
                             <option value="stockfish-18-lite">Stockfish 18 Lite (7MB download)</option>
@@ -1862,7 +2130,7 @@ export default function PlayComputerPage() {
                           </select>
                         </div>
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
-                          <span className="text-[14px] text-[var(--text-primary)]">Maximum Time</span>
+                          <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Maximum Time <InfoHint text="Unlimited lets analysis run until stopped. Lower values cap analysis time." /></span>
                           <select
                             value={String(analysisMaxTimeSeconds)}
                             onChange={(event) => {
