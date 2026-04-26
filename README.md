@@ -123,7 +123,7 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
-Optional for external Full Stockfish WASM rewrite:
+Optional for external Full Stockfish WASM source:
 ```bash
 STOCKFISH18_FULL_WASM_URL=https://<host>/stockfish-18-single.wasm
 ```
@@ -162,6 +162,10 @@ Recommended production setup for Full WASM:
 1. Host `stockfish-18-single.wasm` on a public bucket/CDN.
 2. Set `STOCKFISH18_FULL_WASM_URL` in deployment env.
 3. Redeploy and verify `/engines/stockfish/stockfish-18-single.wasm` serves WASM (not HTML).
+
+Notes:
+- The app proxies Full WASM through the same-origin route `/engines/stockfish/stockfish-18-single.wasm`.
+- This avoids browser CORS issues when upstream providers (for example GitHub Release assets) do not send `Access-Control-Allow-Origin`.
 
 ## Auth and Session Behavior
 - Auth actions live in `src/app/actions/auth.ts`.
