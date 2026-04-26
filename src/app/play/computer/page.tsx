@@ -22,6 +22,7 @@ const PIECE_THEME_ASSETS = themeManifest.pieceAssets as Record<string, string>;
 const ELOS = [1320, 1400, 1500, 1650, 1800, 2000, 2200, 2500, 2850, 3190];
 const ELO_MIN = STOCKFISH_ELO_LIMITS["stockfish-18"].min;
 const ELO_MAX = STOCKFISH_ELO_LIMITS["stockfish-18"].max;
+const FULL_ENGINE_WASM_PATH = "/engines/stockfish/stockfish-18-single.wasm";
 const BEGINNER_ESTIMATED_ELOS = [400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300];
 const BEGINNER_ELO_MIN = BEGINNER_ESTIMATED_ELOS[0];
 const BEGINNER_ELO_MAX = BEGINNER_ESTIMATED_ELOS[BEGINNER_ESTIMATED_ELOS.length - 1];
@@ -375,6 +376,7 @@ export default function PlayComputerPage() {
   const [analysisMultiPv, setAnalysisMultiPv] = useState(3);
   const [analysisDepth, setAnalysisDepth] = useState(15);
   const [analysisThreads, setAnalysisThreads] = useState(1);
+  const [fullEngineAvailable, setFullEngineAvailable] = useState(true);
   const [expandedEngineLineIds, setExpandedEngineLineIds] = useState<Record<number, boolean>>({});
   const [bot1EloIndex, setBot1EloIndex] = useState<number>(2);
   const [bot2EloIndex, setBot2EloIndex] = useState<number>(2);
@@ -394,6 +396,35 @@ export default function PlayComputerPage() {
   const [timeoutStatus, setTimeoutStatus] = useState<string | null>(null);
   const [warnedWhiteLowTime, setWarnedWhiteLowTime] = useState(false);
   const [warnedBlackLowTime, setWarnedBlackLowTime] = useState(false);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    fetch(FULL_ENGINE_WASM_PATH, {
+      method: "HEAD",
+      cache: "no-store",
+      signal: abortController.signal,
+    })
+      .then((response) => {
+        const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+        const isLikelyHtml = contentType.includes("text/html");
+        setFullEngineAvailable(response.ok && !isLikelyHtml);
+      })
+      .catch(() => {
+        setFullEngineAvailable(false);
+      });
+
+    return () => {
+      abortController.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!fullEngineAvailable) {
+      setBotEngineVariant((current) => (current === "stockfish-18" ? "stockfish-18-lite" : current));
+      setAnalysisEngineVariant((current) => (current === "stockfish-18" ? "stockfish-18-lite" : current));
+    }
+  }, [fullEngineAvailable]);
 
   const gameRef = useRef(new Chess(fen));
   const audioPoolRef = useRef<Record<string, HTMLAudioElement[]>>({});
@@ -471,6 +502,7 @@ export default function PlayComputerPage() {
     analysisEngineVariant,
     analysisMaxTimeSeconds,
   );
+  const analysisModelLabel = analysisEngineVariant === "stockfish-18" ? "Stockfish-18" : "Stockfish-18-Lite";
 
   const { toggleTheme, isDark } = useTheme();
   const botPreferences = clientPreferences.bot;
@@ -1528,6 +1560,9 @@ export default function PlayComputerPage() {
                     </button>
                   </div>
                   <div className="flex items-center gap-3">
+                    <span className="inline-flex items-center rounded border border-[var(--border-subtle)] bg-[var(--surface-alt)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]">
+                      {analysisModelLabel}
+                    </span>
                     <span className="text-[var(--text-secondary)] text-[14px]">depth-{analysis.depth || analysisDepth}</span>
                     <button
                       onClick={() => setIsSettingsOpen(true)}
@@ -1885,7 +1920,59 @@ export default function PlayComputerPage() {
                   })
                 )}
                 </div>
-              </BoardImage>
+                  
+                  {/* Game Over Overlay */}
+                  {gameState === "game_over" && (
+                    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-[3px] animate-in fade-in duration-300 pointer-events-auto">
+                      <div className="bg-[var(--surface)] border border-[var(--border)] shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-6 md:p-8 rounded-2xl flex flex-col items-center max-w-[85%] w-[340px] text-center animate-in zoom-in-95 duration-300 relative overflow-hidden">
+                        <div className="w-16 h-16 rounded-full bg-[var(--surface-hover)] border border-[var(--border-subtle)] flex items-center justify-center mb-4 text-[#eab308] shadow-inner relative z-10">
+                          <Crown className="w-8 h-8 drop-shadow-md" strokeWidth={2.5} />
+                        </div>
+                        <h2 className="text-2xl font-black text-[var(--text-primary)] tracking-wide mb-1 relative z-10">
+                          {(() => {
+                            if (timeoutStatus) return timeoutStatus.includes("Draw") ? "Draw" : timeoutStatus.includes("White") ? "White Won" : "Black Won";
+                            const goGame = gameRef.current;
+                            if (goGame.isCheckmate()) return goGame.turn() === "w" ? "Black Won" : "White Won";
+                            if (goGame.isStalemate() || goGame.isThreefoldRepetition() || goGame.isInsufficientMaterial() || goGame.isDraw()) return "Draw";
+                            return "Game Over";
+                          })()}
+                        </h2>
+                        <p className="text-[14px] text-[var(--text-secondary)] font-medium mb-8 relative z-10">
+                          {(() => {
+                            if (timeoutStatus) return timeoutStatus.split('. ')[1] || timeoutStatus;
+                            const goGame = gameRef.current;
+                            if (goGame.isCheckmate()) return "by Checkmate";
+                            if (goGame.isStalemate()) return "by Stalemate";
+                            if (goGame.isThreefoldRepetition()) return "by Repetition";
+                            if (goGame.isInsufficientMaterial()) return "by Insufficient Material";
+                            if (goGame.isDraw()) return "by 50-move rule or agreement";
+                            return "";
+                          })()}
+                        </p>
+
+                        <div className="flex flex-col gap-3 w-full relative z-10">
+                          <button
+                            onClick={() => startGame(playerColor)}
+                            className="w-full py-[14px] bg-[var(--cta-bg)] text-white font-bold rounded-xl hover:bg-[var(--cta-hover)] hover:scale-[1.02] shadow-[0_4px_14px_rgba(0,0,0,0.25)] transition-all duration-300 relative overflow-hidden group border border-white/10"
+                          >
+                            <span className="relative z-10 flex items-center justify-center gap-2">
+                              <RotateCcw className="w-[18px] h-[18px]" strokeWidth={2.5} />
+                              Try Again
+                            </span>
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-[150%] skew-x-[-20deg] group-hover:animate-[shimmer_1.5s_infinite]" />
+                          </button>
+                          <button
+                            onClick={stopGame}
+                            className="w-full flex items-center justify-center gap-2 py-[12px] text-[14.5px] text-[var(--text-secondary)] font-bold hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] rounded-lg transition-colors border border-transparent hover:border-[var(--border)]"
+                          >
+                            <Settings className="w-4 h-4" />
+                            Change Settings
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </BoardImage>
               </div>
             </div>
 
@@ -2008,7 +2095,7 @@ export default function PlayComputerPage() {
                             onChange={(event) => setBotEngineVariant(event.target.value as EngineVariant)}
                             className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
                           >
-                            <option value="stockfish-18">Stockfish 18.1 NNUE (Full)</option>
+                            <option value="stockfish-18" disabled={!fullEngineAvailable}>Stockfish 18.1 NNUE (Full{fullEngineAvailable ? "" : " unavailable on this deploy"})</option>
                             <option value="stockfish-18-lite">Stockfish 18 Lite</option>
                           </select>
                         </div>
@@ -2126,7 +2213,7 @@ export default function PlayComputerPage() {
                             className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
                           >
                             <option value="stockfish-18-lite">Stockfish 18 Lite (7MB download)</option>
-                            <option value="stockfish-18">Stockfish 18.1 NNUE (Full)</option>
+                            <option value="stockfish-18" disabled={!fullEngineAvailable}>Stockfish 18.1 NNUE (Full{fullEngineAvailable ? "" : " unavailable on this deploy"})</option>
                           </select>
                         </div>
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">

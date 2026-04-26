@@ -367,7 +367,7 @@ export default function OpeningPage() {
   const [showSuggestionArrow, setShowSuggestionArrow] = useState(false);
   const [showMoveFeedback, setShowMoveFeedback] = useState(false);
   const [analysisStrength, setAnalysisStrength] = useState<AnalysisStrength>("standard");
-  const [analysisEngineChoice, setAnalysisEngineChoice] = useState<AnalysisEngineChoice>("stockfish-18-lite");
+  const [analysisEngineChoice, setAnalysisEngineChoice] = useState<AnalysisEngineChoice>("stockfish-18");
   const [analysisMaxTimeSeconds, setAnalysisMaxTimeSeconds] = useState(5);
   const [analysisMultiPv, setAnalysisMultiPv] = useState(3);
   const [analysisThreads, setAnalysisThreads] = useState(1);
@@ -766,6 +766,11 @@ export default function OpeningPage() {
   const statusText = getPositionStatus(game);
   const isEngineEnabled = analysisEngineChoice !== "off";
   const stockfishVariant = analysisEngineChoice === "stockfish-18" ? "stockfish-18" : "stockfish-18-lite";
+  const analysisModelLabel = !isEngineEnabled
+    ? "Engine-Off"
+    : stockfishVariant === "stockfish-18"
+      ? "Stockfish-18"
+      : "Stockfish-18-Lite";
   const analysis = useStockfishAnalysis(
     fen,
     isEngineEnabled,
@@ -1514,6 +1519,9 @@ export default function OpeningPage() {
                 </button>
               </div>
               <div className="flex items-center gap-3">
+                <span className="inline-flex items-center rounded border border-[var(--border-subtle)] bg-[var(--surface-alt)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]">
+                  {analysisModelLabel}
+                </span>
                 <span className="text-[var(--text-secondary)] text-[14px]">depth-{analysis.depth || analysisDepth}</span>
                 <button
                   onClick={() => setIsSettingsOpen(true)}
