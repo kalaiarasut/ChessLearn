@@ -30,7 +30,7 @@ const BEGINNER_ESTIMATED_ELOS = [400, 500, 600, 700, 800, 900, 1000, 1100, 1200,
 const BEGINNER_ELO_MIN = BEGINNER_ESTIMATED_ELOS[0];
 const BEGINNER_ELO_MAX = BEGINNER_ESTIMATED_ELOS[BEGINNER_ESTIMATED_ELOS.length - 1];
 const BOT_OPENING_ENGINE_ID = "engine";
-const BOT_OPENINGS_LIMIT = 500;
+const BOT_OPENINGS_LIMIT = 1000;
 const SAN_RESULT_TOKENS = new Set(["1-0", "0-1", "1/2-1/2", "*"]);
 const MATERIAL_VALUES = {
   p: 1,
@@ -69,6 +69,7 @@ type BotOpeningChoice = {
   label: string;
   pgn: string;
   searchText: string;
+  bookMovesBySide: Record<SideColor, string[]>;
 };
 
 const BOT_OPENING_ENGINE_CHOICE: BotOpeningChoice = {
@@ -76,7 +77,10 @@ const BOT_OPENING_ENGINE_CHOICE: BotOpeningChoice = {
   label: "Engine Choice",
   pgn: "",
   searchText: "engine choice",
+  bookMovesBySide: { w: [], b: [] },
 };
+
+const UCI_MOVE_PATTERN = /^[a-h][1-8][a-h][1-8][nbrq]?$/;
 
 const normalizeSearchText = (value: string) =>
   value
@@ -90,6 +94,18 @@ const toSearchTokens = (query: string) =>
     .split(" ")
     .filter(Boolean);
 
+const parseUciMove = (uci: string) => {
+  if (!UCI_MOVE_PATTERN.test(uci)) {
+    return null;
+  }
+
+  return {
+    from: uci.slice(0, 2) as Square,
+    to: uci.slice(2, 4) as Square,
+    promotion: (uci[4] as "q" | "r" | "b" | "n" | undefined) ?? undefined,
+  };
+};
+
 const toOpeningChoice = (opening: OpeningCardPayload): BotOpeningChoice => {
   const ecoLabel = opening.eco?.trim() ? opening.eco.trim() : "N/A";
   const label = `${opening.name} (${ecoLabel})`;
@@ -98,12 +114,17 @@ const toOpeningChoice = (opening: OpeningCardPayload): BotOpeningChoice => {
     label,
     pgn: opening.moves,
     searchText: normalizeSearchText(`${opening.name} ${ecoLabel} ${opening.moves}`),
+    bookMovesBySide: buildOpeningBookBySide(opening.moves),
   };
 };
 
 const tokenizePgnMoves = (pgn: string) =>
   pgn
+    .replace(/\[[^\]]*\]/g, " ")
     .replace(/\{[^}]*\}/g, " ")
+    .replace(/;[^\n\r]*/g, " ")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\$\d+/g, " ")
     .replace(/\d+\.(\.\.\.)?/g, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -111,22 +132,48 @@ const tokenizePgnMoves = (pgn: string) =>
     .map((token) => token.trim())
     .filter((token) => token.length > 0 && !SAN_RESULT_TOKENS.has(token));
 
-const buildOpeningBookForSide = (pgn: string, side: SideColor) => {
+const buildOpeningBookBySide = (pgn: string): Record<SideColor, string[]> => {
   const game = new Chess();
-  const uciMoves: string[] = [];
+  const bookMovesBySide: Record<SideColor, string[]> = { w: [], b: [] };
 
   for (const token of tokenizePgnMoves(pgn)) {
-    const move = game.move(token);
+    let move: ReturnType<Chess["move"]> | null = null;
+    try {
+      move = game.move(token);
+    } catch {
+      break;
+    }
+
     if (!move) {
       break;
     }
 
-    if (move.color === side) {
-      uciMoves.push(`${move.from}${move.to}${move.promotion ?? ""}`);
-    }
+    bookMovesBySide[move.color].push(`${move.from}${move.to}${move.promotion ?? ""}`);
   }
 
-  return uciMoves;
+  return bookMovesBySide;
+};
+
+const resolveLegalBookMove = (game: Chess, uci: string) => {
+  const parsedMove = parseUciMove(uci);
+  if (!parsedMove) {
+    return null;
+  }
+
+  const legalMoves = game.moves({ verbose: true });
+  const isLegal = legalMoves.some((move) => {
+    if (move.from !== parsedMove.from || move.to !== parsedMove.to) {
+      return false;
+    }
+
+    if (!parsedMove.promotion) {
+      return true;
+    }
+
+    return move.promotion === parsedMove.promotion;
+  });
+
+  return isLegal ? parsedMove : null;
 };
 
 const filterOpeningChoices = (
@@ -739,19 +786,19 @@ export default function PlayComputerPage() {
   const bot2Elo = ELOS[Math.min(Math.max(bot2EloIndex, 0), ELOS.length - 1)] ?? ELOS[0];
   const bot1OpeningBookMoves = useMemo(() => {
     const selected = botOpeningChoiceById.get(bot1OpeningId);
-    if (!selected?.pgn) {
+    if (!selected) {
       return [];
     }
 
-    return buildOpeningBookForSide(selected.pgn, botSide);
+    return selected.bookMovesBySide[botSide] ?? [];
   }, [botOpeningChoiceById, bot1OpeningId, botSide]);
   const bot2OpeningBookMoves = useMemo(() => {
     const selected = botOpeningChoiceById.get(bot2OpeningId);
-    if (!selected?.pgn) {
+    if (!selected) {
       return [];
     }
 
-    return buildOpeningBookForSide(selected.pgn, playerSide);
+    return selected.bookMovesBySide[playerSide] ?? [];
   }, [botOpeningChoiceById, bot2OpeningId, playerSide]);
   const bot1VisibleOpeningChoices = useMemo(
     () => filterOpeningChoices(botOpeningChoices, bot1OpeningQuery, bot1OpeningId),
@@ -1088,30 +1135,28 @@ export default function PlayComputerPage() {
     }
 
     if (isBotMatchMode) {
-      const turn = gameRef.current.turn();
-      const isBot1Turn = turn === botSide;
-      const selectedOpening = BOT_OPENING_MOVES.find((opening) =>
-        opening.id === (isBot1Turn ? bot1OpeningId : bot2OpeningId),
-      );
-      const openingAlreadyUsed = isBot1Turn ? bot1OpeningUsed : bot2OpeningUsed;
+      const isBot1Turn = gameRef.current.turn() === botSide;
+      const openingBookMoves = isBot1Turn ? bot1OpeningBookMoves : bot2OpeningBookMoves;
+      const openingMoveIndex = isBot1Turn ? bot1OpeningMoveIndex : bot2OpeningMoveIndex;
+      const openingMove = openingBookMoves[openingMoveIndex];
 
-      if (!openingAlreadyUsed) {
-        const openingMove = selectedOpening?.uci;
+      if (openingMove) {
+        const legalBookMove = resolveLegalBookMove(gameRef.current, openingMove);
 
-        if (openingMove) {
-          const from = openingMove.slice(0, 2) as Square;
-          const to = openingMove.slice(2, 4) as Square;
-          const promotion = openingMove.length > 4 ? openingMove[4] : undefined;
-          commitMove(from, to, promotion);
+        if (legalBookMove && commitMove(legalBookMove.from, legalBookMove.to, legalBookMove.promotion)) {
+          if (isBot1Turn) {
+            setBot1OpeningMoveIndex((current) => current + 1);
+          } else {
+            setBot2OpeningMoveIndex((current) => current + 1);
+          }
+          return;
         }
 
         if (isBot1Turn) {
-          setBot1OpeningUsed(true);
+          setBot1OpeningMoveIndex(openingBookMoves.length);
         } else {
-          setBot2OpeningUsed(true);
+          setBot2OpeningMoveIndex(openingBookMoves.length);
         }
-
-        return;
       }
     }
 
@@ -1128,10 +1173,10 @@ export default function PlayComputerPage() {
     gameState,
     isBotMatchMode,
     botSide,
-    bot1OpeningId,
-    bot2OpeningId,
-    bot1OpeningUsed,
-    bot2OpeningUsed,
+    bot1OpeningBookMoves,
+    bot2OpeningBookMoves,
+    bot1OpeningMoveIndex,
+    bot2OpeningMoveIndex,
     isBestMoveLegal,
   ]);
 
@@ -1156,8 +1201,8 @@ export default function PlayComputerPage() {
     setDraggedSquare(null);
     setDragOverSquare(null);
     gameRef.current = seededGame;
-    setBot1OpeningUsed(false);
-    setBot2OpeningUsed(false);
+    setBot1OpeningMoveIndex(0);
+    setBot2OpeningMoveIndex(0);
     setBotMatchConfigOpen(false);
     setGameState("playing");
     playSound("game-start");
@@ -2088,30 +2133,60 @@ export default function PlayComputerPage() {
                           </select>
                         </label>
                       </div>
-                      <label className="text-[12px] text-[var(--text-muted)] font-semibold block">
-                        Bot 1 Opening
-                        <select
-                          value={bot1OpeningId}
-                          onChange={(event) => setBot1OpeningId(event.target.value)}
-                          className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
-                        >
-                          {BOT_OPENING_MOVES.map((opening) => (
-                            <option key={opening.id} value={opening.id}>{opening.label}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="text-[12px] text-[var(--text-muted)] font-semibold block">
-                        Bot 2 Opening
-                        <select
-                          value={bot2OpeningId}
-                          onChange={(event) => setBot2OpeningId(event.target.value)}
-                          className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
-                        >
-                          {BOT_OPENING_MOVES.map((opening) => (
-                            <option key={`bot2-${opening.id}`} value={opening.id}>{opening.label}</option>
-                          ))}
-                        </select>
-                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="text-[12px] text-[var(--text-muted)] font-semibold block">
+                          Bot 1 Opening Filter
+                          <input
+                            type="text"
+                            value={bot1OpeningQuery}
+                            onChange={(event) => setBot1OpeningQuery(event.target.value)}
+                            placeholder="Type to filter openings"
+                            className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
+                          />
+                          <select
+                            value={bot1OpeningId}
+                            onChange={(event) => {
+                              setBot1OpeningId(event.target.value);
+                              setBot1OpeningMoveIndex(0);
+                            }}
+                            className="mt-2 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
+                          >
+                            {bot1VisibleOpeningChoices.map((opening) => (
+                              <option key={opening.id} value={opening.id}>{opening.label}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="text-[12px] text-[var(--text-muted)] font-semibold block">
+                          Bot 2 Opening Filter
+                          <input
+                            type="text"
+                            value={bot2OpeningQuery}
+                            onChange={(event) => setBot2OpeningQuery(event.target.value)}
+                            placeholder="Type to filter openings"
+                            className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
+                          />
+                          <select
+                            value={bot2OpeningId}
+                            onChange={(event) => {
+                              setBot2OpeningId(event.target.value);
+                              setBot2OpeningMoveIndex(0);
+                            }}
+                            className="mt-2 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
+                          >
+                            {bot2VisibleOpeningChoices.map((opening) => (
+                              <option key={`bot2-${opening.id}`} value={opening.id}>{opening.label}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+
+                      <div className="text-[11px] text-[var(--text-muted)]">
+                        {botOpeningsLoading
+                          ? "Loading openings from the internal catalog..."
+                          : botOpeningsError
+                            ? botOpeningsError
+                            : `${Math.max(0, botOpeningChoices.length - 1)} openings available from the internal catalog.`}
+                      </div>
 
                       <button
                         onClick={() => startGame("bot-vs-bot")}
