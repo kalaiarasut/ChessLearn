@@ -3,36 +3,28 @@ import readline from 'readline';
 import Database from 'better-sqlite3';
 import path from 'path';
 
-// This script expects `lichess_db_puzzle.csv` to be in the same folder as the script
 const CSV_FILE = path.join(process.cwd(), 'lichess_db_puzzle.csv');
-const DB_FILE = path.join(process.cwd(), 'puzzles.sqlite3');
-
-const POPULARITY_THRESHOLD = 75; // Only keep well-liked puzzles
-const PLAYS_THRESHOLD = 50;      // Only keep puzzles with stable ratings
+const DB_FILE  = path.join(process.cwd(), 'puzzles.sqlite3');
 
 async function buildDatabase() {
   if (!fs.existsSync(CSV_FILE)) {
-    console.error(`❌ Error: Could not find ${CSV_FILE}`);
-    console.error("Please download the Lichess puzzle database from:");
-    console.error("https://database.lichess.org/lichess_db_puzzle.csv.zst");
-    console.error("Extract it and place 'lichess_db_puzzle.csv' in the project root.");
+    console.error(`❌ Cannot find ${CSV_FILE}`);
     process.exit(1);
   }
 
-  // Clean up old DB if it exists
-  if (fs.existsSync(DB_FILE)) {
-    fs.unlinkSync(DB_FILE);
-  }
+  const isResume = fs.existsSync(DB_FILE);
 
-  console.log('📦 Creating SQLite database...');
+  console.log(isResume
+    ? '🔄 Existing database found — resuming from where we left off...'
+    : '📦 Creating new SQLite database...');
+
   const db = new Database(DB_FILE);
-
-  // Use WAL mode for better performance
   db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
 
-  // Create table
+  // Create table only if starting fresh
   db.exec(`
-    CREATE TABLE puzzles (
+    CREATE TABLE IF NOT EXISTS puzzles (
       id TEXT PRIMARY KEY,
       fen TEXT NOT NULL,
       moves TEXT NOT NULL,
@@ -42,70 +34,81 @@ async function buildDatabase() {
     );
   `);
 
+  // Find how many rows we already have
+  const existing = db.prepare('SELECT COUNT(*) as c FROM puzzles').get().c;
+  console.log(`📊 Already in DB: ${existing.toLocaleString()} puzzles`);
+
   const insert = db.prepare(`
-    INSERT INTO puzzles (id, fen, moves, rating, themes, popularity)
+    INSERT OR IGNORE INTO puzzles (id, fen, moves, rating, themes, popularity)
     VALUES (@id, @fen, @moves, @rating, @themes, @popularity)
   `);
 
-  console.log('⏳ Processing CSV... This may take a few minutes.');
-  
-  const fileStream = fs.createReadStream(CSV_FILE);
-  const rl = readline.createInterface({
-    input: fileStream,
-    crlfDelay: Infinity
-  });
+  console.log('⏳ Processing CSV...');
 
-  let count = 0;
-  let isFirstLine = true;
+  const fileStream = fs.createReadStream(CSV_FILE);
+  const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+
+  let csvLine = 0;  // total lines read from CSV (including header)
+  let inserted = 0; // new rows added this run
+  let skipped  = 0; // rows skipped (already exist)
 
   db.exec('BEGIN TRANSACTION');
 
   for await (const line of rl) {
-    if (isFirstLine) {
-      isFirstLine = false;
-      continue; // Skip header
-    }
+    if (csvLine === 0) { csvLine++; continue; } // skip header
+    csvLine++;
 
     // Format: PuzzleId,FEN,Moves,Rating,RatingDeviation,Popularity,NbPlays,Themes,GameUrl,OpeningTags
     const parts = line.split(',');
     if (parts.length < 8) continue;
 
-    const [id, fen, moves, ratingStr, devStr, popStr, playsStr, themes] = parts;
-    const rating = parseInt(ratingStr, 10);
-    const popularity = parseInt(popStr, 10) || 0;
+    const [id, fen, moves, ratingStr, , popStr, , themes] = parts;
+    const rating     = parseInt(ratingStr, 10);
+    const popularity = parseInt(popStr,    10) || 0;
 
-    // Insert ALL puzzles as requested
-    insert.run({
+    const info = insert.run({
       id,
       fen,
       moves,
       rating,
-      themes: ` ${themes} `, // Pad with spaces for easier LIKE '% theme %' queries
+      themes: ` ${themes} `,
       popularity
     });
-    
-    count++;
 
-    if (count > 0 && count % 50000 === 0) {
+    if (info.changes > 0) {
+      inserted++;
+    } else {
+      skipped++;
+    }
+
+    const total = existing + inserted;
+    if (total > 0 && total % 50000 === 0 && info.changes > 0) {
       db.exec('COMMIT');
-      process.stdout.write(`\r✅ Inserted ${count} puzzles...`);
+      process.stdout.write(`\r✅ Total: ${total.toLocaleString()} (added ${inserted.toLocaleString()} new this run)...`);
       db.exec('BEGIN TRANSACTION');
     }
   }
 
   db.exec('COMMIT');
-  console.log(`\n\n🎉 Done! Inserted all ${count} puzzles from the dataset.`);
 
-  console.log('📊 Creating indexes for fast searching...');
+  const grandTotal = db.prepare('SELECT COUNT(*) as c FROM puzzles').get().c;
+  console.log(`\n\n🎉 Done!`);
+  console.log(`   New this run : ${inserted.toLocaleString()}`);
+  console.log(`   Already had  : ${skipped.toLocaleString()} (skipped)`);
+  console.log(`   Grand total  : ${grandTotal.toLocaleString()} puzzles`);
+
+  // Create indexes if they don't exist yet
+  console.log('\n📊 Ensuring indexes exist...');
   db.exec(`
-    CREATE INDEX idx_rating ON puzzles(rating);
-    CREATE INDEX idx_popularity ON puzzles(popularity);
+    CREATE INDEX IF NOT EXISTS idx_rating     ON puzzles(rating);
+    CREATE INDEX IF NOT EXISTS idx_popularity ON puzzles(popularity);
   `);
-  console.log('✅ Indexes created.');
-  
+  console.log('✅ Indexes ready.');
+
   db.close();
-  console.log(`\n🚀 Database saved to ${DB_FILE}`);
-  console.log(`Size: ${(fs.statSync(DB_FILE).size / (1024 * 1024)).toFixed(2)} MB`);
+  const sizeMB = (fs.statSync(DB_FILE).size / (1024 * 1024)).toFixed(2);
+  console.log(`\n🚀 Database: ${DB_FILE}`);
+  console.log(`   Size: ${sizeMB} MB`);
 }
 
 buildDatabase().catch(console.error);

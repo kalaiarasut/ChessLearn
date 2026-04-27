@@ -1,64 +1,67 @@
 import { NextRequest, NextResponse } from "next/server";
-import puzzlesData from "@/data/puzzles.json";
+import Database from "better-sqlite3";
+import path from "path";
 
-type Puzzle = {
-  id: string;
-  fen: string;
-  moves: string[];
-  rating: number;
-  themes: string[];
-  popularity: number;
-};
+// Initialize SQLite connection
+const DB_PATH = path.join(process.cwd(), "puzzles.sqlite3");
+let db: Database.Database | null = null;
 
-const ALL_PUZZLES: Puzzle[] = puzzlesData as Puzzle[];
-
-function seededRandom(seed: number) {
-  let s = seed;
-  return () => {
-    s = (s * 1103515245 + 12345) & 0x7fffffff;
-    return s / 0x7fffffff;
-  };
-}
-
-function shuffleArray<T>(arr: T[], rand: () => number): T[] {
-  const result = [...arr];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
+try {
+  db = new Database(DB_PATH, { readonly: true });
+} catch (error) {
+  console.warn("⚠️ Could not connect to local SQLite database. Ensure puzzles.sqlite3 exists.");
 }
 
 export async function GET(request: NextRequest) {
+  if (!db) {
+    return NextResponse.json({ error: "Database not available" }, { status: 503 });
+  }
+
   const { searchParams } = request.nextUrl;
   const theme = searchParams.get("theme");
   const minRating = parseInt(searchParams.get("minRating") || "0", 10);
   const maxRating = parseInt(searchParams.get("maxRating") || "9999", 10);
   const count = Math.min(50, Math.max(1, parseInt(searchParams.get("count") || "10", 10)));
-  const random = searchParams.get("random") === "true";
   const mode = searchParams.get("mode");
+  const random = searchParams.get("random") === "true";
 
-  let filtered = ALL_PUZZLES;
+  try {
+    let query = "SELECT * FROM puzzles WHERE rating >= ? AND rating <= ?";
+    const params: any[] = [minRating, maxRating];
 
-  if (theme) {
-    const t = theme.toLowerCase();
-    filtered = filtered.filter((p) => p.themes.some((pt) => pt.toLowerCase() === t));
+    if (theme && theme !== "mix") {
+      query += " AND themes LIKE ?";
+      params.push(`% ${theme} %`);
+    }
+
+    if (mode === "daily") {
+      // Pick a daily puzzle based on date
+      const today = new Date();
+      const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+      query += " ORDER BY (ABS(CAST(id AS INTEGER)) + ?) % 100000 LIMIT 1";
+      params.push(seed);
+    } else if (random) {
+      // ORDER BY RANDOM() is fast enough for filtered datasets in SQLite, but we can optimize it
+      query += " ORDER BY RANDOM() LIMIT ?";
+      params.push(count);
+    } else {
+      query += " ORDER BY popularity DESC LIMIT ?";
+      params.push(count);
+    }
+
+    const stmt = db.prepare(query);
+    const results = stmt.all(...params);
+
+    // Parse moves string into array
+    const formattedPuzzles = results.map((row: any) => ({
+      ...row,
+      moves: row.moves.split(" "),
+      themes: row.themes.trim().split(" ")
+    }));
+
+    return NextResponse.json({ puzzles: formattedPuzzles });
+  } catch (error) {
+    console.error("Database query error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  filtered = filtered.filter((p) => p.rating >= minRating && p.rating <= maxRating);
-
-  if (mode === "daily") {
-    const today = new Date();
-    const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
-    const rand = seededRandom(seed);
-    const idx = Math.floor(rand() * ALL_PUZZLES.length);
-    return NextResponse.json({ puzzles: [ALL_PUZZLES[idx]] });
-  }
-
-  if (random) {
-    const seed = Date.now();
-    filtered = shuffleArray(filtered, seededRandom(seed));
-  }
-
-  return NextResponse.json({ puzzles: filtered.slice(0, count) });
 }

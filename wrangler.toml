@@ -1,0 +1,8 @@
+name = "chessify"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "PUZZLES_DB"
+database_name = "chessify-puzzles"
+database_id = "e6b0defb-7070-4138-9448-a2e82ee477a5"

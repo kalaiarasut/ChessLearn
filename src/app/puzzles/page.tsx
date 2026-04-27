@@ -65,6 +65,7 @@ import {
 import { useTheme } from "@/lib/theme-context";
 import { AuthMenu } from "@/components/auth-menu";
 import {
+  DEFAULT_CLIENT_PREFERENCES,
   loadClientPreferences,
   type PuzzleClientPreferences,
 } from "@/lib/client-preferences";
@@ -404,17 +405,7 @@ export default function PuzzlesPage() {
     }
   }, [dailyPuzzle]);
 
-  const stats = puzzlePrefs ?? {
-    puzzleRating: 1200,
-    puzzlesSolved: 0,
-    puzzlesFailed: 0,
-    bestStormScore: 0,
-    bestStreakScore: 0,
-    currentStreak: 0,
-    lastDailyPuzzleDate: "",
-    dailyPuzzleSolved: false,
-    puzzleThemeStats: {},
-  };
+  const stats: PuzzleClientPreferences = puzzlePrefs ?? DEFAULT_CLIENT_PREFERENCES.puzzle;
 
   return (
     <div className="min-h-screen flex flex-col items-center overflow-x-hidden bg-[var(--bg)]">

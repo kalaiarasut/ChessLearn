@@ -10,6 +10,7 @@ import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid
 } from "recharts";
+import type { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent";
 
 const RADAR_THEMES = [
   "advancedPawn", "mate", "deflection", "discoveredAttack", "endgame",
@@ -138,7 +139,7 @@ export default function DashboardPage() {
                 <Tooltip 
                   contentStyle={{ backgroundColor: "var(--surface)", borderColor: "var(--border)", borderRadius: "8px" }}
                   itemStyle={{ color: "#f59e0b", fontWeight: "bold" }}
-                  formatter={(val: number) => [val, "Rating"]}
+                  formatter={(value: ValueType | undefined, _name: NameType | undefined) => [value ?? "-", "Rating"]}
                 />
               </RadarChart>
             </ResponsiveContainer>

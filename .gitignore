@@ -40,3 +40,10 @@ src/data/openings_combined/*
 !src/data/openings_combined/openings.catalog.json
 .gitignore
 
+# Lichess Puzzle Database Files
+lichess_db_puzzle.csv
+lichess_db_puzzle.csv.zst
+puzzles.sqlite3
+puzzles.sqlite3-wal
+puzzles.sqlite3-shm
+/puzzle-chunks/
