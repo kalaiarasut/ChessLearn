@@ -23,21 +23,15 @@ const ELOS = [1320, 1400, 1500, 1650, 1800, 2000, 2200, 2500, 2850, 3190];
 const ELO_MIN = STOCKFISH_ELO_LIMITS["stockfish-18"].min;
 const ELO_MAX = STOCKFISH_ELO_LIMITS["stockfish-18"].max;
 const FULL_ENGINE_WASM_PATH = "/engines/stockfish/stockfish-18-single.wasm";
+const REPLAY_ARCHIVE_STORAGE_KEY = "chessify.bot.replayArchive.v1";
+const REPLAY_ARCHIVE_MAX_ITEMS = 60;
+const REPLAY_ARCHIVE_PAGE_SIZE = 6;
 const BEGINNER_ESTIMATED_ELOS = [400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300];
 const BEGINNER_ELO_MIN = BEGINNER_ESTIMATED_ELOS[0];
 const BEGINNER_ELO_MAX = BEGINNER_ESTIMATED_ELOS[BEGINNER_ESTIMATED_ELOS.length - 1];
-const BOT_OPENING_MOVES = [
-  { id: "engine", label: "Engine Choice", uci: null as string | null },
-  { id: "e4", label: "King Pawn (e4)", uci: "e2e4" },
-  { id: "d4", label: "Queen Pawn (d4)", uci: "d2d4" },
-  { id: "c4", label: "English (c4)", uci: "c2c4" },
-  { id: "nf3", label: "Reti (Nf3)", uci: "g1f3" },
-  { id: "e5", label: "Open Game (e5)", uci: "e7e5" },
-  { id: "c5", label: "Sicilian (c5)", uci: "c7c5" },
-  { id: "e6", label: "French (e6)", uci: "e7e6" },
-  { id: "d5", label: "Queen Pawn (d5)", uci: "d7d5" },
-  { id: "nf6", label: "Indian (Nf6)", uci: "g8f6" },
-] as const;
+const BOT_OPENING_ENGINE_ID = "engine";
+const BOT_OPENINGS_LIMIT = 500;
+const SAN_RESULT_TOKENS = new Set(["1-0", "0-1", "1/2-1/2", "*"]);
 const MATERIAL_VALUES = {
   p: 1,
   n: 3,
@@ -62,6 +56,100 @@ type StrengthMode = PlayerStrengthMode | "beginner";
 type EngineVariant = PlayerEngineVariant;
 type TimeMode = PlayerTimeMode;
 
+type OpeningCardPayload = {
+  slug: string;
+  name: string;
+  eco: string;
+  moves: string;
+  variationCount: number;
+};
+
+type BotOpeningChoice = {
+  id: string;
+  label: string;
+  pgn: string;
+  searchText: string;
+};
+
+const BOT_OPENING_ENGINE_CHOICE: BotOpeningChoice = {
+  id: BOT_OPENING_ENGINE_ID,
+  label: "Engine Choice",
+  pgn: "",
+  searchText: "engine choice",
+};
+
+const normalizeSearchText = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const toSearchTokens = (query: string) =>
+  normalizeSearchText(query)
+    .split(" ")
+    .filter(Boolean);
+
+const toOpeningChoice = (opening: OpeningCardPayload): BotOpeningChoice => {
+  const ecoLabel = opening.eco?.trim() ? opening.eco.trim() : "N/A";
+  const label = `${opening.name} (${ecoLabel})`;
+  return {
+    id: opening.slug,
+    label,
+    pgn: opening.moves,
+    searchText: normalizeSearchText(`${opening.name} ${ecoLabel} ${opening.moves}`),
+  };
+};
+
+const tokenizePgnMoves = (pgn: string) =>
+  pgn
+    .replace(/\{[^}]*\}/g, " ")
+    .replace(/\d+\.(\.\.\.)?/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0 && !SAN_RESULT_TOKENS.has(token));
+
+const buildOpeningBookForSide = (pgn: string, side: SideColor) => {
+  const game = new Chess();
+  const uciMoves: string[] = [];
+
+  for (const token of tokenizePgnMoves(pgn)) {
+    const move = game.move(token);
+    if (!move) {
+      break;
+    }
+
+    if (move.color === side) {
+      uciMoves.push(`${move.from}${move.to}${move.promotion ?? ""}`);
+    }
+  }
+
+  return uciMoves;
+};
+
+const filterOpeningChoices = (
+  choices: BotOpeningChoice[],
+  query: string,
+  selectedId: string,
+  maxItems = 120,
+) => {
+  const tokens = toSearchTokens(query);
+  const filtered = tokens.length === 0
+    ? [...choices]
+    : choices.filter((choice) => tokens.every((token) => choice.searchText.includes(token)));
+
+  const selected = choices.find((choice) => choice.id === selectedId);
+  const visible = filtered.slice(0, maxItems);
+
+  if (selected && !visible.some((choice) => choice.id === selected.id)) {
+    return [selected, ...visible.slice(0, Math.max(0, maxItems - 1))];
+  }
+
+  return visible;
+};
+
 const toBeginnerEngineProfile = (estimatedElo: number) => {
   const clamped = Math.max(BEGINNER_ELO_MIN, Math.min(BEGINNER_ELO_MAX, Math.round(estimatedElo)));
   const span = BEGINNER_ELO_MAX - BEGINNER_ELO_MIN;
@@ -81,6 +169,203 @@ type SerializableMove = {
   isCapture: boolean;
   isCastle: boolean;
   isPromotion: boolean;
+};
+
+type ReplayOutcome = "win" | "loss" | "draw";
+type ReplayFilter = "all" | ReplayOutcome;
+
+type ReplayArchiveEntry = {
+  id: string;
+  createdAt: string;
+  finalFen: string;
+  fenHistory: string[];
+  sanMoves: string[];
+  moveCount: number;
+  timeControlMinutes: number;
+  playerSide: "w" | "b" | "bot-vs-bot";
+  opponentLabel: string;
+  outcome: ReplayOutcome;
+  outcomeLabel: string;
+  title: string;
+  reason: string;
+  resultTag: "1-0" | "0-1" | "1/2-1/2";
+  whiteLabel: string;
+  blackLabel: string;
+};
+
+const createReplaySessionId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+const getReplayResultTone = (outcome: ReplayOutcome) => {
+  if (outcome === "win") {
+    return {
+      badgeClassName: "bg-emerald-500/20 border-emerald-500/30 text-emerald-400",
+      dotClassName: "border-emerald-500",
+      iconClassName: "text-emerald-500",
+    };
+  }
+  if (outcome === "loss") {
+    return {
+      badgeClassName: "bg-rose-500/20 border-rose-500/30 text-rose-400",
+      dotClassName: "border-rose-500",
+      iconClassName: "text-rose-500",
+    };
+  }
+  return {
+    badgeClassName: "bg-amber-500/20 border-amber-500/30 text-amber-400",
+    dotClassName: "border-amber-500",
+    iconClassName: "text-amber-500",
+  };
+};
+
+const formatReplayDateLabel = (isoDate: string) => {
+  const created = new Date(isoDate);
+  if (Number.isNaN(created.getTime())) {
+    return "Unknown";
+  }
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfCreated = new Date(created.getFullYear(), created.getMonth(), created.getDate());
+  const diffDays = Math.round((startOfToday.getTime() - startOfCreated.getTime()) / 86400000);
+
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+
+  return created.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: created.getFullYear() === now.getFullYear() ? undefined : "numeric",
+  });
+};
+
+const getReplayWinnerDetails = (game: Chess, timeoutStatus: string | null) => {
+  if (timeoutStatus) {
+    const lowered = timeoutStatus.toLowerCase();
+    if ((lowered.includes("white") && lowered.includes("won")) || (lowered.includes("white") && lowered.includes("wins"))) {
+      return { winner: "w" as const, reason: timeoutStatus };
+    }
+    if ((lowered.includes("black") && lowered.includes("won")) || (lowered.includes("black") && lowered.includes("wins"))) {
+      return { winner: "b" as const, reason: timeoutStatus };
+    }
+    return { winner: "draw" as const, reason: timeoutStatus };
+  }
+
+  if (game.isCheckmate()) {
+    return {
+      winner: game.turn() === "w" ? ("b" as const) : ("w" as const),
+      reason: "Checkmate",
+    };
+  }
+  if (game.isStalemate()) {
+    return { winner: "draw" as const, reason: "Draw by stalemate" };
+  }
+  if (game.isThreefoldRepetition()) {
+    return { winner: "draw" as const, reason: "Draw by repetition" };
+  }
+  if (game.isInsufficientMaterial()) {
+    return { winner: "draw" as const, reason: "Draw by insufficient material" };
+  }
+  if (game.isDraw()) {
+    return { winner: "draw" as const, reason: "Draw" };
+  }
+
+  return { winner: "draw" as const, reason: "Game ended" };
+};
+
+const safeParseReplayArchive = (serializedArchive: string | null): ReplayArchiveEntry[] => {
+  if (!serializedArchive) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(serializedArchive) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    const normalized: ReplayArchiveEntry[] = [];
+    for (const item of parsed) {
+      if (!item || typeof item !== "object") {
+        continue;
+      }
+
+      const entry = item as Partial<ReplayArchiveEntry>;
+      if (
+        typeof entry.id !== "string" ||
+        typeof entry.createdAt !== "string" ||
+        typeof entry.finalFen !== "string" ||
+        !Array.isArray(entry.fenHistory) ||
+        !Array.isArray(entry.sanMoves)
+      ) {
+        continue;
+      }
+
+      try {
+        new Chess(entry.finalFen);
+      } catch {
+        continue;
+      }
+
+      normalized.push({
+        id: entry.id,
+        createdAt: entry.createdAt,
+        finalFen: entry.finalFen,
+        fenHistory: entry.fenHistory.filter((fenValue): fenValue is string => typeof fenValue === "string"),
+        sanMoves: entry.sanMoves.filter((move): move is string => typeof move === "string"),
+        moveCount: typeof entry.moveCount === "number" ? entry.moveCount : 0,
+        timeControlMinutes: typeof entry.timeControlMinutes === "number" ? entry.timeControlMinutes : 10,
+        playerSide:
+          entry.playerSide === "w" || entry.playerSide === "b" || entry.playerSide === "bot-vs-bot"
+            ? entry.playerSide
+            : "w",
+        opponentLabel: typeof entry.opponentLabel === "string" ? entry.opponentLabel : "Stockfish",
+        outcome: entry.outcome === "win" || entry.outcome === "loss" || entry.outcome === "draw" ? entry.outcome : "draw",
+        outcomeLabel: typeof entry.outcomeLabel === "string" ? entry.outcomeLabel : "Draw",
+        title: typeof entry.title === "string" ? entry.title : "Game",
+        reason: typeof entry.reason === "string" ? entry.reason : "Game ended",
+        resultTag: entry.resultTag === "1-0" || entry.resultTag === "0-1" || entry.resultTag === "1/2-1/2" ? entry.resultTag : "1/2-1/2",
+        whiteLabel: typeof entry.whiteLabel === "string" ? entry.whiteLabel : "White",
+        blackLabel: typeof entry.blackLabel === "string" ? entry.blackLabel : "Black",
+      });
+    }
+
+    return normalized.slice(0, REPLAY_ARCHIVE_MAX_ITEMS);
+  } catch {
+    return [];
+  }
+};
+
+const buildReplayPgn = (entry: ReplayArchiveEntry) => {
+  const date = new Date(entry.createdAt);
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  const dateTag = Number.isNaN(date.getTime()) ? "????.??.??" : `${year}.${month}.${day}`;
+  const timeControlTag = `${Math.max(0, Math.round(entry.timeControlMinutes * 60))}`;
+
+  const moveText = entry.sanMoves
+    .map((sanMove, index) => {
+      if (index % 2 === 0) {
+        return `${Math.floor(index / 2) + 1}. ${sanMove}`;
+      }
+      return sanMove;
+    })
+    .join(" ")
+    .trim();
+
+  return [
+    `[Event "Chessify Replay"]`,
+    `[Site "Chessify"]`,
+    `[Date "${dateTag}"]`,
+    `[White "${entry.whiteLabel}"]`,
+    `[Black "${entry.blackLabel}"]`,
+    `[Result "${entry.resultTag}"]`,
+    `[TimeControl "${timeControlTag}"]`,
+    `[Termination "${entry.reason.replace(/\"/g, "'")}"]`,
+    "",
+    `${moveText} ${entry.resultTag}`.trim(),
+  ].join("\n");
 };
 
 const toSquare = (rowIndex: number, columnIndex: number) =>
@@ -380,10 +665,15 @@ export default function PlayComputerPage() {
   const [expandedEngineLineIds, setExpandedEngineLineIds] = useState<Record<number, boolean>>({});
   const [bot1EloIndex, setBot1EloIndex] = useState<number>(2);
   const [bot2EloIndex, setBot2EloIndex] = useState<number>(2);
-  const [bot1OpeningId, setBot1OpeningId] = useState<string>("c5");
-  const [bot2OpeningId, setBot2OpeningId] = useState<string>("e4");
-  const [bot1OpeningUsed, setBot1OpeningUsed] = useState(false);
-  const [bot2OpeningUsed, setBot2OpeningUsed] = useState(false);
+  const [botOpeningChoices, setBotOpeningChoices] = useState<BotOpeningChoice[]>([BOT_OPENING_ENGINE_CHOICE]);
+  const [botOpeningsLoading, setBotOpeningsLoading] = useState(false);
+  const [botOpeningsError, setBotOpeningsError] = useState<string | null>(null);
+  const [bot1OpeningQuery, setBot1OpeningQuery] = useState("");
+  const [bot2OpeningQuery, setBot2OpeningQuery] = useState("");
+  const [bot1OpeningId, setBot1OpeningId] = useState<string>(BOT_OPENING_ENGINE_ID);
+  const [bot2OpeningId, setBot2OpeningId] = useState<string>(BOT_OPENING_ENGINE_ID);
+  const [bot1OpeningMoveIndex, setBot1OpeningMoveIndex] = useState(0);
+  const [bot2OpeningMoveIndex, setBot2OpeningMoveIndex] = useState(0);
   const [botMatchConfigOpen, setBotMatchConfigOpen] = useState(false);
   const [viewerName, setViewerName] = useState("Guest User");
   const [hoverPreview, setHoverPreview] = useState<{ fen: string; left: number; top: number } | null>(null);
@@ -396,6 +686,11 @@ export default function PlayComputerPage() {
   const [timeoutStatus, setTimeoutStatus] = useState<string | null>(null);
   const [warnedWhiteLowTime, setWarnedWhiteLowTime] = useState(false);
   const [warnedBlackLowTime, setWarnedBlackLowTime] = useState(false);
+  const [activeGameId, setActiveGameId] = useState<string | null>(null);
+  const [replayArchive, setReplayArchive] = useState<ReplayArchiveEntry[]>([]);
+  const [replayFilter, setReplayFilter] = useState<ReplayFilter>("all");
+  const [visibleReplayCount, setVisibleReplayCount] = useState(REPLAY_ARCHIVE_PAGE_SIZE);
+  const archivedGameIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -433,8 +728,39 @@ export default function PlayComputerPage() {
   const isBotMatchMode = playerColor === "bot-vs-bot";
   const playerSide: SideColor = isBotMatchMode ? "w" : playerColor;
   const botSide: SideColor = playerSide === "w" ? "b" : "w";
+  const botOpeningChoiceById = useMemo(() => {
+    const map = new Map<string, BotOpeningChoice>();
+    for (const choice of botOpeningChoices) {
+      map.set(choice.id, choice);
+    }
+    return map;
+  }, [botOpeningChoices]);
   const bot1Elo = ELOS[Math.min(Math.max(bot1EloIndex, 0), ELOS.length - 1)] ?? ELOS[0];
   const bot2Elo = ELOS[Math.min(Math.max(bot2EloIndex, 0), ELOS.length - 1)] ?? ELOS[0];
+  const bot1OpeningBookMoves = useMemo(() => {
+    const selected = botOpeningChoiceById.get(bot1OpeningId);
+    if (!selected?.pgn) {
+      return [];
+    }
+
+    return buildOpeningBookForSide(selected.pgn, botSide);
+  }, [botOpeningChoiceById, bot1OpeningId, botSide]);
+  const bot2OpeningBookMoves = useMemo(() => {
+    const selected = botOpeningChoiceById.get(bot2OpeningId);
+    if (!selected?.pgn) {
+      return [];
+    }
+
+    return buildOpeningBookForSide(selected.pgn, playerSide);
+  }, [botOpeningChoiceById, bot2OpeningId, playerSide]);
+  const bot1VisibleOpeningChoices = useMemo(
+    () => filterOpeningChoices(botOpeningChoices, bot1OpeningQuery, bot1OpeningId),
+    [botOpeningChoices, bot1OpeningQuery, bot1OpeningId],
+  );
+  const bot2VisibleOpeningChoices = useMemo(
+    () => filterOpeningChoices(botOpeningChoices, bot2OpeningQuery, bot2OpeningId),
+    [botOpeningChoices, bot2OpeningQuery, bot2OpeningId],
+  );
   const beginnerEngineProfile = useMemo(
     () => toBeginnerEngineProfile(beginnerEstimatedElo),
     [beginnerEstimatedElo],
@@ -599,6 +925,80 @@ export default function PlayComputerPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadBotOpenings = async () => {
+      setBotOpeningsLoading(true);
+      setBotOpeningsError(null);
+
+      try {
+        const response = await fetch(`/api/openings?limit=${BOT_OPENINGS_LIMIT}`, { method: "GET" });
+        if (!response.ok) {
+          throw new Error("Failed to load opening catalog.");
+        }
+
+        const payload = (await response.json()) as { openings?: OpeningCardPayload[] };
+        const openings = Array.isArray(payload.openings) ? payload.openings : [];
+        const mappedChoices = openings.map(toOpeningChoice);
+
+        if (!cancelled) {
+          setBotOpeningChoices([BOT_OPENING_ENGINE_CHOICE, ...mappedChoices]);
+        }
+      } catch {
+        if (!cancelled) {
+          setBotOpeningsError("Opening database unavailable. Using engine-only opening mode.");
+          setBotOpeningChoices([BOT_OPENING_ENGINE_CHOICE]);
+        }
+      } finally {
+        if (!cancelled) {
+          setBotOpeningsLoading(false);
+        }
+      }
+    };
+
+    loadBotOpenings().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!botOpeningChoiceById.has(bot1OpeningId)) {
+      setBot1OpeningId(BOT_OPENING_ENGINE_ID);
+      setBot1OpeningMoveIndex(0);
+    }
+
+    if (!botOpeningChoiceById.has(bot2OpeningId)) {
+      setBot2OpeningId(BOT_OPENING_ENGINE_ID);
+      setBot2OpeningMoveIndex(0);
+    }
+  }, [botOpeningChoiceById, bot1OpeningId, bot2OpeningId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const storedArchive = window.localStorage.getItem(REPLAY_ARCHIVE_STORAGE_KEY);
+    const parsedArchive = safeParseReplayArchive(storedArchive);
+    setReplayArchive(parsedArchive);
+    archivedGameIdsRef.current = new Set(parsedArchive.map((entry) => entry.id));
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(REPLAY_ARCHIVE_STORAGE_KEY, JSON.stringify(replayArchive));
+  }, [replayArchive]);
+
+  useEffect(() => {
+    setVisibleReplayCount(REPLAY_ARCHIVE_PAGE_SIZE);
+  }, [replayFilter]);
+
   const playSound = (name: string, force = false) => {
     if (!force && !soundEnabled) return;
     if (typeof Audio === "undefined") return;
@@ -739,6 +1139,7 @@ export default function PlayComputerPage() {
     const finalColor = color === "random" ? (Math.random() > 0.5 ? "w" : "b") : color;
     const seededGame = new Chess();
 
+    setActiveGameId(createReplaySessionId());
     setPlayerColor(finalColor);
     setFen(seededGame.fen());
     setHistory([DEFAULT_FEN]);
@@ -1055,7 +1456,8 @@ export default function PlayComputerPage() {
   };
   const topCapturedPieceCodes = toCapturedPieceCodes(topSideColor, capturedByTopTypes);
   const bottomCapturedPieceCodes = toCapturedPieceCodes(bottomSideColor, capturedByBottomTypes);
-  const topDisplayName = isBotMatchMode ? "Bot 1" : "MT Model";
+  const botModelLabel = botEngineVariant === "stockfish-18" ? "Stockfish-18" : "Stockfish-18-Lite";
+  const topDisplayName = isBotMatchMode ? "Bot 1" : botModelLabel;
   const topDisplaySubtitle = isBotMatchMode
     ? `ELO ${bot1Elo}`
     : strengthMode === "elo"
@@ -1066,6 +1468,182 @@ export default function PlayComputerPage() {
   const bottomDisplayName = isBotMatchMode ? "Bot 2" : viewerName;
   const bottomDisplaySubtitle = isBotMatchMode ? `ELO ${bot2Elo}` : null;
   const whiteWinChance = Math.max(0, Math.min(100, analysis.whiteWinChance));
+  const replayFilters: Array<{ value: ReplayFilter; label: string }> = [
+    { value: "all", label: "All Games" },
+    { value: "win", label: "Wins" },
+    { value: "loss", label: "Losses" },
+    { value: "draw", label: "Draws" },
+  ];
+  const filteredReplayArchive = useMemo(() => {
+    if (replayFilter === "all") {
+      return replayArchive;
+    }
+    return replayArchive.filter((entry) => entry.outcome === replayFilter);
+  }, [replayArchive, replayFilter]);
+  const visibleReplayArchive = filteredReplayArchive.slice(0, visibleReplayCount);
+  const hasMoreReplayItems = visibleReplayCount < filteredReplayArchive.length;
+
+  useEffect(() => {
+    if (gameState !== "game_over" || !activeGameId || archivedGameIdsRef.current.has(activeGameId)) {
+      return;
+    }
+    if (sanHistory.length === 0 || history.length < 2) {
+      return;
+    }
+
+    let endedGame: Chess;
+    try {
+      endedGame = new Chess(fen);
+    } catch {
+      return;
+    }
+
+    const winnerDetails = getReplayWinnerDetails(endedGame, timeoutStatus);
+    const opponentLabel =
+      playerColor === "bot-vs-bot"
+        ? `Bot 1 (ELO ${bot1Elo}) vs Bot 2 (ELO ${bot2Elo})`
+        : `${botModelLabel}${topDisplaySubtitle ? ` • ${topDisplaySubtitle}` : ""}`;
+
+    let outcome: ReplayOutcome = "draw";
+    let outcomeLabel = "Draw";
+    let title = "Draw";
+
+    if (winnerDetails.winner !== "draw") {
+      if (playerColor === "bot-vs-bot") {
+        outcome = "win";
+        outcomeLabel = winnerDetails.winner === "w" ? "White Won" : "Black Won";
+        title = outcomeLabel;
+      } else {
+        const playerWon = winnerDetails.winner === playerColor;
+        outcome = playerWon ? "win" : "loss";
+        outcomeLabel = playerWon ? "Victory" : "Defeat";
+        title = playerWon ? "You Won" : "You Lost";
+      }
+    }
+
+    const resultTag = winnerDetails.winner === "w" ? "1-0" : winnerDetails.winner === "b" ? "0-1" : "1/2-1/2";
+    const playerLabel = viewerName.trim() || "Guest User";
+    const botLabel = botModelLabel;
+    const whiteLabel =
+      playerColor === "bot-vs-bot"
+        ? "Bot 1"
+        : playerColor === "w"
+          ? playerLabel
+          : botLabel;
+    const blackLabel =
+      playerColor === "bot-vs-bot"
+        ? "Bot 2"
+        : playerColor === "b"
+          ? playerLabel
+          : botLabel;
+
+    const replayEntry: ReplayArchiveEntry = {
+      id: activeGameId,
+      createdAt: new Date().toISOString(),
+      finalFen: fen,
+      fenHistory: [...history],
+      sanMoves: [...sanHistory],
+      moveCount: sanHistory.length,
+      timeControlMinutes: timeLimit,
+      playerSide: playerColor,
+      opponentLabel,
+      outcome,
+      outcomeLabel,
+      title,
+      reason: winnerDetails.reason,
+      resultTag,
+      whiteLabel,
+      blackLabel,
+    };
+
+    setReplayArchive((previous) => [replayEntry, ...previous.filter((entry) => entry.id !== replayEntry.id)].slice(0, REPLAY_ARCHIVE_MAX_ITEMS));
+    archivedGameIdsRef.current.add(activeGameId);
+  }, [
+    gameState,
+    activeGameId,
+    fen,
+    history,
+    sanHistory,
+    timeoutStatus,
+    playerColor,
+    botModelLabel,
+    topDisplaySubtitle,
+    bot1Elo,
+    bot2Elo,
+    timeLimit,
+    viewerName,
+  ]);
+
+  const downloadReplayPgnDocument = (entries: ReplayArchiveEntry[], fileName: string) => {
+    if (entries.length === 0) {
+      return;
+    }
+
+    const pgnDocument = entries.map((entry) => buildReplayPgn(entry)).join("\n\n");
+    const blob = new Blob([pgnDocument], { type: "text/plain;charset=utf-8" });
+    const objectUrl = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(objectUrl);
+  };
+
+  const openReplayGame = (entry: ReplayArchiveEntry, autoPlayFromStart = true) => {
+    if (!entry.fenHistory.length) {
+      return;
+    }
+
+    const replayIndex = autoPlayFromStart ? 0 : entry.fenHistory.length - 1;
+    const replayFen = entry.fenHistory[replayIndex] ?? entry.finalFen;
+
+    setHistory(entry.fenHistory);
+    setSanHistory(entry.sanMoves);
+    setCurrentMoveIndex(replayIndex);
+    setFen(replayFen);
+    gameRef.current = new Chess(replayFen);
+    setPlayerColor(entry.playerSide);
+    setGameState("game_over");
+    setIsPlayingHistory(autoPlayFromStart && entry.fenHistory.length > 1);
+    setSelectedSquare(null);
+    setDraggedSquare(null);
+    setDragOverSquare(null);
+    setLastMove(null);
+    setTimeoutStatus(entry.reason);
+    setWhiteTimeSeconds(entry.timeControlMinutes * 60);
+    setBlackTimeSeconds(entry.timeControlMinutes * 60);
+    setActiveGameId(null);
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const exportSingleReplayPgn = (entry: ReplayArchiveEntry) => {
+    const dateStamp = entry.createdAt.slice(0, 10) || new Date().toISOString().slice(0, 10);
+    downloadReplayPgnDocument([entry], `chessify-replay-${dateStamp}-${entry.id.slice(0, 6)}.pgn`);
+  };
+
+  const exportReplayArchive = () => {
+    if (replayArchive.length === 0) {
+      return;
+    }
+
+    downloadReplayPgnDocument(replayArchive, `chessify-replays-${new Date().toISOString().slice(0, 10)}.pgn`);
+  };
+
+  const deleteReplayEntry = (entryId: string) => {
+    setReplayArchive((previous) => previous.filter((entry) => entry.id !== entryId));
+    archivedGameIdsRef.current.delete(entryId);
+  };
+
+  const clearReplayArchive = () => {
+    if (!window.confirm("Clear all saved replay games? This cannot be undone.")) {
+      return;
+    }
+    setReplayArchive([]);
+    archivedGameIdsRef.current.clear();
+  };
 
   const toBoardPoint = (square: string | null) => {
     if (!square || square.length !== 2) {
@@ -2492,6 +3070,232 @@ export default function PlayComputerPage() {
         )}
 
       </main>
+
+      {/* Game Replay Section */}
+      {gameState === "setup" ? (
+        <section className="w-full bg-[var(--bg-alt)] border-t border-[var(--border)] py-16 px-6 lg:px-12 flex flex-col items-center justify-center shrink-0">
+          <div className="max-w-6xl w-full flex flex-col gap-10">
+
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+            <div className="flex items-center gap-5">
+              <div className="w-14 h-14 rounded-2xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center shadow-sm">
+                <Monitor className="w-6 h-6 text-[var(--text-primary)]" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <h2 className="text-[28px] font-serif font-medium text-[var(--text-primary)] tracking-tight leading-none">Game Replay Archive</h2>
+                <span className="text-[15px] font-medium text-[var(--text-muted)]">
+                  {replayArchive.length > 0
+                    ? `${replayArchive.length} saved ${replayArchive.length === 1 ? "game" : "games"} ready for review`
+                    : "Your completed games will appear here automatically"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 flex-wrap">
+              <div className="inline-flex items-center gap-2 rounded-xl bg-[var(--surface)] border border-[var(--border)] p-1 shadow-sm">
+                {replayFilters.map((filterOption) => (
+                  <button
+                    key={filterOption.value}
+                    onClick={() => setReplayFilter(filterOption.value)}
+                    className={`px-3 py-1.5 rounded-lg text-[13px] font-bold transition-colors ${
+                      replayFilter === filterOption.value
+                        ? "bg-[var(--text-primary)] text-[var(--bg)]"
+                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    }`}
+                  >
+                    {filterOption.label}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={clearReplayArchive}
+                disabled={replayArchive.length === 0}
+                className="px-5 py-2.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl text-[14px] font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Clear Archive
+              </button>
+
+              <button
+                onClick={exportReplayArchive}
+                disabled={replayArchive.length === 0}
+                className="px-5 py-2.5 bg-[var(--text-primary)] hover:bg-[var(--text-primary)]/90 text-[var(--bg)] border border-transparent rounded-xl text-[14px] font-bold transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Export PGN
+              </button>
+            </div>
+          </div>
+
+          {visibleReplayArchive.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {visibleReplayArchive.map((replay) => {
+                let replayBoard: Array<Array<string | null>>;
+                try {
+                  replayBoard = new Chess(replay.finalFen).board().map((row) => row.map((piece) => getPieceCode(piece)));
+                } catch {
+                  replayBoard = Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => null));
+                }
+
+                const replayTone = getReplayResultTone(replay.outcome);
+
+                return (
+                  <article
+                    key={replay.id}
+                    className="flex flex-col bg-[var(--surface)] rounded-2xl border border-[var(--border)] overflow-hidden hover:border-[var(--border-hover)] hover:shadow-xl transition-all duration-300 group shadow-sm cursor-pointer"
+                    onClick={() => openReplayGame(replay, true)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openReplayGame(replay, true);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className="h-[220px] w-full relative overflow-hidden flex items-center justify-center">
+                      <img
+                        src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`}
+                        alt="Replay board"
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 grid grid-cols-8 grid-rows-8 z-[5]">
+                        {replayBoard.map((row, rowIndex) =>
+                          row.map((pieceCode, colIndex) => (
+                            <div key={`${replay.id}-${rowIndex}-${colIndex}`} className="flex items-center justify-center p-[6%]">
+                              {pieceCode ? (
+                                <img
+                                  src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${pieceCode}.png`}
+                                  alt={pieceCode}
+                                  className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)]"
+                                />
+                              ) : null}
+                            </div>
+                          )),
+                        )}
+                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10" />
+
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openReplayGame(replay, true);
+                        }}
+                        className="absolute z-20 w-14 h-14 bg-white/20 backdrop-blur-md border border-white/30 rounded-full flex items-center justify-center shadow-2xl opacity-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300 text-white"
+                        aria-label="Open replay"
+                      >
+                        <Play className="w-6 h-6 ml-1" fill="currentColor" />
+                      </button>
+
+                      <div className="absolute bottom-3 left-3 z-20 flex gap-2">
+                        <span className="px-2 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded uppercase tracking-widest text-[9px] font-black text-white shadow-sm">
+                          {replay.timeControlMinutes} Min
+                        </span>
+                        <span className={`px-2 py-1 backdrop-blur-md border rounded uppercase tracking-widest text-[9px] font-black shadow-sm ${replayTone.badgeClassName}`}>
+                          {replay.outcomeLabel}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-5 flex flex-col gap-4 bg-[var(--surface)]">
+                      <div className="flex justify-between items-start gap-3">
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-bold text-[var(--text-muted)] tracking-wider uppercase">
+                            {replay.opponentLabel}
+                          </span>
+                          <span className="text-[17px] font-bold text-[var(--text-primary)] leading-tight">
+                            {replay.title} • {replay.moveCount} moves
+                          </span>
+                        </div>
+                        <span className="text-[13px] text-[var(--text-secondary)] font-medium whitespace-nowrap">
+                          {formatReplayDateLabel(replay.createdAt)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-[14px] text-[var(--text-primary)] bg-[var(--bg)] px-3.5 py-2.5 rounded-xl border border-[var(--border-subtle)]">
+                        <div className="flex items-center gap-2">
+                          <Crosshair className={`w-4 h-4 ${replayTone.iconClassName}`} />
+                          <span className="font-bold">{replay.reason}</span>
+                        </div>
+                        <div className="w-[1px] h-4 bg-[var(--border)]" />
+                        <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
+                          <span className={`w-2.5 h-2.5 rounded-full border-[2px] bg-transparent ${replayTone.dotClassName}`} />
+                          <span className="font-medium text-[13px] truncate max-w-[120px]">
+                            {replay.sanMoves.slice(-3).join(" ") || "No moves"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="w-full flex flex-col gap-3 pt-3 border-t border-[var(--border-subtle)]">
+                        <div className="flex -space-x-2">
+                          <div className="relative min-w-8 h-8 px-2 rounded-full bg-[#eee] border-2 border-[var(--surface)] flex items-center justify-center shadow-sm z-10">
+                            <span className="text-[11px] font-black text-[#333]">{replay.whiteLabel.slice(0, 1).toUpperCase()}</span>
+                          </div>
+                          <div className="relative min-w-8 h-8 px-2 rounded-full bg-[#333] border-2 border-[var(--surface)] flex items-center justify-center shadow-sm z-0">
+                            <span className="text-[11px] font-black text-[#eee]">{replay.blackLabel.slice(0, 1).toUpperCase()}</span>
+                          </div>
+                        </div>
+
+                        <div className="w-full flex items-center justify-between gap-2">
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              exportSingleReplayPgn(replay);
+                            }}
+                            className="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] text-[12px] font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors"
+                          >
+                            Export
+                          </button>
+
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              deleteReplayEntry(replay.id);
+                            }}
+                            className="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] text-[12px] font-bold text-[var(--text-secondary)] hover:text-[var(--error-text)] hover:bg-[var(--surface-hover)] transition-colors"
+                          >
+                            Delete
+                          </button>
+
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openReplayGame(replay, true);
+                            }}
+                            className="text-[14px] font-bold text-[var(--text-primary)] group-hover:text-[var(--cta-bg)] transition-colors flex items-center gap-1"
+                          >
+                            Watch Replay <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="w-full rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)]/70 px-6 py-16 flex flex-col items-center gap-3 text-center">
+              <Bot className="w-8 h-8 text-[var(--text-muted)]" />
+              <h3 className="text-[20px] font-semibold text-[var(--text-primary)]">No replay games yet</h3>
+              <p className="text-[14px] text-[var(--text-secondary)] max-w-[560px]">
+                Finish a game against the bot and it will be saved here automatically with move history, final board position, and PGN export support.
+              </p>
+            </div>
+          )}
+
+          {hasMoreReplayItems ? (
+            <div className="w-full flex justify-center mt-2">
+              <button
+                onClick={() => setVisibleReplayCount((previous) => previous + REPLAY_ARCHIVE_PAGE_SIZE)}
+                className="px-6 py-3 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--border-hover)] hover:bg-[var(--surface-hover)] text-[14px] font-bold text-[var(--text-primary)] shadow-sm transition-all flex items-center gap-2 group"
+              >
+                Load More <ChevronDown className="w-4 h-4 text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors" />
+              </button>
+            </div>
+          ) : null}
+
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -1,0 +1,32 @@
+{
+  "generatedAt": "2026-04-27T08:10:08.199Z",
+  "source": {
+    "name": "draeangela/chess-openings-analysis",
+    "repository": "https://github.com/draeangela/chess-openings-analysis",
+    "upstreamDataset": "https://www.kaggle.com/datasets/alexandrelemercier/all-chess-openings",
+    "notes": "Used as an auxiliary stats source for opening popularity and outcome percentages. Keep source attribution files alongside downloaded data."
+  },
+  "files": [
+    {
+      "id": "draeangela-openings-csv",
+      "file": "openings.csv",
+      "sourceUrl": "https://raw.githubusercontent.com/draeangela/chess-openings-analysis/main/data/openings.csv",
+      "bytes": 568179,
+      "description": "Precomputed opening statistics including number of games, white/draw/black outcome percentages, and move strings."
+    },
+    {
+      "id": "draeangela-readme",
+      "file": "README.source.md",
+      "sourceUrl": "https://raw.githubusercontent.com/draeangela/chess-openings-analysis/main/README.md",
+      "bytes": 1567,
+      "description": "Source project README with provenance notes."
+    },
+    {
+      "id": "draeangela-license",
+      "file": "LICENSE.source",
+      "sourceUrl": "https://raw.githubusercontent.com/draeangela/chess-openings-analysis/main/LICENSE",
+      "bytes": 1077,
+      "description": "Source project license text."
+    }
+  ]
+}

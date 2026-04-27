@@ -1,14 +1,17 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { Chess } from "chess.js";
 
 const ROOT = process.cwd();
 const LICHESS_DIR = path.join(ROOT, "src", "data", "openings");
 const ECOJSON_DIR = path.join(ROOT, "src", "data", "openings_ecojson");
+const STATS_DIR = path.join(ROOT, "src", "data", "openings_stats");
 const OUT_DIR = path.join(ROOT, "src", "data", "openings_combined");
 
 const ECO_FILES = ["ecoA.json", "ecoB.json", "ecoC.json", "ecoD.json", "ecoE.json", "eco_interpolated.json"];
 const SCORES_FILE = "scores.json";
 const TRANSITIONS_FILE = "fromToPositionIndexed.json";
+const STATS_FILE = "openings.csv";
 
 const parseJsonFile = async (filePath) => {
   const raw = await readFile(filePath, "utf8");
@@ -17,6 +20,305 @@ const parseJsonFile = async (filePath) => {
 
 const normalizeText = (value) => (typeof value === "string" ? value.trim() : "");
 const round2 = (value) => Math.round(value * 100) / 100;
+const round3 = (value) => Math.round(value * 1000) / 1000;
+
+const parseNumber = (value) => {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const cleaned = value.replace(/,/g, "").trim();
+  if (!cleaned) {
+    return null;
+  }
+
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeOpeningNameKey = (value) => {
+  const normalized = normalizeText(value)
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalized;
+};
+
+const getRootOpeningName = (name) => {
+  const colonRoot = normalizeText(name).split(":")[0]?.trim() ?? normalizeText(name);
+  const commaRoot = colonRoot.split(",")[0]?.trim() ?? colonRoot;
+  return commaRoot || normalizeText(name);
+};
+
+const tokenizePgnMoves = (pgn) =>
+  normalizeText(pgn)
+    .replace(/\{[^}]*\}/g, " ")
+    .replace(/\d+\.(\.\.\.)?/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0 && token !== "1-0" && token !== "0-1" && token !== "1/2-1/2" && token !== "*");
+
+const parseCsvRows = (text) => {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (char === '"') {
+      const nextChar = text[index + 1];
+      if (inQuotes && nextChar === '"') {
+        field += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(field);
+      field = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && text[index + 1] === "\n") {
+        index += 1;
+      }
+
+      row.push(field);
+      if (row.some((value) => normalizeText(value).length > 0)) {
+        rows.push(row);
+      }
+      row = [];
+      field = "";
+      continue;
+    }
+
+    field += char;
+  }
+
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    if (row.some((value) => normalizeText(value).length > 0)) {
+      rows.push(row);
+    }
+  }
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const headers = rows[0];
+  return rows.slice(1).map((values) => {
+    const record = {};
+    for (let index = 0; index < headers.length; index += 1) {
+      const key = normalizeText(headers[index]);
+      if (!key) {
+        continue;
+      }
+      record[key] = normalizeText(values[index] ?? "");
+    }
+    return record;
+  });
+};
+
+const createStatsAccumulator = () => ({
+  games: 0,
+  whiteWinWeighted: 0,
+  drawWeighted: 0,
+  blackWinWeighted: 0,
+  avgPlayerWeighted: 0,
+  avgPlayerSamples: 0,
+  perfRatingWeighted: 0,
+  perfRatingSamples: 0,
+  lastPlayed: "",
+  rowCount: 0,
+});
+
+const addStatsSample = (accumulator, sample) => {
+  const games = sample.games;
+  if (!Number.isFinite(games) || games <= 0) {
+    return;
+  }
+
+  accumulator.games += games;
+  accumulator.whiteWinWeighted += (sample.whiteWinPct ?? 0) * games;
+  accumulator.drawWeighted += (sample.drawPct ?? 0) * games;
+  accumulator.blackWinWeighted += (sample.blackWinPct ?? 0) * games;
+
+  if (Number.isFinite(sample.avgPlayer)) {
+    accumulator.avgPlayerWeighted += sample.avgPlayer * games;
+    accumulator.avgPlayerSamples += games;
+  }
+
+  if (Number.isFinite(sample.perfRating)) {
+    accumulator.perfRatingWeighted += sample.perfRating * games;
+    accumulator.perfRatingSamples += games;
+  }
+
+  if (sample.lastPlayed && (!accumulator.lastPlayed || sample.lastPlayed > accumulator.lastPlayed)) {
+    accumulator.lastPlayed = sample.lastPlayed;
+  }
+
+  accumulator.rowCount += 1;
+};
+
+const toStatsSummary = (accumulator, sourceId, totalGamesAll) => {
+  if (!accumulator || accumulator.games <= 0) {
+    return null;
+  }
+
+  return {
+    source: sourceId,
+    sampleSizeGames: Math.round(accumulator.games),
+    whiteWinPct: round2(accumulator.whiteWinWeighted / accumulator.games),
+    drawPct: round2(accumulator.drawWeighted / accumulator.games),
+    blackWinPct: round2(accumulator.blackWinWeighted / accumulator.games),
+    avgPlayerRating:
+      accumulator.avgPlayerSamples > 0 ? round2(accumulator.avgPlayerWeighted / accumulator.avgPlayerSamples) : null,
+    perfRating:
+      accumulator.perfRatingSamples > 0 ? round2(accumulator.perfRatingWeighted / accumulator.perfRatingSamples) : null,
+    popularitySharePct:
+      totalGamesAll > 0 ? round3((accumulator.games / totalGamesAll) * 100) : null,
+    lastPlayed: accumulator.lastPlayed || null,
+    rowCount: accumulator.rowCount,
+  };
+};
+
+const parseStatsDataset = async () => {
+  const sourceId = "kaggle-all-chess-openings-via-draeangela";
+  const byName = new Map();
+  const byRoot = new Map();
+  const movePopularityByFen = new Map();
+  let totalGames = 0;
+  let rowCount = 0;
+
+  let csvText = "";
+  try {
+    csvText = await readFile(path.join(STATS_DIR, STATS_FILE), "utf8");
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      return {
+        sourceId,
+        rowCount,
+        totalGames,
+        byName,
+        byRoot,
+        movePopularityByFen,
+      };
+    }
+    throw error;
+  }
+
+  const rows = parseCsvRows(csvText);
+
+  for (const row of rows) {
+    const openingName = normalizeText(row.Opening);
+    const pgnMoves = normalizeText(row.Moves);
+    const games = parseNumber(row["Num Games"]);
+
+    if (!openingName || !Number.isFinite(games) || games <= 0) {
+      continue;
+    }
+
+    const whiteWinPct = parseNumber(row["White_win%"]) ?? parseNumber(row["Player Win %"]);
+    const drawPct = parseNumber(row["Draw %"]);
+    const blackWinPct = parseNumber(row["Black_win%"]) ?? parseNumber(row["Opponent Win %"]);
+    const avgPlayer = parseNumber(row["Avg Player"]);
+    const perfRating = parseNumber(row["Perf Rating"]);
+    const lastPlayed = normalizeText(row["Last Played"]);
+
+    const sample = {
+      games,
+      whiteWinPct: Number.isFinite(whiteWinPct) ? whiteWinPct : 0,
+      drawPct: Number.isFinite(drawPct) ? drawPct : 0,
+      blackWinPct: Number.isFinite(blackWinPct) ? blackWinPct : 0,
+      avgPlayer,
+      perfRating,
+      lastPlayed,
+    };
+
+    const fullNameKey = normalizeOpeningNameKey(openingName);
+    if (fullNameKey) {
+      if (!byName.has(fullNameKey)) {
+        byName.set(fullNameKey, createStatsAccumulator());
+      }
+      addStatsSample(byName.get(fullNameKey), sample);
+    }
+
+    const rootNameKey = normalizeOpeningNameKey(getRootOpeningName(openingName));
+    if (rootNameKey) {
+      if (!byRoot.has(rootNameKey)) {
+        byRoot.set(rootNameKey, createStatsAccumulator());
+      }
+      addStatsSample(byRoot.get(rootNameKey), sample);
+    }
+
+    if (pgnMoves) {
+      const game = new Chess();
+      const tokens = tokenizePgnMoves(pgnMoves);
+
+      for (const token of tokens) {
+        const fromFen4 = fenToFen4(game.fen());
+
+        let playedMove = null;
+        try {
+          playedMove = game.move(token);
+        } catch {
+          playedMove = null;
+        }
+
+        if (!playedMove) {
+          break;
+        }
+
+        const nextFen4 = fenToFen4(game.fen());
+
+        if (!movePopularityByFen.has(fromFen4)) {
+          movePopularityByFen.set(fromFen4, new Map());
+        }
+
+        const perPosition = movePopularityByFen.get(fromFen4);
+        const existingMove = perPosition.get(playedMove.san);
+        if (existingMove) {
+          existingMove.games += games;
+        } else {
+          perPosition.set(playedMove.san, {
+            san: playedMove.san,
+            games,
+            nextFen: nextFen4,
+          });
+        }
+      }
+    }
+
+    totalGames += games;
+    rowCount += 1;
+  }
+
+  return {
+    sourceId,
+    rowCount,
+    totalGames,
+    byName,
+    byRoot,
+    movePopularityByFen,
+  };
+};
 
 const fenToFen4 = (fen) => {
   const normalized = normalizeText(fen);
@@ -131,6 +433,8 @@ const run = async () => {
       throw error;
     }
   }
+
+  const statsDataset = await parseStatsDataset();
 
   const scoreByFen = new Map();
   const scoreBucketsByFen4 = new Map();
@@ -252,6 +556,26 @@ const run = async () => {
     const scoreMin = scoreSamples > 0 ? round2(Math.min(...scoreValues)) : null;
     const scoreMax = scoreSamples > 0 ? round2(Math.max(...scoreValues)) : null;
 
+    const fullNameKey = normalizeOpeningNameKey(entry.name);
+    const rootNameKey = normalizeOpeningNameKey(getRootOpeningName(entry.name));
+
+    const exactStats = toStatsSummary(
+      statsDataset.byName.get(fullNameKey),
+      statsDataset.sourceId,
+      statsDataset.totalGames
+    );
+    const rootStats = toStatsSummary(
+      statsDataset.byRoot.get(rootNameKey),
+      statsDataset.sourceId,
+      statsDataset.totalGames
+    );
+
+    const stats = exactStats
+      ? { ...exactStats, matchType: "exact-name" }
+      : rootStats
+        ? { ...rootStats, matchType: "root-name" }
+        : null;
+
     const sources = toSortedArray(entry.sourcesSet);
 
     return {
@@ -284,6 +608,7 @@ const run = async () => {
           totalDegreeMax,
         }),
       },
+      stats,
     };
   }).sort((a, b) => {
     if (a.eco !== b.eco) return a.eco.localeCompare(b.eco);
@@ -332,6 +657,31 @@ const run = async () => {
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, values]) => [key, toSortedArray(values)])
   );
+
+  const movePopularityIndex = {};
+  for (const [fromFen4, moveMap] of statsDataset.movePopularityByFen.entries()) {
+    const moves = Array.from(moveMap.values()).sort((left, right) => right.games - left.games);
+    if (moves.length === 0) {
+      continue;
+    }
+
+    const totalGames = moves.reduce((sum, move) => sum + move.games, 0);
+    if (totalGames <= 0) {
+      continue;
+    }
+
+    movePopularityIndex[fromFen4] = {
+      source: statsDataset.sourceId,
+      totalGames: Math.round(totalGames),
+      moves: moves.slice(0, 24).map((move) => ({
+        san: move.san,
+        nextFen: move.nextFen,
+        games: Math.round(move.games),
+        pct: round2((move.games / totalGames) * 100),
+        openingIds: (byFen[move.nextFen] || []).slice(0, 30),
+      })),
+    };
+  }
 
   const nextMovesIndex = {};
   for (const [fromFenRaw, nextFensRaw] of Object.entries(transitionsTo)) {
@@ -391,15 +741,22 @@ const run = async () => {
           fromNodes: Object.keys(transitionsFrom).length,
         },
       },
+      {
+        id: statsDataset.sourceId,
+        path: `src/data/openings_stats/${STATS_FILE}`,
+        rows: statsDataset.rowCount,
+      },
     ],
     totals: {
       mergedRows: combinedRows.length,
       graphNodes: graphByFen4.size,
       scoreEntries: scoreByFen4Mean.size,
+      statsTotalGames: Math.round(statsDataset.totalGames),
       indexByEco: Object.keys(byEco).length,
       indexByFen: Object.keys(byFen).length,
       indexByNamePrefix: Object.keys(byNamePrefix).length,
       indexNextMoves: Object.keys(nextMovesIndex).length,
+      indexMovePopularity: Object.keys(movePopularityIndex).length,
     },
   };
 
@@ -409,6 +766,7 @@ const run = async () => {
   const byFenPath = path.join(OUT_DIR, "openings.index.by-fen.json");
   const byNamePrefixPath = path.join(OUT_DIR, "openings.index.by-name-prefix.json");
   const nextMovesPath = path.join(OUT_DIR, "openings.index.next-moves.json");
+  const movePopularityPath = path.join(OUT_DIR, "openings.index.move-popularity.json");
 
   await writeFile(combinedPath, `${JSON.stringify(combinedRows, null, 2)}\n`, "utf8");
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
@@ -416,17 +774,20 @@ const run = async () => {
   await writeFile(byFenPath, `${JSON.stringify(byFen, null, 2)}\n`, "utf8");
   await writeFile(byNamePrefixPath, `${JSON.stringify(byNamePrefix, null, 2)}\n`, "utf8");
   await writeFile(nextMovesPath, `${JSON.stringify(nextMovesIndex, null, 2)}\n`, "utf8");
+  await writeFile(movePopularityPath, `${JSON.stringify(movePopularityIndex, null, 2)}\n`, "utf8");
 
   console.log(`Combined rows: ${combinedRows.length}`);
   console.log(`Index by ECO keys: ${Object.keys(byEco).length}`);
   console.log(`Index by FEN keys: ${Object.keys(byFen).length}`);
   console.log(`Index next-move roots: ${Object.keys(nextMovesIndex).length}`);
+  console.log(`Index move-popularity roots: ${Object.keys(movePopularityIndex).length}`);
   console.log(`Saved: ${combinedPath}`);
   console.log(`Saved: ${manifestPath}`);
   console.log(`Saved: ${byEcoPath}`);
   console.log(`Saved: ${byFenPath}`);
   console.log(`Saved: ${byNamePrefixPath}`);
   console.log(`Saved: ${nextMovesPath}`);
+  console.log(`Saved: ${movePopularityPath}`);
 };
 
 run().catch((error) => {

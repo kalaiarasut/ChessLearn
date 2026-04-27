@@ -14,6 +14,7 @@ import {
   DEFAULT_CLIENT_PREFERENCES,
   loadClientPreferences,
   saveClientPreferences,
+  type OpeningVariationSortMode,
   type LearnOpeningProgress,
 } from "@/lib/client-preferences";
 
@@ -45,13 +46,51 @@ type OpeningApiPayload = {
   slug: string;
   name: string;
   eco: string;
+  openingStats: {
+    source: string;
+    sampleSizeGames: number;
+    whiteWinPct: number;
+    drawPct: number;
+    blackWinPct: number;
+    avgPlayerRating: number | null;
+    perfRating: number | null;
+    popularitySharePct: number | null;
+    lastPlayed: string | null;
+    rowCount: number;
+    matchType?: "exact-name" | "root-name";
+  } | null;
   variationCount: number;
   mainLine: {
     id: string;
     pgn: string;
     priority: number;
     sources: string[];
+    stats: {
+      source: string;
+      sampleSizeGames: number;
+      whiteWinPct: number;
+      drawPct: number;
+      blackWinPct: number;
+      avgPlayerRating: number | null;
+      perfRating: number | null;
+      popularitySharePct: number | null;
+      lastPlayed: string | null;
+      rowCount: number;
+      matchType?: "exact-name" | "root-name";
+    } | null;
   };
+  mainLineMovePopularity: Array<{
+    ply: number;
+    fen: string;
+    playedSan: string;
+    playedPct: number | null;
+    totalGames: number | null;
+    topMoves: Array<{
+      san: string;
+      pct: number;
+      games: number;
+    }>;
+  }>;
   variations: Array<{
     id: string;
     eco: string;
@@ -59,6 +98,30 @@ type OpeningApiPayload = {
     pgn: string;
     priority: number;
     sources: string[];
+    triggerMoveSan: string | null;
+    triggerMoveGlobalPopularity: {
+      san: string;
+      pct: number;
+      games: number;
+      totalGames: number;
+    } | null;
+    linePopularity: {
+      sampleSizeGames: number;
+      sharePct: number;
+    } | null;
+    stats: {
+      source: string;
+      sampleSizeGames: number;
+      whiteWinPct: number;
+      drawPct: number;
+      blackWinPct: number;
+      avgPlayerRating: number | null;
+      perfRating: number | null;
+      popularitySharePct: number | null;
+      lastPlayed: string | null;
+      rowCount: number;
+      matchType?: "exact-name" | "root-name";
+    } | null;
   }>;
 };
 
@@ -68,11 +131,23 @@ type BranchVariation = {
   pgn: string;
   continuation: string;
   sanHistory: string[];
+  triggerMoveSan: string | null;
+  triggerMoveGlobalPopularity: {
+    san: string;
+    pct: number;
+    games: number;
+    totalGames: number;
+  } | null;
+  linePopularity: {
+    sampleSizeGames: number;
+    sharePct: number;
+  } | null;
 };
 
 const SAN_RESULT_TOKENS = new Set(["1-0", "0-1", "1/2-1/2", "*"]);
 const TRAINER_USER_COLOR: "w" | "b" = "w";
 const VARIATIONS_PAGE_SIZE = 8;
+type VariationSortMode = OpeningVariationSortMode;
 
 const normalizeSan = (san: string) => san.replace(/[+#?!]+/g, "").trim();
 
@@ -381,6 +456,7 @@ export default function OpeningPage() {
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
   const [trainerHint, setTrainerHint] = useState<string | null>(null);
   const [variationQuery, setVariationQuery] = useState("");
+  const [variationSortMode, setVariationSortMode] = useState<VariationSortMode>("popularity");
   const [variationVisibleCount, setVariationVisibleCount] = useState(VARIATIONS_PAGE_SIZE);
   const [branchAttemptStats, setBranchAttemptStats] = useState<{ lineId: string; correct: number; wrong: number } | null>(null);
   const autoMoveTriggerKeyRef = useRef<string>("");
@@ -600,6 +676,9 @@ export default function OpeningPage() {
           pgn: line.pgn,
           continuation: continuationMoves.slice(0, 6).join(" "),
           sanHistory: parsed.sanHistory,
+          triggerMoveSan: line.triggerMoveSan,
+          triggerMoveGlobalPopularity: line.triggerMoveGlobalPopularity,
+          linePopularity: line.linePopularity,
         };
       })
       .filter((line): line is BranchVariation => Boolean(line));
@@ -634,23 +713,7 @@ export default function OpeningPage() {
       Math.min(playedSanMoves.length, selectedBranchVariation.sanHistory.length) - mainLineSan.length,
     )
     : 0;
-  const filteredBranchVariations = useMemo(() => {
-    const query = variationQuery.trim().toLowerCase();
-    if (!query) {
-      return allBranchVariations;
-    }
-
-    return allBranchVariations.filter((line) =>
-      line.name.toLowerCase().includes(query) ||
-      line.continuation.toLowerCase().includes(query),
-    );
-  }, [allBranchVariations, variationQuery]);
-  const visibleBranchVariations = useMemo(
-    () => filteredBranchVariations.slice(0, variationVisibleCount),
-    [filteredBranchVariations, variationVisibleCount],
-  );
-  const hasMoreVariations = filteredBranchVariations.length > visibleBranchVariations.length;
-  const rankedBranchVariations = useMemo(() => {
+  const progressRankedBranchVariations = useMemo(() => {
     return [...allBranchVariations].sort((left, right) => {
       const leftProgress = variationProgressById[left.id];
       const rightProgress = variationProgressById[right.id];
@@ -681,18 +744,65 @@ export default function OpeningPage() {
       return left.name.localeCompare(right.name);
     });
   }, [allBranchVariations, variationProgressById]);
+
+  const popularityRankedBranchVariations = useMemo(() => {
+    return [...allBranchVariations].sort((left, right) => {
+      const leftShare = left.linePopularity?.sharePct ?? -1;
+      const rightShare = right.linePopularity?.sharePct ?? -1;
+      if (leftShare !== rightShare) {
+        return rightShare - leftShare;
+      }
+
+      const leftGames = left.linePopularity?.sampleSizeGames ?? 0;
+      const rightGames = right.linePopularity?.sampleSizeGames ?? 0;
+      if (leftGames !== rightGames) {
+        return rightGames - leftGames;
+      }
+
+      const leftTriggerPct = left.triggerMoveGlobalPopularity?.pct ?? -1;
+      const rightTriggerPct = right.triggerMoveGlobalPopularity?.pct ?? -1;
+      if (leftTriggerPct !== rightTriggerPct) {
+        return rightTriggerPct - leftTriggerPct;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+  }, [allBranchVariations]);
+
+  const sortedBranchVariations = useMemo(
+    () => (variationSortMode === "progress" ? progressRankedBranchVariations : popularityRankedBranchVariations),
+    [variationSortMode, progressRankedBranchVariations, popularityRankedBranchVariations],
+  );
+
+  const filteredBranchVariations = useMemo(() => {
+    const query = variationQuery.trim().toLowerCase();
+    if (!query) {
+      return sortedBranchVariations;
+    }
+
+    return sortedBranchVariations.filter((line) =>
+      line.name.toLowerCase().includes(query) ||
+      line.continuation.toLowerCase().includes(query),
+    );
+  }, [sortedBranchVariations, variationQuery]);
+  const visibleBranchVariations = useMemo(
+    () => filteredBranchVariations.slice(0, variationVisibleCount),
+    [filteredBranchVariations, variationVisibleCount],
+  );
+  const hasMoreVariations = filteredBranchVariations.length > visibleBranchVariations.length;
+
   const recommendedNextBranch = useMemo(() => {
-    if (rankedBranchVariations.length === 0) {
+    if (progressRankedBranchVariations.length === 0) {
       return null;
     }
 
-    const candidates = rankedBranchVariations.filter((line) => line.id !== selectedBranchVariation?.id);
+    const candidates = progressRankedBranchVariations.filter((line) => line.id !== selectedBranchVariation?.id);
     return candidates[0] ?? null;
-  }, [rankedBranchVariations, selectedBranchVariation]);
+  }, [progressRankedBranchVariations, selectedBranchVariation]);
 
   useEffect(() => {
     setVariationVisibleCount(VARIATIONS_PAGE_SIZE);
-  }, [variationQuery]);
+  }, [variationQuery, variationSortMode]);
 
   useEffect(() => {
     if (!selectedBranchVariation || !isBranchComplete) {
@@ -805,6 +915,27 @@ export default function OpeningPage() {
     setClientPreferences(loaded);
     setAnalysisDepth(loaded.learn.engineDepth);
     setIsBoardFlipped(loaded.learn.boardOrientation === "black");
+    setVariationSortMode(loaded.learn.openingVariationSortMode);
+  }, []);
+
+  const setVariationSortModePreference = useCallback((mode: VariationSortMode) => {
+    setVariationSortMode(mode);
+    setClientPreferences((previous) => {
+      if (previous.learn.openingVariationSortMode === mode) {
+        return previous;
+      }
+
+      const nextPreferences = {
+        ...previous,
+        learn: {
+          ...previous.learn,
+          openingVariationSortMode: mode,
+        },
+      };
+
+      saveClientPreferences(nextPreferences);
+      return nextPreferences;
+    });
   }, []);
 
   useEffect(() => {
@@ -1381,6 +1512,22 @@ export default function OpeningPage() {
                 <div className="text-[12px] text-[var(--text-primary)] shrink-0">{openingError}</div>
               ) : openingData ? (
                 <div className="flex flex-col shrink-0">
+                  {openingData.openingStats ? (
+                    <div className="mb-2 rounded-md border border-[var(--border)] bg-[var(--surface-alt)] px-2 py-2">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-primary)]">
+                        Popularity and Results
+                      </div>
+                      <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                        {`${openingData.openingStats.sampleSizeGames.toLocaleString()} games sampled`}
+                        {openingData.openingStats.avgPlayerRating
+                          ? ` • Avg ${Math.round(openingData.openingStats.avgPlayerRating)}`
+                          : ""}
+                      </div>
+                      <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                        {`White ${openingData.openingStats.whiteWinPct}% • Draw ${openingData.openingStats.drawPct}% • Black ${openingData.openingStats.blackWinPct}%`}
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="flex items-center justify-between gap-3 mb-1 shrink-0">
                     <div className="text-[12px] text-[var(--text-secondary)]">
                       Base line progress: {Math.min(matchedMainLinePlies, mainLineSan.length)}/{mainLineSan.length} plies
@@ -1440,6 +1587,27 @@ export default function OpeningPage() {
                       </div>
                     </div>
                   ) : null}
+                  {openingData.mainLineMovePopularity.length > 0 ? (
+                    <div className="mb-2 rounded-md border border-[var(--border)] bg-[var(--surface-alt)] px-2 py-2">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-primary)]">
+                        Main Line Move Popularity (Global)
+                      </div>
+                      <div className="mt-1 max-h-[108px] overflow-y-auto pr-1 custom-scrollbar space-y-1">
+                        {openingData.mainLineMovePopularity.slice(0, 8).map((step) => (
+                          <div key={`${step.ply}-${step.playedSan}`} className="text-[11px] text-[var(--text-secondary)] border-b border-[var(--border-subtle)] pb-1 last:border-b-0">
+                            <div>
+                              {`${step.ply}. ${step.playedSan} ${step.playedPct === null ? "(no sample)" : `(${step.playedPct}%)`}`}
+                            </div>
+                            {step.topMoves.length > 0 ? (
+                              <div className="text-[10px] text-[var(--text-muted)]">
+                                Top: {step.topMoves.map((move) => `${move.san} ${move.pct}%`).join(" • ")}
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="mt-1 flex flex-col shrink-0" style={{ height: "180px", overflow: "hidden" }}>
                     <div className="rounded-md border border-[var(--border)] bg-[var(--surface-alt)] flex flex-col h-full overflow-hidden">
                       <div className="px-2 py-1 border-b border-[var(--border)] text-[11px] font-semibold uppercase tracking-wide text-[var(--text-primary)] shrink-0">
@@ -1467,6 +1635,23 @@ export default function OpeningPage() {
                               placeholder="Search variations"
                               className="w-full rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-hover)]"
                             />
+                            <div className="mt-1 flex items-center gap-1">
+                              <button
+                                onClick={() => setVariationSortModePreference("popularity")}
+                                className={`rounded border px-2 py-0.5 text-[10px] font-semibold transition-colors ${variationSortMode === "popularity" ? "border-[var(--border-hover)] bg-[var(--surface-hover)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
+                              >
+                                Popularity
+                              </button>
+                              <button
+                                onClick={() => setVariationSortModePreference("progress")}
+                                className={`rounded border px-2 py-0.5 text-[10px] font-semibold transition-colors ${variationSortMode === "progress" ? "border-[var(--border-hover)] bg-[var(--surface-hover)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
+                              >
+                                Progress
+                              </button>
+                            </div>
+                            <div className="mt-1 text-[10px] text-[var(--text-muted)]">
+                              Cards show line popularity (within mapped variations) and trigger move popularity (global).
+                            </div>
                           </div>
                           {visibleBranchVariations.length === 0 ? (
                             <div className="px-1 py-2 text-[11px] text-[var(--text-muted)]">No variation matches your search.</div>
@@ -1487,6 +1672,17 @@ export default function OpeningPage() {
                                 </div>
                               </div>
                               <div className="text-[11px] text-[var(--text-muted)] truncate">{line.continuation}</div>
+                              <div className="mt-0.5 text-[10px] text-[var(--text-muted)] truncate">
+                                {line.linePopularity
+                                  ? `Line: ${line.linePopularity.sharePct}% (${line.linePopularity.sampleSizeGames.toLocaleString()} games)`
+                                  : "Line: no sample"}
+                                {" • "}
+                                {line.triggerMoveGlobalPopularity
+                                  ? `Global trigger ${line.triggerMoveGlobalPopularity.san}: ${line.triggerMoveGlobalPopularity.pct}%`
+                                  : line.triggerMoveSan
+                                    ? `Global trigger ${line.triggerMoveSan}: no sample`
+                                    : "Global trigger: n/a"}
+                              </div>
                             </button>
                           ))}
                           {hasMoreVariations ? (

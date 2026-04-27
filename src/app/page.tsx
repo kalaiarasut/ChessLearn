@@ -46,7 +46,7 @@ export default function Home() {
 
         {/* Navigation Links */}
         <nav className="hidden lg:flex items-center space-x-10 text-[14px] font-medium text-[var(--text-secondary)]">
-          <a href="#" className="hover:text-[var(--text-primary)] transition-colors">Puzzles</a>
+          <Link href="/puzzles" className="hover:text-[var(--text-primary)] transition-colors">Puzzles</Link>
           <Link href="/learn" className="hover:text-[var(--text-primary)] transition-colors">Learn</Link>
           <Link href="/play/computer" className="hover:text-[var(--text-primary)] transition-colors">Play Bot</Link>
           <a href="#" className="hover:text-[var(--text-primary)] transition-colors">News</a>

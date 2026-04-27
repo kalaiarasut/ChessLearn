@@ -1,6 +1,7 @@
 export type MoveMethod = "drag" | "click" | "both";
 export type BoardOrientation = "auto" | "white" | "black";
 export type LearnSortMode = "recommended" | "recent" | "mastery" | "new" | "white" | "black" | "popularity";
+export type OpeningVariationSortMode = "popularity" | "progress";
 
 export type LearnVariationProgress = {
   attempts: number;
@@ -26,6 +27,7 @@ export type LearnClientPreferences = {
   showOpeningNames: boolean;
   masterVolume: number;
   learnSortMode: LearnSortMode;
+  openingVariationSortMode: OpeningVariationSortMode;
   openingProgressBySlug: Record<string, LearnOpeningProgress>;
 };
 
@@ -40,9 +42,38 @@ export type BotClientPreferences = {
   masterVolume: number;
 };
 
+export type PuzzleThemeStat = {
+  solved: number;
+  failed: number;
+};
+
+export type PuzzleActivityEntry = {
+  puzzleId: string;
+  theme: string;
+  rating: number;
+  solved: boolean;
+  timestamp: string;
+  timeTakenMs?: number;
+};
+
+export type PuzzleClientPreferences = {
+  puzzleRating: number;
+  puzzlesSolved: number;
+  puzzlesFailed: number;
+  bestStormScore: number;
+  bestStreakScore: number;
+  currentStreak: number;
+  lastDailyPuzzleDate: string;
+  dailyPuzzleSolved: boolean;
+  puzzleThemeStats: Record<string, PuzzleThemeStat>;
+  ratingHistory: { date: string; rating: number }[];
+  recentActivity: PuzzleActivityEntry[];
+};
+
 export type ClientPreferences = {
   learn: LearnClientPreferences;
   bot: BotClientPreferences;
+  puzzle: PuzzleClientPreferences;
 };
 
 export const CLIENT_PREFERENCES_STORAGE_KEY = "chessify-client-preferences";
@@ -58,6 +89,7 @@ export const DEFAULT_CLIENT_PREFERENCES: ClientPreferences = {
     showOpeningNames: true,
     masterVolume: 80,
     learnSortMode: "recommended",
+    openingVariationSortMode: "popularity",
     openingProgressBySlug: {},
   },
   bot: {
@@ -69,6 +101,19 @@ export const DEFAULT_CLIENT_PREFERENCES: ClientPreferences = {
     lowTimeWarning: true,
     boardLock: false,
     masterVolume: 80,
+  },
+  puzzle: {
+    puzzleRating: 1200,
+    puzzlesSolved: 0,
+    puzzlesFailed: 0,
+    bestStormScore: 0,
+    bestStreakScore: 0,
+    currentStreak: 0,
+    lastDailyPuzzleDate: "",
+    dailyPuzzleSolved: false,
+    puzzleThemeStats: {},
+    ratingHistory: [],
+    recentActivity: [],
   },
 };
 
@@ -85,6 +130,7 @@ export function loadClientPreferences(): ClientPreferences {
 
     const parsed = JSON.parse(raw) as Partial<ClientPreferences> & Record<string, unknown>;
     if (isScopedPreferences(parsed)) {
+      const puzzleRaw = (parsed as Record<string, unknown>).puzzle as Partial<PuzzleClientPreferences> | undefined;
       return {
         learn: {
           ...DEFAULT_CLIENT_PREFERENCES.learn,
@@ -92,6 +138,7 @@ export function loadClientPreferences(): ClientPreferences {
           engineDepth: clampNumber(parsed.learn.engineDepth, 10, 24, DEFAULT_CLIENT_PREFERENCES.learn.engineDepth),
           masterVolume: clampNumber(parsed.learn.masterVolume, 0, 100, DEFAULT_CLIENT_PREFERENCES.learn.masterVolume),
           learnSortMode: toLearnSortMode(parsed.learn.learnSortMode),
+          openingVariationSortMode: toOpeningVariationSortMode(parsed.learn.openingVariationSortMode),
           openingProgressBySlug: normalizeOpeningProgressBySlug(parsed.learn.openingProgressBySlug),
         },
         bot: {
@@ -99,6 +146,7 @@ export function loadClientPreferences(): ClientPreferences {
           ...parsed.bot,
           masterVolume: clampNumber(parsed.bot.masterVolume, 0, 100, DEFAULT_CLIENT_PREFERENCES.bot.masterVolume),
         },
+        puzzle: normalizePuzzlePreferences(puzzleRaw),
       };
     }
 
@@ -116,6 +164,7 @@ export function loadClientPreferences(): ClientPreferences {
         showOpeningNames: legacy.showOpeningNames !== false,
         masterVolume: clampNumber(asNumber(legacy.masterVolume), 0, 100, DEFAULT_CLIENT_PREFERENCES.learn.masterVolume),
         learnSortMode: DEFAULT_CLIENT_PREFERENCES.learn.learnSortMode,
+        openingVariationSortMode: DEFAULT_CLIENT_PREFERENCES.learn.openingVariationSortMode,
         openingProgressBySlug: {},
       },
       bot: {
@@ -129,6 +178,7 @@ export function loadClientPreferences(): ClientPreferences {
         boardLock: legacy.boardLock === true,
         masterVolume: clampNumber(asNumber(legacy.masterVolume), 0, 100, DEFAULT_CLIENT_PREFERENCES.bot.masterVolume),
       },
+      puzzle: DEFAULT_CLIENT_PREFERENCES.puzzle,
     };
   } catch {
     return DEFAULT_CLIENT_PREFERENCES;
@@ -234,6 +284,68 @@ function toLearnSortMode(value: unknown): LearnSortMode {
   return DEFAULT_CLIENT_PREFERENCES.learn.learnSortMode;
 }
 
+function toOpeningVariationSortMode(value: unknown): OpeningVariationSortMode {
+  if (value === "popularity" || value === "progress") {
+    return value;
+  }
+
+  return DEFAULT_CLIENT_PREFERENCES.learn.openingVariationSortMode;
+}
+
 function isScopedPreferences(value: Partial<ClientPreferences> & Record<string, unknown>): value is ClientPreferences {
   return typeof value.learn === "object" && value.learn !== null && typeof value.bot === "object" && value.bot !== null;
+}
+
+function normalizePuzzlePreferences(value: Partial<PuzzleClientPreferences> | undefined | null): PuzzleClientPreferences {
+  if (!value || typeof value !== "object") {
+    return DEFAULT_CLIENT_PREFERENCES.puzzle;
+  }
+
+  const themeStats: Record<string, PuzzleThemeStat> = {};
+  if (value.puzzleThemeStats && typeof value.puzzleThemeStats === "object") {
+    for (const [key, stat] of Object.entries(value.puzzleThemeStats)) {
+      if (stat && typeof stat === "object") {
+        themeStats[key] = {
+          solved: clampNumber(asNumber((stat as Record<string, unknown>).solved), 0, 1_000_000, 0),
+          failed: clampNumber(asNumber((stat as Record<string, unknown>).failed), 0, 1_000_000, 0),
+        };
+      }
+    }
+  }
+
+  let ratingHistory: { date: string; rating: number }[] = [];
+  if (Array.isArray(value.ratingHistory)) {
+    ratingHistory = value.ratingHistory.filter((entry): entry is { date: string; rating: number } => {
+      return typeof entry === "object" && entry !== null && typeof (entry as any).date === "string" && typeof (entry as any).rating === "number";
+    });
+  }
+
+  let recentActivity: PuzzleActivityEntry[] = [];
+  if (Array.isArray(value.recentActivity)) {
+    recentActivity = value.recentActivity.filter((entry): entry is PuzzleActivityEntry => {
+      return (
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof (entry as any).puzzleId === "string" &&
+        typeof (entry as any).theme === "string" &&
+        typeof (entry as any).rating === "number" &&
+        typeof (entry as any).solved === "boolean" &&
+        typeof (entry as any).timestamp === "string"
+      );
+    });
+  }
+
+  return {
+    puzzleRating: clampNumber(asNumber(value.puzzleRating), 400, 3200, 1200),
+    puzzlesSolved: clampNumber(asNumber(value.puzzlesSolved), 0, 1_000_000, 0),
+    puzzlesFailed: clampNumber(asNumber(value.puzzlesFailed), 0, 1_000_000, 0),
+    bestStormScore: clampNumber(asNumber(value.bestStormScore), 0, 1_000_000, 0),
+    bestStreakScore: clampNumber(asNumber(value.bestStreakScore), 0, 1_000_000, 0),
+    currentStreak: clampNumber(asNumber(value.currentStreak), 0, 1_000_000, 0),
+    lastDailyPuzzleDate: typeof value.lastDailyPuzzleDate === "string" ? value.lastDailyPuzzleDate : "",
+    dailyPuzzleSolved: value.dailyPuzzleSolved === true,
+    puzzleThemeStats: themeStats,
+    ratingHistory,
+    recentActivity,
+  };
 }

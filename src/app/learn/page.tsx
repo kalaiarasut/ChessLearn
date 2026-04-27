@@ -15,6 +15,14 @@ type OpeningCard = {
   moves: string;
   description: string;
   variationCount?: number;
+  popularity?: {
+    sampleSizeGames: number;
+    whiteWinPct: number;
+    drawPct: number;
+    blackWinPct: number;
+    avgPlayerRating: number | null;
+    popularitySharePct: number | null;
+  } | null;
 };
 
 type OpeningProgressSummary = {
@@ -493,11 +501,18 @@ export default function LearnPage() {
 
     if (sortMode === "popularity") {
       return openings.sort((left, right) => {
-        const leftPopularity = left.variationCount ?? 0;
-        const rightPopularity = right.variationCount ?? 0;
+        const leftPopularity = left.popularity?.sampleSizeGames ?? 0;
+        const rightPopularity = right.popularity?.sampleSizeGames ?? 0;
         if (leftPopularity !== rightPopularity) {
           return rightPopularity - leftPopularity;
         }
+
+        const leftCoverage = left.variationCount ?? 0;
+        const rightCoverage = right.variationCount ?? 0;
+        if (leftCoverage !== rightCoverage) {
+          return rightCoverage - leftCoverage;
+        }
+
         return left.name.localeCompare(right.name);
       });
     }
@@ -678,6 +693,11 @@ export default function LearnPage() {
                   ? `${opening.progress.practicedVariations} practiced • ${opening.progress.completedVariations} completed • last ${formatLastPracticed(opening.progress.lastPracticedAt) || "recently"}`
                   : "No training progress yet"}
               </p>
+              {opening.popularity?.sampleSizeGames ? (
+                <p className="mt-1 text-[12px] text-[var(--text-dimmed)] font-medium">
+                  {`${opening.popularity.sampleSizeGames.toLocaleString()} games • W ${opening.popularity.whiteWinPct}% • D ${opening.popularity.drawPct}% • B ${opening.popularity.blackWinPct}%`}
+                </p>
+              ) : null}
               <div className="mt-8 flex items-center text-[14px] font-bold text-[var(--text-primary)] opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
                 Study Opening <span className="ml-2 bg-[var(--cta-bg)] text-[var(--cta-text)] px-2 py-1 rounded-md text-xs">&rarr;</span>
               </div>
