@@ -4,11 +4,12 @@ import type { DragEvent, MouseEvent } from "react";
 import Link from "next/link";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { Chess, type Square } from "chess.js";
-import { ArrowLeft, Settings, Play, Pause, Bot, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, ChevronUp, MoreHorizontal, Monitor, User, Gamepad2, MessageSquare, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, Crosshair, Crown, Info } from "lucide-react";
+import { ArrowLeft, Settings, Play, Pause, Bot, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, ChevronUp, MoreHorizontal, Monitor, User, Gamepad2, MessageSquare, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, Crosshair, Crown, Info, LoaderCircle, CheckCircle2, AlertCircle } from "lucide-react";
 import themeManifest from "@/data/themeManifest.json";
 import { useTheme } from "@/lib/theme-context";
 import { STOCKFISH_ELO_LIMITS, useStockfishPlayer, type PlayerEngineVariant, type PlayerStrengthMode, type PlayerTimeMode } from "./use-stockfish-player";
 import { useStockfishAnalysis } from "../../learn/[opening]/use-stockfish-analysis";
+import { useStockfishEngineDownload } from "./use-stockfish-engine-download";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreferences } from "@/lib/client-preferences";
 
@@ -23,6 +24,8 @@ const ELOS = [1320, 1400, 1500, 1650, 1800, 2000, 2200, 2500, 2850, 3190];
 const ELO_MIN = STOCKFISH_ELO_LIMITS["stockfish-18"].min;
 const ELO_MAX = STOCKFISH_ELO_LIMITS["stockfish-18"].max;
 const FULL_ENGINE_WASM_PATH = "/engines/stockfish/stockfish-18-single.wasm";
+const BOT_ENGINE_VARIANT_STORAGE_KEY = "chessify.bot.engineVariant.v1";
+const ANALYSIS_ENGINE_VARIANT_STORAGE_KEY = "chessify.bot.analysisEngineVariant.v1";
 const REPLAY_ARCHIVE_STORAGE_KEY = "chessify.bot.replayArchive.v1";
 const REPLAY_ARCHIVE_MAX_ITEMS = 60;
 const REPLAY_ARCHIVE_PAGE_SIZE = 6;
@@ -55,6 +58,17 @@ type SideColor = "w" | "b";
 type StrengthMode = PlayerStrengthMode | "beginner";
 type EngineVariant = PlayerEngineVariant;
 type TimeMode = PlayerTimeMode;
+
+type NavigatorConnection = {
+  effectiveType?: string;
+  downlink?: number;
+  saveData?: boolean;
+};
+
+type NavigatorWithConnection = Navigator & {
+  connection?: NavigatorConnection;
+  deviceMemory?: number;
+};
 
 type OpeningCardPayload = {
   slug: string;
@@ -206,6 +220,33 @@ const toBeginnerEngineProfile = (estimatedElo: number) => {
     skillLevel: Math.max(0, Math.min(7, Math.round(ratio * 7))),
     fixedMoveTimeMs: Math.max(50, Math.min(250, Math.round(50 + ratio * 200))),
   };
+};
+
+const isEngineVariant = (value: unknown): value is EngineVariant =>
+  value === "stockfish-18" || value === "stockfish-18-lite";
+
+const getRecommendedBotEngineVariant = (fullEngineAvailable: boolean): EngineVariant => {
+  if (!fullEngineAvailable || typeof window === "undefined") {
+    return "stockfish-18-lite";
+  }
+
+  const navigatorWithConnection = window.navigator as NavigatorWithConnection;
+  const connection = navigatorWithConnection.connection;
+  const effectiveType = connection?.effectiveType?.toLowerCase() ?? "";
+  const downlink = typeof connection?.downlink === "number" ? connection.downlink : 0;
+  const saveData = connection?.saveData === true;
+  const deviceMemory = typeof navigatorWithConnection.deviceMemory === "number" ? navigatorWithConnection.deviceMemory : 0;
+  const hardwareConcurrency = typeof window.navigator.hardwareConcurrency === "number" ? window.navigator.hardwareConcurrency : 0;
+
+  if (saveData || effectiveType === "slow-2g" || effectiveType === "2g" || effectiveType === "3g") {
+    return "stockfish-18-lite";
+  }
+
+  if (effectiveType === "4g" && downlink >= 10 && deviceMemory >= 8 && hardwareConcurrency >= 8) {
+    return "stockfish-18";
+  }
+
+  return "stockfish-18-lite";
 };
 
 type SerializableMove = {
@@ -709,6 +750,8 @@ export default function PlayComputerPage() {
   const [analysisDepth, setAnalysisDepth] = useState(15);
   const [analysisThreads, setAnalysisThreads] = useState(1);
   const [fullEngineAvailable, setFullEngineAvailable] = useState(true);
+  const [fullEngineAvailabilityChecked, setFullEngineAvailabilityChecked] = useState(false);
+  const [engineVariantsResolved, setEngineVariantsResolved] = useState(false);
   const [expandedEngineLineIds, setExpandedEngineLineIds] = useState<Record<number, boolean>>({});
   const [bot1EloIndex, setBot1EloIndex] = useState<number>(2);
   const [bot2EloIndex, setBot2EloIndex] = useState<number>(2);
@@ -755,6 +798,9 @@ export default function PlayComputerPage() {
       })
       .catch(() => {
         setFullEngineAvailable(false);
+      })
+      .finally(() => {
+        setFullEngineAvailabilityChecked(true);
       });
 
     return () => {
@@ -768,6 +814,30 @@ export default function PlayComputerPage() {
       setAnalysisEngineVariant((current) => (current === "stockfish-18" ? "stockfish-18-lite" : current));
     }
   }, [fullEngineAvailable]);
+
+  useEffect(() => {
+    if (!fullEngineAvailabilityChecked || typeof window === "undefined") {
+      return;
+    }
+
+    const storedBotVariant = window.localStorage.getItem(BOT_ENGINE_VARIANT_STORAGE_KEY);
+    const storedAnalysisVariant = window.localStorage.getItem(ANALYSIS_ENGINE_VARIANT_STORAGE_KEY);
+
+    const resolvedBotVariant =
+      isEngineVariant(storedBotVariant) && (storedBotVariant !== "stockfish-18" || fullEngineAvailable)
+        ? storedBotVariant
+        : getRecommendedBotEngineVariant(fullEngineAvailable);
+    const resolvedAnalysisVariant =
+      isEngineVariant(storedAnalysisVariant) && (storedAnalysisVariant !== "stockfish-18" || fullEngineAvailable)
+        ? storedAnalysisVariant
+        : "stockfish-18-lite";
+
+    setBotEngineVariant(resolvedBotVariant);
+    setAnalysisEngineVariant(resolvedAnalysisVariant);
+    window.localStorage.setItem(BOT_ENGINE_VARIANT_STORAGE_KEY, resolvedBotVariant);
+    window.localStorage.setItem(ANALYSIS_ENGINE_VARIANT_STORAGE_KEY, resolvedAnalysisVariant);
+    setEngineVariantsResolved(true);
+  }, [fullEngineAvailabilityChecked, fullEngineAvailable]);
 
   const gameRef = useRef(new Chess(fen));
   const audioPoolRef = useRef<Record<string, HTMLAudioElement[]>>({});
@@ -840,6 +910,7 @@ export default function PlayComputerPage() {
   const analysisEnabled =
     gameState !== "setup" &&
     (showEvaluationBar || showEngineLines || showSuggestionArrow || showMoveFeedback);
+  const { statuses: engineDownloadStatuses, ensureEngineReady } = useStockfishEngineDownload(fullEngineAvailable);
 
   const isBotTurn =
     gameState === "playing" &&
@@ -851,6 +922,26 @@ export default function PlayComputerPage() {
       ? Math.min(analysisMaxTimeSeconds, 0.35)
       : 0.2
     : analysisMaxTimeSeconds;
+  const botEngineDownloadStatus = engineDownloadStatuses[botEngineVariant];
+  const analysisEngineDownloadStatus = engineDownloadStatuses[analysisEngineVariant];
+  const isBotEngineReady = engineVariantsResolved && botEngineDownloadStatus.ready;
+  const isAnalysisEngineReady = engineVariantsResolved && analysisEngineDownloadStatus.ready;
+
+  useEffect(() => {
+    if (!engineVariantsResolved) {
+      return;
+    }
+
+    ensureEngineReady(botEngineVariant).catch(() => {});
+  }, [botEngineVariant, engineVariantsResolved, ensureEngineReady]);
+
+  useEffect(() => {
+    if (!engineVariantsResolved || !analysisEnabled) {
+      return;
+    }
+
+    ensureEngineReady(analysisEngineVariant).catch(() => {});
+  }, [analysisEnabled, analysisEngineVariant, engineVariantsResolved, ensureEngineReady]);
 
   const { ready: engineReady, bestMove } = useStockfishPlayer(
     fen,
@@ -865,6 +956,7 @@ export default function PlayComputerPage() {
       timeMode: activeTimeMode,
       fixedMoveTimeMs: activeFixedMoveTimeMs,
     },
+    isBotEngineReady,
   );
   const isBestMoveLegal = useMemo(() => {
     if (!bestMove || !/^[a-h][1-8][a-h][1-8][nbrq]?$/.test(bestMove)) {
@@ -889,7 +981,7 @@ export default function PlayComputerPage() {
 
   const analysis = useStockfishAnalysis(
     fen,
-    analysisEnabled,
+    analysisEnabled && isAnalysisEngineReady,
     analysisDepth,
     analysisMultiPv,
     analysisThreads,
@@ -897,6 +989,56 @@ export default function PlayComputerPage() {
     analysisRequestMaxTimeSeconds,
   );
   const analysisModelLabel = analysisEngineVariant === "stockfish-18" ? "Stockfish-18" : "Stockfish-18-Lite";
+  const engineStatusBadge = useMemo(() => {
+    const prioritizedStatuses = [
+      {
+        variant: botEngineVariant,
+        label: botEngineVariant === "stockfish-18" ? "Full" : "Lite",
+        status: botEngineDownloadStatus,
+      },
+      ...(analysisEnabled
+        ? [
+            {
+              variant: analysisEngineVariant,
+              label: analysisEngineVariant === "stockfish-18" ? "Full" : "Lite",
+              status: analysisEngineDownloadStatus,
+            },
+          ]
+        : []),
+    ];
+
+    const downloading = prioritizedStatuses.find(({ status }) => status.isDownloading);
+    if (downloading) {
+      return {
+        tone: "downloading" as const,
+        text: `Downloading ${downloading.label}... ${downloading.status.progressPercent}%`,
+      };
+    }
+
+    const ready = prioritizedStatuses.find(({ status }) => status.badgeState === "ready");
+    if (ready) {
+      return {
+        tone: "ready" as const,
+        text: `${ready.label} ready`,
+      };
+    }
+
+    const error = prioritizedStatuses.find(({ status }) => status.badgeState === "error" && status.error);
+    if (error) {
+      return {
+        tone: "error" as const,
+        text: error.status.error ?? "Engine download failed",
+      };
+    }
+
+    return null;
+  }, [
+    analysisEnabled,
+    analysisEngineDownloadStatus,
+    analysisEngineVariant,
+    botEngineDownloadStatus,
+    botEngineVariant,
+  ]);
 
   const { toggleTheme, isDark } = useTheme();
   const updateBotPreferences = (updates: Partial<typeof botPreferences>) => {
@@ -913,6 +1055,22 @@ export default function PlayComputerPage() {
   useEffect(() => {
     setClientPreferences(loadClientPreferences());
   }, []);
+
+  useEffect(() => {
+    if (!engineVariantsResolved || typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(BOT_ENGINE_VARIANT_STORAGE_KEY, botEngineVariant);
+  }, [botEngineVariant, engineVariantsResolved]);
+
+  useEffect(() => {
+    if (!engineVariantsResolved || typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(ANALYSIS_ENGINE_VARIANT_STORAGE_KEY, analysisEngineVariant);
+  }, [analysisEngineVariant, engineVariantsResolved]);
 
   useEffect(() => {
     const audioPool = audioPoolRef.current;
@@ -1843,13 +2001,35 @@ export default function PlayComputerPage() {
         <Link href="/" className="text-[22px] font-serif font-[800] text-[var(--text-primary)]">
           CHESS
         </Link>
-        <Link
-          href="/"
-          className="inline-flex items-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-[14px] font-medium group"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2 transform group-hover:-translate-x-1 transition-transform" />
-          Back to Play
-        </Link>
+        <div className="flex items-center gap-3">
+          {engineStatusBadge ? (
+            <div
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-medium shadow-sm transition-colors ${
+                engineStatusBadge.tone === "ready"
+                  ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                  : engineStatusBadge.tone === "error"
+                    ? "border-[var(--error-border)] bg-[var(--error-bg)] text-[var(--error-text)]"
+                    : "border-[var(--border-subtle)] bg-[var(--surface-alt)] text-[var(--text-secondary)]"
+              }`}
+            >
+              {engineStatusBadge.tone === "ready" ? (
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              ) : engineStatusBadge.tone === "error" ? (
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              ) : (
+                <LoaderCircle className="w-3.5 h-3.5 shrink-0 animate-spin" />
+              )}
+              <span className="leading-none">{engineStatusBadge.text}</span>
+            </div>
+          ) : null}
+          <Link
+            href="/"
+            className="inline-flex items-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-[14px] font-medium group"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2 transform group-hover:-translate-x-1 transition-transform" />
+            Back to Play
+          </Link>
+        </div>
       </header>
 
       <main className="flex-1 w-full flex flex-col lg:flex-row h-[calc(100vh-73px)]">
@@ -2384,7 +2564,11 @@ export default function PlayComputerPage() {
                           </div>
                         ) : analysis.lines.length === 0 && (
                           <div className="px-3 py-3 text-[var(--text-muted)] text-[14px] border-b border-[var(--border)]">
-                            {analysis.ready ? "Analyzing current position..." : "Starting engine..."}
+                            {analysisEnabled && analysisEngineDownloadStatus.isDownloading
+                              ? `Downloading ${analysisEngineVariant === "stockfish-18" ? "Full" : "Lite"}... ${analysisEngineDownloadStatus.progressPercent}%`
+                              : analysis.ready
+                                ? "Analyzing current position..."
+                                : "Starting engine..."}
                           </div>
                         )}
                       </>
@@ -2828,14 +3012,14 @@ export default function PlayComputerPage() {
                       <h3 className="text-[11px] font-bold tracking-widest text-[var(--text-muted)] uppercase mb-3 px-1">Game Review</h3>
                       <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
-                          <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Bot Engine <InfoHint text="Full engine is stronger but heavier. Lite is faster and lighter." /></span>
+                          <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Bot Engine <InfoHint text="Selected engine downloads automatically on first use and stays cached locally. Full is stronger but much heavier. Lite is faster and lighter." /></span>
                           <select
                             value={botEngineVariant}
                             onChange={(event) => setBotEngineVariant(event.target.value as EngineVariant)}
                             className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
                           >
-                            <option value="stockfish-18" disabled={!fullEngineAvailable}>Stockfish 18.1 NNUE (Full{fullEngineAvailable ? "" : " unavailable on this deploy"})</option>
-                            <option value="stockfish-18-lite">Stockfish 18 Lite</option>
+                            <option value="stockfish-18" disabled={!fullEngineAvailable}>Stockfish 18.1 NNUE (Full{fullEngineAvailable ? ", 108MB" : " unavailable on this deploy"})</option>
+                            <option value="stockfish-18-lite">Stockfish 18 Lite (7MB)</option>
                           </select>
                         </div>
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
@@ -2945,7 +3129,7 @@ export default function PlayComputerPage() {
                       <h3 className="text-[11px] font-bold tracking-widest text-[var(--text-muted)] uppercase mb-3 px-1">Analysis</h3>
                       <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
-                          <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Chess Engine <InfoHint text="Analysis engine variant used for eval bar and lines." /></span>
+                          <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Chess Engine <InfoHint text="Analysis engine variant used for eval bar and lines. The selected engine downloads automatically on first use." /></span>
                           <select
                             value={analysisEngineVariant}
                             onChange={(event) => setAnalysisEngineVariant(event.target.value as EngineVariant)}

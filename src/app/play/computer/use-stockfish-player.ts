@@ -51,7 +51,12 @@ const getClockManagedMoveTimeMs = (fen: string, whiteTimeSeconds: number, blackT
   return Math.max(MIN_CLOCK_MOVE_TIME_MS, Math.min(MAX_CLOCK_MOVE_TIME_MS, computedBudget));
 };
 
-export function useStockfishPlayer(fen: string, isBotTurn: boolean, options: PlayerEngineOptions) {
+export function useStockfishPlayer(
+  fen: string,
+  isBotTurn: boolean,
+  options: PlayerEngineOptions,
+  enabled = true,
+) {
   const [state, setState] = useState<EngineState>({
     ready: false,
     isThinking: false,
@@ -77,7 +82,16 @@ export function useStockfishPlayer(fen: string, isBotTurn: boolean, options: Pla
   );
 
   useEffect(() => {
-    if (typeof Worker === "undefined") return;
+    if (!enabled || typeof Worker === "undefined") {
+      queueMicrotask(() => {
+        setState({
+          ready: false,
+          isThinking: false,
+          bestMove: null,
+        });
+      });
+      return;
+    }
 
     queueMicrotask(() => {
       setState({
@@ -120,11 +134,11 @@ export function useStockfishPlayer(fen: string, isBotTurn: boolean, options: Pla
       workerRef.current = null;
       worker.terminate();
     };
-  }, [workerScript]);
+  }, [enabled, workerScript]);
 
   // Handle bot's turn
   useEffect(() => {
-    if (!state.ready || !workerRef.current || !isBotTurn) {
+    if (!enabled || !state.ready || !workerRef.current || !isBotTurn) {
       if (!isBotTurn) {
         // Reset best move when it's not bot turn
         // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -176,7 +190,7 @@ export function useStockfishPlayer(fen: string, isBotTurn: boolean, options: Pla
       window.clearTimeout(timeoutId);
       worker.postMessage("stop");
     };
-  }, [fen, isBotTurn, state.ready]);
+  }, [enabled, fen, isBotTurn, state.ready]);
 
   return state;
 }
