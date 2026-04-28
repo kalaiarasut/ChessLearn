@@ -28,6 +28,29 @@ type PlayerEngineOptions = {
   fixedMoveTimeMs: number;
 };
 
+const MIN_CLOCK_MOVE_TIME_MS = 250;
+const MAX_CLOCK_MOVE_TIME_MS = 5000;
+
+const getClockManagedMoveTimeMs = (fen: string, whiteTimeSeconds: number, blackTimeSeconds: number) => {
+  const fenParts = fen.split(" ");
+  const turn = fenParts[1] === "b" ? "b" : "w";
+  const fullmoveNumber = Number.parseInt(fenParts[5] ?? "1", 10);
+  const safeFullmoveNumber = Number.isFinite(fullmoveNumber) ? Math.max(1, fullmoveNumber) : 1;
+  const plyCount = (safeFullmoveNumber - 1) * 2 + (turn === "b" ? 1 : 0);
+  const remainingMs = Math.max(
+    1,
+    Math.round((turn === "w" ? whiteTimeSeconds : blackTimeSeconds) * 1000),
+  );
+
+  let divisor = 240;
+  if (plyCount >= 12) divisor = 180;
+  if (plyCount >= 30) divisor = 140;
+  if (plyCount >= 60) divisor = 100;
+
+  const computedBudget = Math.round(remainingMs / divisor);
+  return Math.max(MIN_CLOCK_MOVE_TIME_MS, Math.min(MAX_CLOCK_MOVE_TIME_MS, computedBudget));
+};
+
 export function useStockfishPlayer(fen: string, isBotTurn: boolean, options: PlayerEngineOptions) {
   const [state, setState] = useState<EngineState>({
     ready: false,
@@ -133,9 +156,8 @@ export function useStockfishPlayer(fen: string, isBotTurn: boolean, options: Pla
       worker.postMessage(`position fen ${fen}`);
 
       if (timeMode === "clock") {
-        const whiteMs = Math.max(1, Math.round(whiteTimeSeconds * 1000));
-        const blackMs = Math.max(1, Math.round(blackTimeSeconds * 1000));
-        worker.postMessage(`go wtime ${whiteMs} btime ${blackMs} winc 0 binc 0`);
+        const moveTimeMs = getClockManagedMoveTimeMs(fen, whiteTimeSeconds, blackTimeSeconds);
+        worker.postMessage(`go movetime ${moveTimeMs}`);
       } else {
         const safeMoveTimeMs = Math.max(50, Math.round(fixedMoveTimeMs));
         worker.postMessage(`go movetime ${safeMoveTimeMs}`);

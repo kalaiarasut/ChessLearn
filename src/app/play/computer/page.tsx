@@ -703,7 +703,7 @@ export default function PlayComputerPage() {
   const [showEngineLines, setShowEngineLines] = useState(true);
   const [showSuggestionArrow, setShowSuggestionArrow] = useState(false);
   const [showMoveFeedback, setShowMoveFeedback] = useState(false);
-  const [analysisEngineVariant, setAnalysisEngineVariant] = useState<EngineVariant>("stockfish-18");
+  const [analysisEngineVariant, setAnalysisEngineVariant] = useState<EngineVariant>("stockfish-18-lite");
   const [analysisMaxTimeSeconds, setAnalysisMaxTimeSeconds] = useState(0);
   const [analysisMultiPv, setAnalysisMultiPv] = useState(3);
   const [analysisDepth, setAnalysisDepth] = useState(15);
@@ -824,12 +824,20 @@ export default function PlayComputerPage() {
   const activeFixedMoveTimeMs = !isBotMatchMode && activeStrengthMode === "beginner"
     ? beginnerEngineProfile.fixedMoveTimeMs
     : botFixedMoveTimeMs;
+  const analysisEnabled =
+    gameState !== "setup" &&
+    (showEvaluationBar || showEngineLines || showSuggestionArrow || showMoveFeedback);
 
   const isBotTurn =
     gameState === "playing" &&
     !isReviewing &&
     (isBotMatchMode || gameRef.current.turn() === botSide) &&
     !gameRef.current.isGameOver();
+  const analysisRequestMaxTimeSeconds = gameState === "playing" && isBotTurn
+    ? analysisMaxTimeSeconds > 0
+      ? Math.min(analysisMaxTimeSeconds, 0.35)
+      : 0.2
+    : analysisMaxTimeSeconds;
 
   const { ready: engineReady, bestMove } = useStockfishPlayer(
     fen,
@@ -868,12 +876,12 @@ export default function PlayComputerPage() {
 
   const analysis = useStockfishAnalysis(
     fen,
-    gameState !== "setup",
+    analysisEnabled,
     analysisDepth,
     analysisMultiPv,
     analysisThreads,
     analysisEngineVariant,
-    analysisMaxTimeSeconds,
+    analysisRequestMaxTimeSeconds,
   );
   const analysisModelLabel = analysisEngineVariant === "stockfish-18" ? "Stockfish-18" : "Stockfish-18-Lite";
 
@@ -1128,35 +1136,45 @@ export default function PlayComputerPage() {
     }
   };
 
-  // Bot applies opening move (bot match) or best engine move.
+  // Bot applies configured opening-book moves first, then falls back to engine search.
   useEffect(() => {
     if (gameState !== "playing" || !isBotTurn) {
       return;
     }
 
-    if (isBotMatchMode) {
-      const isBot1Turn = gameRef.current.turn() === botSide;
-      const openingBookMoves = isBot1Turn ? bot1OpeningBookMoves : bot2OpeningBookMoves;
-      const openingMoveIndex = isBot1Turn ? bot1OpeningMoveIndex : bot2OpeningMoveIndex;
-      const openingMove = openingBookMoves[openingMoveIndex];
+    const isBot1Turn = isBotMatchMode ? gameRef.current.turn() === botSide : true;
+    const openingBookMoves = isBotMatchMode
+      ? (isBot1Turn ? bot1OpeningBookMoves : bot2OpeningBookMoves)
+      : bot1OpeningBookMoves;
+    const openingMoveIndex = isBotMatchMode
+      ? (isBot1Turn ? bot1OpeningMoveIndex : bot2OpeningMoveIndex)
+      : bot1OpeningMoveIndex;
+    const openingMove = openingBookMoves[openingMoveIndex];
 
-      if (openingMove) {
-        const legalBookMove = resolveLegalBookMove(gameRef.current, openingMove);
+    if (openingMove) {
+      const legalBookMove = resolveLegalBookMove(gameRef.current, openingMove);
 
-        if (legalBookMove && commitMove(legalBookMove.from, legalBookMove.to, legalBookMove.promotion)) {
+      if (legalBookMove && commitMove(legalBookMove.from, legalBookMove.to, legalBookMove.promotion)) {
+        if (isBotMatchMode) {
           if (isBot1Turn) {
             setBot1OpeningMoveIndex((current) => current + 1);
           } else {
             setBot2OpeningMoveIndex((current) => current + 1);
           }
-          return;
+        } else {
+          setBot1OpeningMoveIndex((current) => current + 1);
         }
+        return;
+      }
 
+      if (isBotMatchMode) {
         if (isBot1Turn) {
           setBot1OpeningMoveIndex(openingBookMoves.length);
         } else {
           setBot2OpeningMoveIndex(openingBookMoves.length);
         }
+      } else {
+        setBot1OpeningMoveIndex(openingBookMoves.length);
       }
     }
 
@@ -1319,6 +1337,7 @@ export default function PlayComputerPage() {
   const goToNext = () => setPositionFromHistory(currentMoveIndex + 1);
   const goToEnd = () => setPositionFromHistory(history.length - 1);
   const resetBoardReview = () => setPositionFromHistory(0);
+  const restartCurrentGame = () => startGame(playerColor);
 
   const handleSquareClick = (square: Square) => {
     if (botPreferences.moveMethod === "drag") return;
@@ -1513,6 +1532,9 @@ export default function PlayComputerPage() {
   const bottomDisplayName = isBotMatchMode ? "Bot 2" : viewerName;
   const bottomDisplaySubtitle = isBotMatchMode ? `ELO ${bot2Elo}` : null;
   const whiteWinChance = Math.max(0, Math.min(100, analysis.whiteWinChance));
+  const blackWinChance = 100 - whiteWinChance;
+  const topEvalShare = topSideColor === "w" ? whiteWinChance : blackWinChance;
+  const bottomEvalShare = topSideColor === "w" ? blackWinChance : whiteWinChance;
   const replayFilters: Array<{ value: ReplayFilter; label: string }> = [
     { value: "all", label: "All Games" },
     { value: "win", label: "Wins" },
@@ -1527,6 +1549,15 @@ export default function PlayComputerPage() {
   }, [replayArchive, replayFilter]);
   const visibleReplayArchive = filteredReplayArchive.slice(0, visibleReplayCount);
   const hasMoreReplayItems = visibleReplayCount < filteredReplayArchive.length;
+  const isReplayView = gameState === "game_over" && activeGameId === null && history.length > 1;
+  const handleResetAction = () => {
+    if (isReplayView) {
+      resetBoardReview();
+      return;
+    }
+
+    restartCurrentGame();
+  };
 
   useEffect(() => {
     if (gameState !== "game_over" || !activeGameId || archivedGameIdsRef.current.has(activeGameId)) {
@@ -2371,10 +2402,10 @@ export default function PlayComputerPage() {
                     </div>
                   )}
                   <button
-                    onClick={resetBoardReview}
+                    onClick={handleResetAction}
                     className="w-full flex items-center justify-center px-4 py-2.5 bg-[var(--cta-bg)] text-[var(--cta-text)] rounded-md font-semibold text-[13px] hover:bg-[var(--cta-hover)] transition-colors"
                   >
-                    Reset Board
+                    {isReplayView ? "Reset Replay" : "Reset Game"}
                   </button>
                 </div>
               </>
@@ -2452,16 +2483,19 @@ export default function PlayComputerPage() {
               {gameState !== "setup" && showEvaluationBar ? (
                 <div className="w-[30px] md:w-[30px] shrink-0 bg-[#333333] rounded overflow-hidden flex flex-col relative shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
                   <div
-                    className="w-full bg-[#202020] transition-[height] duration-300 relative"
-                    style={{ height: `${100 - whiteWinChance}%` }}
+                    className={`w-full transition-[height] duration-300 relative ${topSideColor === "w" ? "bg-white" : "bg-[#202020]"}`}
+                    style={{ height: `${topEvalShare}%` }}
                   >
-                    <div className="absolute inset-0 bg-white/5 animate-pulse" />
+                    {topSideColor === "b" ? <div className="absolute inset-0 bg-white/5 animate-pulse" /> : null}
                   </div>
                   <div
-                    className="w-full bg-white relative shadow-[0_-2px_10px_rgba(255,255,255,0.6)] flex flex-col justify-end pb-1 border-t border-[#666] transition-[height] duration-300"
-                    style={{ height: `${whiteWinChance}%` }}
+                    className={`w-full relative border-t border-[#666] transition-[height] duration-300 ${bottomSideColor === "w" ? "bg-white shadow-[0_-2px_10px_rgba(255,255,255,0.6)]" : "bg-[#202020]"}`}
+                    style={{ height: `${bottomEvalShare}%` }}
                   >
-                    <span className="text-center text-[10px] md:text-[12px] font-[700] text-black">
+                    {bottomSideColor === "b" ? <div className="absolute inset-0 bg-white/5 animate-pulse" /> : null}
+                  </div>
+                  <div className="pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-center px-[2px]">
+                    <span className="rounded bg-black/70 px-1 py-0.5 text-center text-[9px] md:text-[10px] font-[700] text-white shadow-sm">
                       {analysis.evaluationText}
                     </span>
                   </div>

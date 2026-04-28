@@ -1,0 +1,200 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - link "CHESS" [ref=e4] [cursor=pointer]:
+        - /url: /
+      - link "Back to Play" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img [ref=e6]
+        - text: Back to Play
+    - main [ref=e8]:
+      - generic [ref=e10]:
+        - generic [ref=e366]:
+          - generic [ref=e367]:
+            - generic [ref=e368]: v
+            - generic [ref=e369]: Analysis
+            - button "Analysis menu" [ref=e370]:
+              - img [ref=e371]
+          - generic [ref=e375]:
+            - generic [ref=e376]: Stockfish-18-Lite
+            - generic [ref=e377]: depth-19
+            - button "Engine settings" [ref=e378]:
+              - img [ref=e379]
+        - generic [ref=e382]:
+          - generic [ref=e383]:
+            - generic [ref=e611]:
+              - generic [ref=e612]: "+0.3"
+              - generic [ref=e613]:
+                - generic [ref=e614]:
+                  - generic [ref=e616]: 1. e6
+                  - generic [ref=e618]: 2. d4
+                  - generic [ref=e620]: 3. d5
+                  - generic [ref=e622]: 4. e5
+                  - generic [ref=e624]: 5. c5
+                  - generic [ref=e626]: 6. c3
+                - button "Show full line" [ref=e627]:
+                  - img [ref=e628]
+            - generic [ref=e630]:
+              - generic [ref=e631]: "+0.3"
+              - generic [ref=e632]:
+                - generic [ref=e633]:
+                  - generic [ref=e635]: 1. e5
+                  - generic [ref=e637]: 2. Nf3
+                  - generic [ref=e639]: 3. Nc6
+                  - generic [ref=e641]: 4. d4
+                  - generic [ref=e643]: 5. exd4
+                  - generic [ref=e645]: 6. Nxd4
+                - button "Show full line" [ref=e646]:
+                  - img [ref=e647]
+            - generic [ref=e649]:
+              - generic [ref=e650]: "+0.5"
+              - generic [ref=e651]:
+                - generic [ref=e652]:
+                  - generic [ref=e654]: 1. Nc6
+                  - generic [ref=e656]: 2. d4
+                  - generic [ref=e658]: 3. d5
+                  - generic [ref=e660]: 4. e5
+                  - generic [ref=e662]: 5. Bf5
+                  - generic [ref=e664]: 6. Nf3
+                - button "Show full line" [ref=e665]:
+                  - img [ref=e666]
+          - generic [ref=e385]:
+            - generic [ref=e386]: White - Black
+            - generic [ref=e668]:
+              - generic [ref=e669]: "1."
+              - generic [ref=e670]: e4
+        - generic [ref=e389]:
+          - generic [ref=e390]:
+            - button [ref=e391]:
+              - img [ref=e392]
+            - button [ref=e395]:
+              - img [ref=e396]
+            - button [ref=e398]:
+              - img [ref=e399]
+            - button [disabled] [ref=e401]:
+              - img [ref=e402]
+            - button [disabled] [ref=e404]:
+              - img [ref=e405]
+          - generic [ref=e408]: Black to move.
+          - button "Reset Game" [ref=e409]
+      - generic [ref=e75]:
+        - generic [ref=e76]:
+          - button "Settings" [ref=e77]:
+            - img [ref=e78]
+          - button "Flip Board" [ref=e81]:
+            - img [ref=e82]
+            - img [ref=e84]
+          - button [ref=e86]:
+            - img [ref=e87]
+        - generic [ref=e93]:
+          - generic [ref=e410]:
+            - generic [ref=e411]:
+              - img [ref=e413]
+              - generic [ref=e416]:
+                - generic [ref=e417]: Stockfish-18
+                - generic [ref=e418]: Skill 20
+            - generic [ref=e420]: 9:44
+          - generic [ref=e94]:
+            - generic [ref=e421]:
+              - generic:
+                - generic: "+0.3"
+            - generic [ref=e96]:
+              - img "Board Theme" [ref=e162]
+              - generic [ref=e164]:
+                - generic [ref=e425] [cursor=pointer]:
+                  - generic [ref=e426]: "1"
+                  - generic [ref=e428]:
+                    - img "wr"
+                - generic [ref=e431] [cursor=pointer]:
+                  - img "wn"
+                - generic [ref=e434] [cursor=pointer]:
+                  - img "wb"
+                - generic [ref=e437] [cursor=pointer]:
+                  - img "wk"
+                - generic [ref=e440] [cursor=pointer]:
+                  - img "wq"
+                - generic [ref=e443] [cursor=pointer]:
+                  - img "wb"
+                - generic [ref=e446] [cursor=pointer]:
+                  - img "wn"
+                - generic [ref=e449] [cursor=pointer]:
+                  - img "wr"
+                - generic [ref=e450] [cursor=pointer]:
+                  - generic [ref=e451]: "2"
+                  - generic [ref=e453]:
+                    - img "wp"
+                - generic [ref=e456] [cursor=pointer]:
+                  - img "wp"
+                - generic [ref=e459] [cursor=pointer]:
+                  - img "wp"
+                - generic [ref=e465] [cursor=pointer]:
+                  - img "wp"
+                - generic [ref=e468] [cursor=pointer]:
+                  - img "wp"
+                - generic [ref=e471] [cursor=pointer]:
+                  - img "wp"
+                - generic [ref=e474] [cursor=pointer]:
+                  - img "wp"
+                - generic [ref=e476] [cursor=pointer]: "3"
+                - generic [ref=e493] [cursor=pointer]: "4"
+                - generic [ref=e673] [cursor=pointer]:
+                  - img "wp"
+                - generic [ref=e510] [cursor=pointer]: "5"
+                - generic [ref=e527] [cursor=pointer]: "6"
+                - generic [ref=e543] [cursor=pointer]:
+                  - generic [ref=e544]: "7"
+                  - generic [ref=e546]:
+                    - img "bp"
+                - generic [ref=e549] [cursor=pointer]:
+                  - img "bp"
+                - generic [ref=e552] [cursor=pointer]:
+                  - img "bp"
+                - generic [ref=e555] [cursor=pointer]:
+                  - img "bp"
+                - generic [ref=e558] [cursor=pointer]:
+                  - img "bp"
+                - generic [ref=e561] [cursor=pointer]:
+                  - img "bp"
+                - generic [ref=e564] [cursor=pointer]:
+                  - img "bp"
+                - generic [ref=e567] [cursor=pointer]:
+                  - img "bp"
+                - generic [ref=e568] [cursor=pointer]:
+                  - generic [ref=e569]: "8"
+                  - generic [ref=e570]: h
+                  - generic [ref=e572]:
+                    - img "br"
+                - generic [ref=e573] [cursor=pointer]:
+                  - generic [ref=e574]: g
+                  - generic [ref=e576]:
+                    - img "bn"
+                - generic [ref=e577] [cursor=pointer]:
+                  - generic [ref=e578]: f
+                  - generic [ref=e580]:
+                    - img "bb"
+                - generic [ref=e581] [cursor=pointer]:
+                  - generic [ref=e582]: e
+                  - generic [ref=e584]:
+                    - img "bk"
+                - generic [ref=e585] [cursor=pointer]:
+                  - generic [ref=e586]: d
+                  - generic [ref=e588]:
+                    - img "bq"
+                - generic [ref=e589] [cursor=pointer]:
+                  - generic [ref=e590]: c
+                  - generic [ref=e592]:
+                    - img "bb"
+                - generic [ref=e593] [cursor=pointer]:
+                  - generic [ref=e594]: b
+                  - generic [ref=e596]:
+                    - img "bn"
+                - generic [ref=e597] [cursor=pointer]:
+                  - generic [ref=e598]: a
+                  - generic [ref=e600]:
+                    - img "br"
+          - generic [ref=e601]:
+            - generic [ref=e602]:
+              - img [ref=e604]
+              - generic [ref=e608]: Guest User
+            - generic [ref=e610]: 9:42
+  - alert [ref=e365]

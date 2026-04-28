@@ -1,0 +1,179 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - link "CHESS" [ref=e4] [cursor=pointer]:
+      - /url: /
+    - link "Back to Play" [ref=e5] [cursor=pointer]:
+      - /url: /
+      - img [ref=e6]
+      - text: Back to Play
+  - main [ref=e8]:
+    - generic [ref=e10]:
+      - generic [ref=e12]:
+        - img [ref=e14]
+        - generic [ref=e17]:
+          - heading "Play vs Computer" [level=1] [ref=e18]
+          - paragraph [ref=e19]: Challenge Stockfish 18 at any level
+      - generic [ref=e20]:
+        - generic [ref=e21]:
+          - generic [ref=e22]:
+            - generic [ref=e23]:
+              - text: Strength Mode
+              - img [ref=e25] [cursor=pointer]
+            - generic [ref=e27]: Skill 20
+          - generic [ref=e28]:
+            - button "Beginner" [ref=e29]
+            - button "Skill" [ref=e30]
+            - button "ELO" [ref=e31]
+          - generic [ref=e32]:
+            - generic [ref=e33]:
+              - generic [ref=e34]:
+                - text: Skill Level
+                - img [ref=e36] [cursor=pointer]
+              - generic [ref=e38]: "20"
+            - slider [ref=e39]: "20"
+            - generic [ref=e40]:
+              - generic [ref=e41]: 0 (Beginner)
+              - generic [ref=e42]: 20 (Strongest)
+        - generic [ref=e43]:
+          - generic [ref=e44]:
+            - text: Time Limit
+            - img [ref=e46] [cursor=pointer]
+          - generic [ref=e48]:
+            - button "1 min" [ref=e49]
+            - button "3 min" [ref=e50]
+            - button "5 min" [ref=e51]
+            - button "10 min" [ref=e52]
+        - generic [ref=e53]:
+          - generic [ref=e54]: Play As
+          - generic [ref=e55]:
+            - button "White" [ref=e56]:
+              - generic [ref=e59]: White
+            - button "Random" [ref=e60]:
+              - generic [ref=e64]: Random
+            - button "Black" [ref=e65]:
+              - generic [ref=e68]: Black
+            - button "Bot Match" [ref=e69]:
+              - img [ref=e71]
+              - generic [ref=e74]: Bot Match
+    - generic [ref=e75]:
+      - generic [ref=e76]:
+        - button "Settings" [ref=e77]:
+          - img [ref=e78]
+        - button "Flip Board" [ref=e81]:
+          - img [ref=e82]
+          - img [ref=e84]
+        - button [ref=e86]:
+          - img [ref=e87]
+      - generic [ref=e96]:
+        - img "Board Theme" [ref=e162]
+        - generic [ref=e164]:
+          - generic [ref=e165]:
+            - generic [ref=e166]: "8"
+            - generic [ref=e168]:
+              - img "br"
+          - generic [ref=e171]:
+            - img "bn"
+          - generic [ref=e174]:
+            - img "bb"
+          - generic [ref=e177]:
+            - img "bq"
+          - generic [ref=e180]:
+            - img "bk"
+          - generic [ref=e183]:
+            - img "bb"
+          - generic [ref=e186]:
+            - img "bn"
+          - generic [ref=e189]:
+            - img "br"
+          - generic [ref=e190]:
+            - generic [ref=e191]: "7"
+            - generic [ref=e193]:
+              - img "bp"
+          - generic [ref=e196]:
+            - img "bp"
+          - generic [ref=e199]:
+            - img "bp"
+          - generic [ref=e202]:
+            - img "bp"
+          - generic [ref=e205]:
+            - img "bp"
+          - generic [ref=e208]:
+            - img "bp"
+          - generic [ref=e211]:
+            - img "bp"
+          - generic [ref=e214]:
+            - img "bp"
+          - generic [ref=e216]: "6"
+          - generic [ref=e233]: "5"
+          - generic [ref=e250]: "4"
+          - generic [ref=e267]: "3"
+          - generic [ref=e283]:
+            - generic [ref=e284]: "2"
+            - generic [ref=e286]:
+              - img "wp"
+          - generic [ref=e289]:
+            - img "wp"
+          - generic [ref=e292]:
+            - img "wp"
+          - generic [ref=e295]:
+            - img "wp"
+          - generic [ref=e298]:
+            - img "wp"
+          - generic [ref=e301]:
+            - img "wp"
+          - generic [ref=e304]:
+            - img "wp"
+          - generic [ref=e307]:
+            - img "wp"
+          - generic [ref=e308]:
+            - generic [ref=e309]: "1"
+            - generic [ref=e310]: a
+            - generic [ref=e312]:
+              - img "wr"
+          - generic [ref=e313]:
+            - generic [ref=e314]: b
+            - generic [ref=e316]:
+              - img "wn"
+          - generic [ref=e317]:
+            - generic [ref=e318]: c
+            - generic [ref=e320]:
+              - img "wb"
+          - generic [ref=e321]:
+            - generic [ref=e322]: d
+            - generic [ref=e324]:
+              - img "wq"
+          - generic [ref=e325]:
+            - generic [ref=e326]: e
+            - generic [ref=e328]:
+              - img "wk"
+          - generic [ref=e329]:
+            - generic [ref=e330]: f
+            - generic [ref=e332]:
+              - img "wb"
+          - generic [ref=e333]:
+            - generic [ref=e334]: g
+            - generic [ref=e336]:
+              - img "wn"
+          - generic [ref=e337]:
+            - generic [ref=e338]: h
+            - generic [ref=e340]:
+              - img "wr"
+  - generic [ref=e342]:
+    - generic [ref=e343]:
+      - generic [ref=e344]:
+        - img [ref=e346]
+        - generic [ref=e348]:
+          - heading "Game Replay Archive" [level=2] [ref=e349]
+          - generic [ref=e350]: Your completed games will appear here automatically
+      - generic [ref=e351]:
+        - generic [ref=e352]:
+          - button "All Games" [ref=e353]
+          - button "Wins" [ref=e354]
+          - button "Losses" [ref=e355]
+          - button "Draws" [ref=e356]
+        - button "Clear Archive" [disabled] [ref=e357]
+        - button "Export PGN" [disabled] [ref=e358]
+    - generic [ref=e359]:
+      - img [ref=e360]
+      - heading "No replay games yet" [level=3] [ref=e363]
+      - paragraph [ref=e364]: Finish a game against the bot and it will be saved here automatically with move history, final board position, and PGN export support.
