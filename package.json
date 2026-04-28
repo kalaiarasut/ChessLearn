@@ -29,7 +29,6 @@
     "stockfish": "^18.0.7"
   },
   "devDependencies": {
-    "@cloudflare/next-on-pages": "^1.13.16",
     "@tailwindcss/postcss": "^4",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",

@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import Database from "better-sqlite3";
-import path from "path";
 
-// Initialize SQLite connection
-const DB_PATH = path.join(process.cwd(), "puzzles.sqlite3");
-let db: Database.Database | null = null;
-
-try {
-  db = new Database(DB_PATH, { readonly: true });
-} catch (error) {
-  console.warn("⚠️ Could not connect to local SQLite database. Ensure puzzles.sqlite3 exists.");
-}
+export const runtime = "edge";
 
 export async function GET(request: NextRequest) {
-  if (!db) {
-    return NextResponse.json({ error: "Database not available" }, { status: 503 });
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const dbId = process.env.CLOUDFLARE_DATABASE_ID || "e6b0defb-7070-4138-9448-a2e82ee477a5";
+  const token = process.env.CLOUDFLARE_API_TOKEN;
+
+  if (!accountId || !token) {
+    return NextResponse.json(
+      { error: "Cloudflare D1 credentials missing. Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN." },
+      { status: 500 }
+    );
   }
 
   const { searchParams } = request.nextUrl;
@@ -30,18 +27,16 @@ export async function GET(request: NextRequest) {
     const params: any[] = [minRating, maxRating];
 
     if (theme && theme !== "mix") {
-      query += " AND themes LIKE ?";
+      query += " AND (' ' || themes || ' ') LIKE ?";
       params.push(`% ${theme} %`);
     }
 
     if (mode === "daily") {
-      // Pick a daily puzzle based on date
       const today = new Date();
       const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
       query += " ORDER BY (ABS(CAST(id AS INTEGER)) + ?) % 100000 LIMIT 1";
       params.push(seed);
     } else if (random) {
-      // ORDER BY RANDOM() is fast enough for filtered datasets in SQLite, but we can optimize it
       query += " ORDER BY RANDOM() LIMIT ?";
       params.push(count);
     } else {
@@ -49,10 +44,31 @@ export async function GET(request: NextRequest) {
       params.push(count);
     }
 
-    const stmt = db.prepare(query);
-    const results = stmt.all(...params);
+    // Query D1 via HTTP REST API for perfect Vercel compatibility
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/query`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sql: query,
+          params: params,
+        }),
+      }
+    );
 
-    // Parse moves string into array
+    const data = await response.json();
+
+    if (!data.success || !data.result?.[0]?.results) {
+      console.error("D1 API Error:", data.errors);
+      return NextResponse.json({ puzzles: [] });
+    }
+
+    const results = data.result[0].results;
+
     const formattedPuzzles = results.map((row: any) => ({
       ...row,
       moves: row.moves.split(" "),
@@ -60,8 +76,8 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json({ puzzles: formattedPuzzles });
-  } catch (error) {
-    console.error("Database query error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Cloudflare D1 fetch error:", error);
+    return NextResponse.json({ error: "Internal server error", details: error.message }, { status: 500 });
   }
 }
