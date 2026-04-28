@@ -737,6 +737,7 @@ export default function PlayComputerPage() {
   const [replayArchive, setReplayArchive] = useState<ReplayArchiveEntry[]>([]);
   const [replayFilter, setReplayFilter] = useState<ReplayFilter>("all");
   const [visibleReplayCount, setVisibleReplayCount] = useState(REPLAY_ARCHIVE_PAGE_SIZE);
+  const [isBoardViewInverted, setIsBoardViewInverted] = useState(false);
   const archivedGameIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -824,6 +825,18 @@ export default function PlayComputerPage() {
   const activeFixedMoveTimeMs = !isBotMatchMode && activeStrengthMode === "beginner"
     ? beginnerEngineProfile.fixedMoveTimeMs
     : botFixedMoveTimeMs;
+  const botPreferences = clientPreferences.bot;
+  const botStrengthSubtitle = strengthMode === "elo"
+    ? `ELO ${elo}`
+    : strengthMode === "beginner"
+      ? `Est. Elo ${beginnerEstimatedElo}`
+      : `Skill ${skillLevel}`;
+  const baseIsBoardFlipped = botPreferences.boardOrientation === "white"
+    ? false
+    : botPreferences.boardOrientation === "black"
+      ? true
+      : botSide === "w";
+  const isBoardFlipped = isBoardViewInverted ? !baseIsBoardFlipped : baseIsBoardFlipped;
   const analysisEnabled =
     gameState !== "setup" &&
     (showEvaluationBar || showEngineLines || showSuggestionArrow || showMoveFeedback);
@@ -872,7 +885,7 @@ export default function PlayComputerPage() {
       }
       return move.promotion === promotion;
     });
-  }, [bestMove, fen]);
+  }, [bestMove]);
 
   const analysis = useStockfishAnalysis(
     fen,
@@ -886,7 +899,6 @@ export default function PlayComputerPage() {
   const analysisModelLabel = analysisEngineVariant === "stockfish-18" ? "Stockfish-18" : "Stockfish-18-Lite";
 
   const { toggleTheme, isDark } = useTheme();
-  const botPreferences = clientPreferences.bot;
   const updateBotPreferences = (updates: Partial<typeof botPreferences>) => {
     setClientPreferences((previous) => ({
       ...previous,
@@ -896,15 +908,17 @@ export default function PlayComputerPage() {
       },
     }));
   };
-  const shouldLockBoard = isBotTurn || isBotMatchMode || botPreferences.boardLock;
+  const shouldLockBoard = isBotMatchMode || (isBotTurn && botPreferences.boardLock);
 
   useEffect(() => {
     setClientPreferences(loadClientPreferences());
   }, []);
 
   useEffect(() => {
+    const audioPool = audioPoolRef.current;
+
     return () => {
-      Object.values(audioPoolRef.current)
+      Object.values(audioPool)
         .flat()
         .forEach((audio) => {
           audio.pause();
@@ -1054,6 +1068,10 @@ export default function PlayComputerPage() {
     setVisibleReplayCount(REPLAY_ARCHIVE_PAGE_SIZE);
   }, [replayFilter]);
 
+  useEffect(() => {
+    setIsBoardViewInverted(false);
+  }, [botPreferences.boardOrientation, playerSide]);
+
   const playSound = (name: string, force = false) => {
     if (!force && !soundEnabled) return;
     if (typeof Audio === "undefined") return;
@@ -1201,14 +1219,16 @@ export default function PlayComputerPage() {
   const startGame = (color: "w" | "b" | "random" | "bot-vs-bot") => {
     const finalColor = color === "random" ? (Math.random() > 0.5 ? "w" : "b") : color;
     const seededGame = new Chess();
+    const initialFen = seededGame.fen();
 
     setActiveGameId(createReplaySessionId());
     setPlayerColor(finalColor);
-    setFen(seededGame.fen());
-    setHistory([DEFAULT_FEN]);
+    setFen(initialFen);
+    setHistory([initialFen]);
     setSanHistory([]);
     setCurrentMoveIndex(0);
     setIsPlayingHistory(false);
+    setHoverPreview(null);
     setLastMove(null);
     setTimeoutStatus(null);
     setWhiteTimeSeconds(timeLimit * 60);
@@ -1332,11 +1352,17 @@ export default function PlayComputerPage() {
     setDragOverSquare(null);
   };
 
-  const goToStart = () => setPositionFromHistory(0);
+  const goToStart = () => {
+    setIsPlayingHistory(false);
+    setPositionFromHistory(0);
+  };
   const goToPrev = () => setPositionFromHistory(currentMoveIndex - 1);
   const goToNext = () => setPositionFromHistory(currentMoveIndex + 1);
   const goToEnd = () => setPositionFromHistory(history.length - 1);
-  const resetBoardReview = () => setPositionFromHistory(0);
+  const resetBoardReview = () => {
+    setIsPlayingHistory(false);
+    setPositionFromHistory(0);
+  };
   const restartCurrentGame = () => startGame(playerColor);
 
   const handleSquareClick = (square: Square) => {
@@ -1497,19 +1523,11 @@ export default function PlayComputerPage() {
     setIsPlayingHistory((previous) => !previous);
   };
 
-  const isBoardFlipped = botSide === "w";
-
-  const botClockSeconds = botSide === "w" ? whiteTimeSeconds : blackTimeSeconds;
-
-  const playerClockSeconds = playerSide === "w" ? whiteTimeSeconds : blackTimeSeconds;
-
   const topSuggestedMove = analysis.lines[0]?.pv[0] ?? null;
   const pieceThemePath = PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`;
-  const botSideColor: SideColor = botSide;
-  const playerSideColor: SideColor = playerSide;
   const materialSnapshot = getMaterialSnapshot(game);
-  const topSideColor: SideColor = botSideColor;
-  const bottomSideColor: SideColor = playerSideColor;
+  const topSideColor: SideColor = isBoardFlipped ? "w" : "b";
+  const bottomSideColor: SideColor = isBoardFlipped ? "b" : "w";
   const capturedByTopTypes = topSideColor === "w" ? materialSnapshot.capturedByWhite : materialSnapshot.capturedByBlack;
   const capturedByBottomTypes = bottomSideColor === "w" ? materialSnapshot.capturedByWhite : materialSnapshot.capturedByBlack;
   const topMaterialLead = topSideColor === "w" ? materialSnapshot.materialDiff : -materialSnapshot.materialDiff;
@@ -1521,16 +1539,50 @@ export default function PlayComputerPage() {
   const topCapturedPieceCodes = toCapturedPieceCodes(topSideColor, capturedByTopTypes);
   const bottomCapturedPieceCodes = toCapturedPieceCodes(bottomSideColor, capturedByBottomTypes);
   const botModelLabel = botEngineVariant === "stockfish-18" ? "Stockfish-18" : "Stockfish-18-Lite";
-  const topDisplayName = isBotMatchMode ? "Bot 1" : botModelLabel;
-  const topDisplaySubtitle = isBotMatchMode
-    ? `ELO ${bot1Elo}`
-    : strengthMode === "elo"
-      ? `ELO ${elo}`
-      : strengthMode === "beginner"
-        ? `Est. Elo ${beginnerEstimatedElo}`
-        : `Skill ${skillLevel}`;
-  const bottomDisplayName = isBotMatchMode ? "Bot 2" : viewerName;
-  const bottomDisplaySubtitle = isBotMatchMode ? `ELO ${bot2Elo}` : null;
+  const sidePanelsByColor: Record<SideColor, { name: string; subtitle: string | null; icon: "bot" | "user"; clockSeconds: number }> = {
+    w: isBotMatchMode
+      ? {
+          name: "Bot 1",
+          subtitle: `ELO ${bot1Elo}`,
+          icon: "bot",
+          clockSeconds: whiteTimeSeconds,
+        }
+      : playerSide === "w"
+        ? {
+            name: viewerName,
+            subtitle: null,
+            icon: "user",
+            clockSeconds: whiteTimeSeconds,
+          }
+        : {
+            name: botModelLabel,
+            subtitle: botStrengthSubtitle,
+            icon: "bot",
+            clockSeconds: whiteTimeSeconds,
+          },
+    b: isBotMatchMode
+      ? {
+          name: "Bot 2",
+          subtitle: `ELO ${bot2Elo}`,
+          icon: "bot",
+          clockSeconds: blackTimeSeconds,
+        }
+      : playerSide === "b"
+        ? {
+            name: viewerName,
+            subtitle: null,
+            icon: "user",
+            clockSeconds: blackTimeSeconds,
+          }
+        : {
+            name: botModelLabel,
+            subtitle: botStrengthSubtitle,
+            icon: "bot",
+            clockSeconds: blackTimeSeconds,
+          },
+  };
+  const topPanel = sidePanelsByColor[topSideColor];
+  const bottomPanel = sidePanelsByColor[bottomSideColor];
   const whiteWinChance = Math.max(0, Math.min(100, analysis.whiteWinChance));
   const blackWinChance = 100 - whiteWinChance;
   const topEvalShare = topSideColor === "w" ? whiteWinChance : blackWinChance;
@@ -1578,7 +1630,7 @@ export default function PlayComputerPage() {
     const opponentLabel =
       playerColor === "bot-vs-bot"
         ? `Bot 1 (ELO ${bot1Elo}) vs Bot 2 (ELO ${bot2Elo})`
-        : `${botModelLabel}${topDisplaySubtitle ? ` • ${topDisplaySubtitle}` : ""}`;
+        : `${botModelLabel}${botStrengthSubtitle ? ` • ${botStrengthSubtitle}` : ""}`;
 
     let outcome: ReplayOutcome = "draw";
     let outcomeLabel = "Draw";
@@ -1643,7 +1695,7 @@ export default function PlayComputerPage() {
     timeoutStatus,
     playerColor,
     botModelLabel,
-    topDisplaySubtitle,
+    botStrengthSubtitle,
     bot1Elo,
     bot2Elo,
     timeLimit,
@@ -2425,11 +2477,7 @@ export default function PlayComputerPage() {
               <Settings className="w-5 h-5" />
             </button>
             <button
-              onClick={() =>
-                updateBotPreferences({
-                  boardOrientation: isBoardFlipped ? "white" : "black",
-                })
-              }
+              onClick={() => setIsBoardViewInverted((current) => !current)}
               className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center flex-col gap-[2px]"
               title="Flip Board"
             >
@@ -2446,16 +2494,20 @@ export default function PlayComputerPage() {
           </div>
 
           <div className="flex flex-col items-center justify-start h-[75vh] max-h-[720px] max-w-[95%] lg:max-w-[70%] lg:min-w-[500px] w-full relative shrink-0 lg:ml-auto lg:mr-8 lg:mt-4">
-            {/* Top Bar (Opponent: Stockfish) */}
+            {/* Top Side Panel */}
             {gameState !== "setup" && (
               <div className="w-full flex items-center justify-between mb-3 bg-[var(--surface)] px-2.5 py-1 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-lg bg-[var(--skeleton)] border border-[var(--border)] flex items-center justify-center shrink-0">
-                    <Bot className="w-4 h-4 text-[var(--text-secondary)]" />
+                    {topPanel.icon === "bot" ? (
+                      <Bot className="w-4 h-4 text-[var(--text-secondary)]" />
+                    ) : (
+                      <User className="w-4 h-4 text-[var(--text-secondary)]" />
+                    )}
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-bold text-[12px] text-[var(--text-primary)] tracking-wide">{topDisplayName}</span>
-                    <span className="text-[10px] text-[var(--text-muted)] font-medium">{topDisplaySubtitle}</span>
+                    <span className="font-bold text-[12px] text-[var(--text-primary)] tracking-wide">{topPanel.name}</span>
+                    {topPanel.subtitle ? <span className="text-[10px] text-[var(--text-muted)] font-medium">{topPanel.subtitle}</span> : null}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2473,7 +2525,7 @@ export default function PlayComputerPage() {
                     ) : null}
                   </div>
                   <div className="px-2 py-0.5 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[14px] text-[var(--text-primary)] shadow-inner w-[68px] text-center">
-                    {formatClock(botClockSeconds)}
+                    {formatClock(topPanel.clockSeconds)}
                   </div>
                 </div>
               </div>
@@ -2663,16 +2715,16 @@ export default function PlayComputerPage() {
               </div>
             </div>
 
-            {/* Bottom Bar (Player: User) */}
+            {/* Bottom Side Panel */}
             {gameState !== "setup" && (
               <div className="w-full flex items-center justify-between mt-3 bg-[var(--surface)] px-2.5 py-1 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-lg bg-gradient-to-b from-[#444] to-[#222] border border-[#555] flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
-                    {isBotMatchMode ? <Bot className="w-4 h-4 text-white/90" /> : <User className="w-4 h-4 text-white/90" />}
+                    {bottomPanel.icon === "bot" ? <Bot className="w-4 h-4 text-white/90" /> : <User className="w-4 h-4 text-white/90" />}
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-bold text-[12px] text-[var(--text-primary)] tracking-wide">{bottomDisplayName}</span>
-                    {bottomDisplaySubtitle ? <span className="text-[10px] text-[var(--text-muted)] font-medium">{bottomDisplaySubtitle}</span> : null}
+                    <span className="font-bold text-[12px] text-[var(--text-primary)] tracking-wide">{bottomPanel.name}</span>
+                    {bottomPanel.subtitle ? <span className="text-[10px] text-[var(--text-muted)] font-medium">{bottomPanel.subtitle}</span> : null}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2690,7 +2742,7 @@ export default function PlayComputerPage() {
                     ) : null}
                   </div>
                   <div className="px-2 py-0.5 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[14px] text-[var(--text-primary)] shadow-inner w-[68px] text-center">
-                    {formatClock(playerClockSeconds)}
+                    {formatClock(bottomPanel.clockSeconds)}
                   </div>
                 </div>
               </div>
@@ -2992,7 +3044,7 @@ export default function PlayComputerPage() {
                   <div className="flex-1 px-8 pb-8 overflow-y-auto custom-scrollbar pt-2">
                     <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
                       <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
-                        <span className="text-[14px] text-[var(--text-primary)]">Board Orientation</span>
+                        <span className="text-[14px] text-[var(--text-primary)]">Default Board Orientation</span>
                         <select
                           value={botPreferences.boardOrientation}
                           onChange={(event) => updateBotPreferences({ boardOrientation: event.target.value as typeof botPreferences.boardOrientation })}

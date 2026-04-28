@@ -79,6 +79,14 @@ export function useStockfishPlayer(fen: string, isBotTurn: boolean, options: Pla
   useEffect(() => {
     if (typeof Worker === "undefined") return;
 
+    queueMicrotask(() => {
+      setState({
+        ready: false,
+        isThinking: false,
+        bestMove: null,
+      });
+    });
+
     const worker = new Worker(workerScript);
     workerRef.current = worker;
 
