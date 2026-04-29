@@ -432,6 +432,9 @@ export default function OpeningPage() {
   const [draggedSquare, setDraggedSquare] = useState<Square | null>(null);
   const [dragOverSquare, setDragOverSquare] = useState<Square | null>(null);
   const [lastMove, setLastMove] = useState<SerializableMove | null>(null);
+  const [rightClickHighlights, setRightClickHighlights] = useState<Set<Square>>(new Set());
+  const [rightClickArrows, setRightClickArrows] = useState<{ start: Square; end: Square }[]>([]);
+  const [rightClickStartSquare, setRightClickStartSquare] = useState<Square | null>(null);
   const [preferencesLoading, setPreferencesLoading] = useState(true);
   const [preferencesSaving, setPreferencesSaving] = useState(false);
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
@@ -589,6 +592,8 @@ export default function OpeningPage() {
     setDraggedSquare(null);
     setDragOverSquare(null);
     setLastMove(null);
+    setRightClickHighlights(new Set());
+    setRightClickArrows([]);
     setVariationQuery("");
     setVariationVisibleCount(VARIATIONS_PAGE_SIZE);
     setBranchAttemptStats(null);
@@ -625,6 +630,8 @@ export default function OpeningPage() {
     setDraggedSquare(null);
     setDragOverSquare(null);
     setLastMove(null);
+    setRightClickHighlights(new Set());
+    setRightClickArrows([]);
   };
 
   const playedSanMoves = sanHistory.slice(0, Math.max(0, currentMoveIndex));
@@ -1051,6 +1058,8 @@ export default function OpeningPage() {
     setDraggedSquare(null);
     setDragOverSquare(null);
     setLastMove(null);
+    setRightClickHighlights(new Set());
+    setRightClickArrows([]);
     setVariationQuery("");
     setVariationVisibleCount(VARIATIONS_PAGE_SIZE);
     setBranchAttemptStats(null);
@@ -1193,6 +1202,8 @@ export default function OpeningPage() {
       setSelectedSquare(null);
       setDraggedSquare(null);
       setLastMove(serializedMove);
+      setRightClickHighlights(new Set());
+      setRightClickArrows([]);
       if (expectedTrainerMove) {
         const nextExpected = activeLineSan[nextSanHistory.length] ?? null;
         if (nextExpected) {
@@ -1293,6 +1304,39 @@ export default function OpeningPage() {
       playSound("illegal");
     }
     setSelectedSquare(null);
+  };
+
+  const handleRightClickDown = (e: React.MouseEvent, square: Square) => {
+    if (e.button === 2) {
+      setRightClickStartSquare(square);
+    } else {
+      if (rightClickHighlights.size > 0) setRightClickHighlights(new Set());
+      if (rightClickArrows.length > 0) setRightClickArrows([]);
+    }
+  };
+
+  const handleRightClickUp = (e: React.MouseEvent, square: Square) => {
+    if (e.button === 2 && rightClickStartSquare) {
+      if (rightClickStartSquare === square) {
+        setRightClickHighlights((prev) => {
+          const next = new Set(prev);
+          if (next.has(square)) next.delete(square);
+          else next.add(square);
+          return next;
+        });
+      } else {
+        setRightClickArrows((prev) => {
+          const existingIndex = prev.findIndex(
+            (arrow) => arrow.start === rightClickStartSquare && arrow.end === square
+          );
+          if (existingIndex >= 0) {
+            return prev.filter((_, i) => i !== existingIndex);
+          }
+          return [...prev, { start: rightClickStartSquare, end: square }];
+        });
+      }
+      setRightClickStartSquare(null);
+    }
   };
 
   const handleDragStart = (event: DragEvent<HTMLDivElement>, square: Square) => {
@@ -2360,6 +2404,9 @@ export default function OpeningPage() {
                       <div
                         key={square}
                         onClick={() => handleSquareClick(square)}
+                        onMouseDown={(e) => handleRightClickDown(e, square)}
+                        onMouseUp={(e) => handleRightClickUp(e, square)}
+                        onContextMenu={(e) => e.preventDefault()}
                         onDragOver={(event) => {
                           event.preventDefault();
                           if (dragOverSquare !== square) setDragOverSquare(square);
@@ -2375,6 +2422,9 @@ export default function OpeningPage() {
                       >
                         {dragOverSquare === square && (
                           <div className="absolute inset-0 ring-[3px] ring-white bg-white/20 z-20 pointer-events-none shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
+                        )}
+                        {rightClickHighlights.has(square) && (
+                          <div className="absolute inset-0 bg-red-500/50 z-[4]" />
                         )}
                         {isLastMoveSquare && (
                           <div className="absolute inset-[4%] rounded-[4px] bg-amber-300/20" />
@@ -2423,6 +2473,65 @@ export default function OpeningPage() {
                   })
                 )}
                 </div>
+                {rightClickArrows.length > 0 && (
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none z-[16]" viewBox="0 0 100 100" preserveAspectRatio="none" opacity="0.85">
+                    <defs>
+                      <marker id="right-click-arrow-head" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="3.4" markerHeight="3.4" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="rgb(255, 170, 0)" />
+                      </marker>
+                    </defs>
+                    {rightClickArrows.map((arrow, idx) => {
+                      const getCoords = (sq: Square) => {
+                        const col = FILES.indexOf(sq[0] as typeof FILES[number]);
+                        const row = 8 - parseInt(sq[1]);
+                        const visCol = isBoardFlipped ? 7 - col : col;
+                        const visRow = isBoardFlipped ? 7 - row : row;
+                        return {
+                          x: (visCol + 0.5) * 12.5,
+                          y: (visRow + 0.5) * 12.5
+                        };
+                      };
+                      const start = getCoords(arrow.start);
+                      const end = getCoords(arrow.end);
+
+                      const dx = end.x - start.x;
+                      const dy = end.y - start.y;
+                      const isKnightMove = Math.abs(dx) > 0 && Math.abs(dy) > 0 && Math.abs(dx) !== Math.abs(dy);
+
+                      if (isKnightMove) {
+                        const useXFirst = Math.abs(dx) > Math.abs(dy);
+                        const corner = useXFirst ? { x: end.x, y: start.y } : { x: start.x, y: end.y };
+                        
+                        return (
+                          <g key={idx}>
+                            <path
+                              d={`M ${start.x} ${start.y} L ${corner.x} ${corner.y} L ${end.x} ${end.y}`}
+                              stroke="rgb(255, 170, 0)"
+                              strokeWidth="1.8"
+                              fill="none"
+                              strokeLinecap="butt"
+                              strokeLinejoin="miter"
+                              markerEnd="url(#right-click-arrow-head)"
+                            />
+                          </g>
+                        );
+                      }
+
+                      return (
+                        <g key={idx}>
+                          <line
+                            x1={start.x} y1={start.y}
+                            x2={end.x} y2={end.y}
+                            stroke="rgb(255, 170, 0)"
+                            strokeWidth="1.8"
+                            strokeLinecap="butt"
+                            markerEnd="url(#right-click-arrow-head)"
+                          />
+                        </g>
+                      );
+                    })}
+                  </svg>
+                )}
                 {suggestionStart && suggestionEnd && (
                   <svg className="absolute inset-0 w-full h-full pointer-events-none z-30">
                     <defs>

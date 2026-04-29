@@ -105,6 +105,25 @@ async function buildDatabase() {
   `);
   console.log('✅ Indexes ready.');
 
+  console.log('\n🔎 Ensuring theme search index exists...');
+  db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS puzzle_theme_fts USING fts5(
+      id UNINDEXED,
+      themes
+    );
+  `);
+
+  const ftsCount = db.prepare('SELECT COUNT(*) as c FROM puzzle_theme_fts').get().c;
+  if (ftsCount !== grandTotal) {
+    console.log(`🔄 Rebuilding theme search index (${ftsCount.toLocaleString()} -> ${grandTotal.toLocaleString()})...`);
+    db.exec('DELETE FROM puzzle_theme_fts;');
+    db.exec(`
+      INSERT INTO puzzle_theme_fts (id, themes)
+      SELECT id, trim(themes) FROM puzzles;
+    `);
+  }
+  console.log('✅ Theme search index ready.');
+
   db.close();
   const sizeMB = (fs.statSync(DB_FILE).size / (1024 * 1024)).toFixed(2);
   console.log(`\n🚀 Database: ${DB_FILE}`);

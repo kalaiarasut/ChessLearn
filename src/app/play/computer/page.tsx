@@ -12,6 +12,7 @@ import { useStockfishAnalysis } from "../../learn/[opening]/use-stockfish-analys
 import { useStockfishEngineDownload } from "./use-stockfish-engine-download";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreferences } from "@/lib/client-preferences";
+import { Confetti, type ConfettiRef } from "@/registry/magicui/confetti";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 const DEFAULT_FEN = new Chess().fen();
@@ -359,6 +360,38 @@ const getReplayWinnerDetails = (game: Chess, timeoutStatus: string | null) => {
   }
 
   return { winner: "draw" as const, reason: "Game ended" };
+};
+
+const getGameOverHeadline = (
+  game: Chess,
+  timeoutStatus: string | null,
+  playerColor: "w" | "b" | "bot-vs-bot",
+) => {
+  const winnerDetails = getReplayWinnerDetails(game, timeoutStatus);
+
+  if (playerColor === "bot-vs-bot") {
+    if (winnerDetails.winner === "w") return "White Won";
+    if (winnerDetails.winner === "b") return "Black Won";
+    return "Draw";
+  }
+
+  if (winnerDetails.winner === "draw") {
+    return "Draw";
+  }
+
+  return winnerDetails.winner === playerColor ? "Victory" : "Defeat";
+};
+
+const getGameOverReasonLabel = (game: Chess, timeoutStatus: string | null) => {
+  if (timeoutStatus) {
+    return timeoutStatus.split(". ")[1] || timeoutStatus;
+  }
+  if (game.isCheckmate()) return "by Checkmate";
+  if (game.isStalemate()) return "by Stalemate";
+  if (game.isThreefoldRepetition()) return "by Repetition";
+  if (game.isInsufficientMaterial()) return "by Insufficient Material";
+  if (game.isDraw()) return "by 50-move rule or agreement";
+  return "";
 };
 
 const safeParseReplayArchive = (serializedArchive: string | null): ReplayArchiveEntry[] => {
@@ -781,6 +814,12 @@ export default function PlayComputerPage() {
   const [replayFilter, setReplayFilter] = useState<ReplayFilter>("all");
   const [visibleReplayCount, setVisibleReplayCount] = useState(REPLAY_ARCHIVE_PAGE_SIZE);
   const [isBoardViewInverted, setIsBoardViewInverted] = useState(false);
+  const [showGameOverOverlay, setShowGameOverOverlay] = useState(false);
+  const [showGameOverOverview, setShowGameOverOverview] = useState(false);
+  const [showGameOverActions, setShowGameOverActions] = useState(false);
+  const [rightClickHighlights, setRightClickHighlights] = useState<Set<Square>>(new Set());
+  const [rightClickArrows, setRightClickArrows] = useState<{ start: Square; end: Square }[]>([]);
+  const [rightClickStartSquare, setRightClickStartSquare] = useState<Square | null>(null);
   const archivedGameIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -840,8 +879,10 @@ export default function PlayComputerPage() {
   }, [fullEngineAvailabilityChecked, fullEngineAvailable]);
 
   const gameRef = useRef(new Chess(fen));
+  const confettiRef = useRef<ConfettiRef>(null);
   const audioPoolRef = useRef<Record<string, HTMLAudioElement[]>>({});
   const nextAudioIndexRef = useRef<Record<string, number>>({});
+  const previousGameStateRef = useRef(gameState);
   const isReviewing = currentMoveIndex !== history.length - 1;
   const isBotMatchMode = playerColor === "bot-vs-bot";
   const playerSide: SideColor = isBotMatchMode ? "w" : playerColor;
@@ -926,6 +967,11 @@ export default function PlayComputerPage() {
   const analysisEngineDownloadStatus = engineDownloadStatuses[analysisEngineVariant];
   const isBotEngineReady = engineVariantsResolved && botEngineDownloadStatus.ready;
   const isAnalysisEngineReady = engineVariantsResolved && analysisEngineDownloadStatus.ready;
+  const liveWinnerDetails = getReplayWinnerDetails(gameRef.current, timeoutStatus);
+  const gameOverHeadline = getGameOverHeadline(gameRef.current, timeoutStatus, playerColor);
+  const gameOverReasonLabel = getGameOverReasonLabel(gameRef.current, timeoutStatus);
+  const shouldCelebrateWin = playerColor !== "bot-vs-bot" && liveWinnerDetails.winner === playerColor;
+  const shouldShowBoardOverlay = showGameOverOverlay && gameState === "game_over";
 
   useEffect(() => {
     if (!engineVariantsResolved) {
@@ -934,6 +980,50 @@ export default function PlayComputerPage() {
 
     ensureEngineReady(botEngineVariant).catch(() => {});
   }, [botEngineVariant, engineVariantsResolved, ensureEngineReady]);
+
+  useEffect(() => {
+    const previousGameState = previousGameStateRef.current;
+    previousGameStateRef.current = gameState;
+
+    if (previousGameState !== "playing" || gameState !== "game_over") {
+      if (gameState !== "game_over") {
+        setShowGameOverOverlay(false);
+        setShowGameOverOverview(false);
+        setShowGameOverActions(false);
+      }
+      return;
+    }
+
+    setShowGameOverOverlay(true);
+    setShowGameOverOverview(false);
+    setShowGameOverActions(false);
+
+    const overviewTimer = window.setTimeout(() => {
+      setShowGameOverOverview(true);
+    }, 180);
+    const actionsTimer = window.setTimeout(() => {
+      setShowGameOverActions(true);
+    }, 760);
+    const dismissTimer = window.setTimeout(() => {
+      setShowGameOverOverlay(false);
+    }, 2800);
+
+    let confettiTimer: number | null = null;
+    if (shouldCelebrateWin) {
+      confettiTimer = window.setTimeout(() => {
+        confettiRef.current?.fire({});
+      }, 240);
+    }
+
+    return () => {
+      window.clearTimeout(overviewTimer);
+      window.clearTimeout(actionsTimer);
+      window.clearTimeout(dismissTimer);
+      if (confettiTimer !== null) {
+        window.clearTimeout(confettiTimer);
+      }
+    };
+  }, [gameState, shouldCelebrateWin]);
 
   useEffect(() => {
     if (!engineVariantsResolved || !analysisEnabled) {
@@ -1379,6 +1469,9 @@ export default function PlayComputerPage() {
     const seededGame = new Chess();
     const initialFen = seededGame.fen();
 
+    setShowGameOverOverlay(false);
+    setShowGameOverOverview(false);
+    setShowGameOverActions(false);
     setActiveGameId(createReplaySessionId());
     setPlayerColor(finalColor);
     setFen(initialFen);
@@ -1396,6 +1489,8 @@ export default function PlayComputerPage() {
     setSelectedSquare(null);
     setDraggedSquare(null);
     setDragOverSquare(null);
+    setRightClickHighlights(new Set());
+    setRightClickArrows([]);
     gameRef.current = seededGame;
     setBot1OpeningMoveIndex(0);
     setBot2OpeningMoveIndex(0);
@@ -1405,6 +1500,9 @@ export default function PlayComputerPage() {
   };
 
   const stopGame = () => {
+    setShowGameOverOverlay(false);
+    setShowGameOverOverview(false);
+    setShowGameOverActions(false);
     setGameState("setup");
     setIsPlayingHistory(false);
     setTimeoutStatus(null);
@@ -1474,6 +1572,8 @@ export default function PlayComputerPage() {
       setSelectedSquare(null);
       setDraggedSquare(null);
       setLastMove(serializedMove);
+      setRightClickHighlights(new Set());
+      setRightClickArrows([]);
 
       let soundToPlay = "move-self";
       if (serializedMove.isCheck) {
@@ -1508,6 +1608,8 @@ export default function PlayComputerPage() {
     setSelectedSquare(null);
     setDraggedSquare(null);
     setDragOverSquare(null);
+    setRightClickHighlights(new Set());
+    setRightClickArrows([]);
   };
 
   const goToStart = () => {
@@ -1553,6 +1655,39 @@ export default function PlayComputerPage() {
       playSound("illegal");
     }
     setSelectedSquare(null);
+  };
+
+  const handleRightClickDown = (e: React.MouseEvent, square: Square) => {
+    if (e.button === 2) {
+      setRightClickStartSquare(square);
+    } else {
+      if (rightClickHighlights.size > 0) setRightClickHighlights(new Set());
+      if (rightClickArrows.length > 0) setRightClickArrows([]);
+    }
+  };
+
+  const handleRightClickUp = (e: React.MouseEvent, square: Square) => {
+    if (e.button === 2 && rightClickStartSquare) {
+      if (rightClickStartSquare === square) {
+        setRightClickHighlights((prev) => {
+          const next = new Set(prev);
+          if (next.has(square)) next.delete(square);
+          else next.add(square);
+          return next;
+        });
+      } else {
+        setRightClickArrows((prev) => {
+          const existingIndex = prev.findIndex(
+            (arrow) => arrow.start === rightClickStartSquare && arrow.end === square
+          );
+          if (existingIndex >= 0) {
+            return prev.filter((_, i) => i !== existingIndex);
+          }
+          return [...prev, { start: rightClickStartSquare, end: square }];
+        });
+      }
+      setRightClickStartSquare(null);
+    }
   };
 
   const handleDragStart = (event: DragEvent<HTMLDivElement>, square: Square) => {
@@ -2060,7 +2195,7 @@ export default function PlayComputerPage() {
                   <div className="flex items-center justify-between mb-3 px-1">
                     <label className="text-[14px] font-bold text-[var(--text-secondary)] uppercase tracking-wider flex flex-wrap items-center gap-1.5 align-middle">
                       Strength Mode
-                      <InfoHint text="Pick one mode: Beginner (estimated under 1320), Skill (0-20), or Elo-limited (1320-3190)." />
+                      <InfoHint text="Pick one mode: Beginner (estimated 400-1300), Skill (0-20), or official Stockfish Elo-limited mode (1320-3190)." />
                     </label>
                     <div className="px-3 py-1 rounded-md bg-[var(--surface-hover)] border border-[var(--border-hover)] text-[var(--text-primary)]  shadow-sm">
                       {strengthMode === "skill"
@@ -2135,7 +2270,7 @@ export default function PlayComputerPage() {
                       <div className="flex items-center justify-between mb-3 px-1">
                         <label className="text-[14px] font-bold text-[var(--text-secondary)] uppercase tracking-wider flex flex-wrap items-center gap-1.5 align-middle">
                           Engine ELO
-                          <InfoHint text={`Elo-limited mode targets a reduced strength. Stockfish 18 supports ${ELO_MIN}-${ELO_MAX}.`} />
+                          <InfoHint text={`Official Stockfish UCI_Elo mode. Supported range is ${ELO_MIN}-${ELO_MAX}; lower values are not available from the engine.`} />
                         </label>
                         <div className="px-3 py-1 rounded-md bg-[var(--surface-hover)] border border-[var(--border-hover)] text-[var(--text-primary)]  shadow-sm">
                           {elo}
@@ -2251,7 +2386,7 @@ export default function PlayComputerPage() {
                             <span>Beginner Strength</span>
                             <span className="text-[11px] opacity-80">(Est. Elo)</span>
                           </span>
-                          <InfoHint text="For Elo below 1320, this uses tuned Skill + fixed move time. Values are estimates, not official UCI Elo." />
+                          <InfoHint text="For 400-1300 only, this uses a tuned Skill + fixed move time mapping. These values are estimates, not official Stockfish UCI_Elo." />
                         </label>
                         <div className="px-3 py-1 rounded-md bg-[var(--surface-hover)] border border-[var(--border-hover)] text-[var(--text-primary)] shadow-sm shrink-0 mt-1">
                           {beginnerEstimatedElo}
@@ -2742,6 +2877,7 @@ export default function PlayComputerPage() {
                 className={`flex-1 aspect-square relative shadow-2xl transition-all duration-500 ${!engineReady && gameState === "setup" ? "opacity-90 grayscale-[0.3]" : ""}`}
               >
               <BoardImage src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`} className="w-full h-full overflow-hidden rounded-sm">
+                <Confetti ref={confettiRef} className="pointer-events-none absolute inset-0 z-[95] h-full w-full" />
                 {suggestionStart && suggestionEnd && (
                   <svg className="absolute inset-0 w-full h-full pointer-events-none z-[15]" viewBox="0 0 100 100" preserveAspectRatio="none">
                     <defs>
@@ -2762,7 +2898,66 @@ export default function PlayComputerPage() {
                     <circle cx={suggestionStart.x} cy={suggestionStart.y} r="1.8" fill="rgba(16,185,129,0.85)" />
                   </svg>
                 )}
-                <div className="w-full h-full grid grid-cols-8 grid-rows-8 relative">
+                {rightClickArrows.length > 0 && (
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none z-[16]" viewBox="0 0 100 100" preserveAspectRatio="none" opacity="0.85">
+                    <defs>
+                      <marker id="right-click-arrow-head" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="3.4" markerHeight="3.4" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="rgb(255, 170, 0)" />
+                      </marker>
+                    </defs>
+                    {rightClickArrows.map((arrow, idx) => {
+                      const getCoords = (sq: Square) => {
+                        const col = FILES.indexOf(sq[0] as typeof FILES[number]);
+                        const row = 8 - parseInt(sq[1]);
+                        const visCol = isBoardFlipped ? 7 - col : col;
+                        const visRow = isBoardFlipped ? 7 - row : row;
+                        return {
+                          x: (visCol + 0.5) * 12.5,
+                          y: (visRow + 0.5) * 12.5
+                        };
+                      };
+                      const start = getCoords(arrow.start);
+                      const end = getCoords(arrow.end);
+
+                      const dx = end.x - start.x;
+                      const dy = end.y - start.y;
+                      const isKnightMove = Math.abs(dx) > 0 && Math.abs(dy) > 0 && Math.abs(dx) !== Math.abs(dy);
+
+                      if (isKnightMove) {
+                        const useXFirst = Math.abs(dx) > Math.abs(dy);
+                        const corner = useXFirst ? { x: end.x, y: start.y } : { x: start.x, y: end.y };
+                        
+                        return (
+                          <g key={idx}>
+                            <path
+                              d={`M ${start.x} ${start.y} L ${corner.x} ${corner.y} L ${end.x} ${end.y}`}
+                              stroke="rgb(255, 170, 0)"
+                              strokeWidth="1.8"
+                              fill="none"
+                              strokeLinecap="butt"
+                              strokeLinejoin="miter"
+                              markerEnd="url(#right-click-arrow-head)"
+                            />
+                          </g>
+                        );
+                      }
+
+                      return (
+                        <g key={idx}>
+                          <line
+                            x1={start.x} y1={start.y}
+                            x2={end.x} y2={end.y}
+                            stroke="rgb(255, 170, 0)"
+                            strokeWidth="1.8"
+                            strokeLinecap="butt"
+                            markerEnd="url(#right-click-arrow-head)"
+                          />
+                        </g>
+                      );
+                    })}
+                  </svg>
+                )}
+                <div className="w-full h-full grid grid-cols-8 grid-rows-8 relative" onContextMenu={(e) => e.preventDefault()}>
                   {(isBoardFlipped
                     ? [...boardState].reverse().map(r => [...r].reverse())
                     : boardState
@@ -2783,6 +2978,9 @@ export default function PlayComputerPage() {
                       <div
                         key={square}
                         onClick={() => handleSquareClick(square)}
+                        onMouseDown={(e) => handleRightClickDown(e, square)}
+                        onMouseUp={(e) => handleRightClickUp(e, square)}
+                        onContextMenu={(e) => e.preventDefault()}
                         onDragOver={(event) => {
                           event.preventDefault();
                           if (dragOverSquare !== square) setDragOverSquare(square);
@@ -2798,6 +2996,9 @@ export default function PlayComputerPage() {
                       >
                         {dragOverSquare === square && (
                           <div className="absolute inset-0 ring-[3px] ring-white bg-white/20 z-20 pointer-events-none shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
+                        )}
+                        {rightClickHighlights.has(square) && (
+                          <div className="absolute inset-0 bg-red-500/50 z-[4]" />
                         )}
                         {isLastMoveSquare && (
                           <div className="absolute inset-[4%] rounded-[4px] bg-amber-300/20" />
@@ -2845,38 +3046,39 @@ export default function PlayComputerPage() {
                 </div>
                   
                   {/* Game Over Overlay */}
-                  {gameState === "game_over" && (
-                    <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-[3px] animate-in fade-in duration-300 pointer-events-auto">
-                      <div className="bg-[var(--surface)] border border-[var(--border)] shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-6 md:p-8 rounded-2xl flex flex-col items-center max-w-[85%] w-[340px] text-center animate-in zoom-in-95 duration-300 relative overflow-hidden">
-                        <div className="w-16 h-16 rounded-full bg-[var(--surface-hover)] border border-[var(--border-subtle)] flex items-center justify-center mb-4 text-[#eab308] shadow-inner relative z-10">
+                  {shouldShowBoardOverlay && (
+                    <div className="pointer-events-none absolute inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-[2px] rounded-[3px] transition-opacity duration-500">
+                      <div className="bg-[var(--surface)]/96 border border-[var(--border)] shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-6 md:p-8 rounded-2xl flex flex-col items-center max-w-[85%] w-[340px] text-center transition-all duration-700 relative overflow-hidden">
+                        <div
+                          className={`w-16 h-16 rounded-full bg-[var(--surface-hover)] border border-[var(--border-subtle)] flex items-center justify-center mb-4 text-[#eab308] shadow-inner relative z-10 transition-all duration-700 ${
+                            showGameOverOverview ? "translate-y-0 opacity-100 scale-100" : "translate-y-4 opacity-0 scale-90"
+                          }`}
+                        >
                           <Crown className="w-8 h-8 drop-shadow-md" strokeWidth={2.5} />
                         </div>
-                        <h2 className="text-2xl font-black text-[var(--text-primary)] tracking-wide mb-1 relative z-10">
-                          {(() => {
-                            if (timeoutStatus) return timeoutStatus.includes("Draw") ? "Draw" : timeoutStatus.includes("White") ? "White Won" : "Black Won";
-                            const goGame = gameRef.current;
-                            if (goGame.isCheckmate()) return goGame.turn() === "w" ? "Black Won" : "White Won";
-                            if (goGame.isStalemate() || goGame.isThreefoldRepetition() || goGame.isInsufficientMaterial() || goGame.isDraw()) return "Draw";
-                            return "Game Over";
-                          })()}
+                        <h2
+                          className={`text-2xl font-black text-[var(--text-primary)] tracking-wide mb-1 relative z-10 transition-all duration-700 ${
+                            showGameOverOverview ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+                          }`}
+                        >
+                          {gameOverHeadline}
                         </h2>
-                        <p className="text-[14px] text-[var(--text-secondary)] font-medium mb-8 relative z-10">
-                          {(() => {
-                            if (timeoutStatus) return timeoutStatus.split('. ')[1] || timeoutStatus;
-                            const goGame = gameRef.current;
-                            if (goGame.isCheckmate()) return "by Checkmate";
-                            if (goGame.isStalemate()) return "by Stalemate";
-                            if (goGame.isThreefoldRepetition()) return "by Repetition";
-                            if (goGame.isInsufficientMaterial()) return "by Insufficient Material";
-                            if (goGame.isDraw()) return "by 50-move rule or agreement";
-                            return "";
-                          })()}
+                        <p
+                          className={`text-[14px] text-[var(--text-secondary)] font-medium mb-8 relative z-10 transition-all duration-700 ${
+                            showGameOverOverview ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+                          }`}
+                        >
+                          {gameOverReasonLabel}
                         </p>
 
-                        <div className="flex flex-col gap-3 w-full relative z-10">
+                        <div
+                          className={`flex flex-col gap-3 w-full relative z-10 transition-all duration-700 ${
+                            showGameOverActions ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
+                          }`}
+                        >
                           <button
                             onClick={() => startGame(playerColor)}
-                            className="w-full py-[14px] bg-[var(--cta-bg)] text-white font-bold rounded-xl hover:bg-[var(--cta-hover)] hover:scale-[1.02] shadow-[0_4px_14px_rgba(0,0,0,0.25)] transition-all duration-300 relative overflow-hidden group border border-white/10"
+                            className="pointer-events-auto w-full py-[14px] bg-[var(--cta-bg)] text-white font-bold rounded-xl hover:bg-[var(--cta-hover)] hover:scale-[1.02] shadow-[0_4px_14px_rgba(0,0,0,0.25)] transition-all duration-300 relative overflow-hidden group border border-white/10"
                           >
                             <span className="relative z-10 flex items-center justify-center gap-2">
                               <RotateCcw className="w-[18px] h-[18px]" strokeWidth={2.5} />
@@ -2886,7 +3088,7 @@ export default function PlayComputerPage() {
                           </button>
                           <button
                             onClick={stopGame}
-                            className="w-full flex items-center justify-center gap-2 py-[12px] text-[14.5px] text-[var(--text-secondary)] font-bold hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] rounded-lg transition-colors border border-transparent hover:border-[var(--border)]"
+                            className="pointer-events-auto w-full flex items-center justify-center gap-2 py-[12px] text-[14.5px] text-[var(--text-secondary)] font-bold hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] rounded-lg transition-colors border border-transparent hover:border-[var(--border)]"
                           >
                             <Settings className="w-4 h-4" />
                             Change Settings
@@ -3023,7 +3225,7 @@ export default function PlayComputerPage() {
                           </select>
                         </div>
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
-                          <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Bot Strength Mode <InfoHint text="Choose one: Beginner (estimated sub-1320), Skill, or Elo-limited." /></span>
+                          <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Bot Strength Mode <InfoHint text="Choose one: Beginner (estimated 400-1300), Skill, or official Stockfish Elo-limited mode (1320-3190)." /></span>
                           <select
                             value={strengthMode}
                             onChange={(event) => setStrengthMode(event.target.value as StrengthMode)}
@@ -3036,7 +3238,7 @@ export default function PlayComputerPage() {
                         </div>
                         {strengthMode === "beginner" ? (
                           <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
-                            <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-1.5 shrink-0">Beginner Elo <span className="opacity-70 text-[12px]">(Est.)</span> <InfoHint text="Below 1320 is estimated by tuning Skill + fixed move time, not official UCI Elo." /></span>
+                            <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-1.5 shrink-0">Beginner Elo <span className="opacity-70 text-[12px]">(Est.)</span> <InfoHint text="These 400-1300 presets are estimated by tuning Skill + fixed move time, not official Stockfish UCI_Elo." /></span>
                             <select
                               value={beginnerEloIndex}
                               onChange={(event) => setBeginnerEloIndex(Number(event.target.value))}
@@ -3061,7 +3263,7 @@ export default function PlayComputerPage() {
                           </div>
                         ) : (
                           <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
-                            <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Target Elo <InfoHint text={`Engine intentionally limits strength. Valid range for both Stockfish 18 variants is ${ELO_MIN}-${ELO_MAX}.`} /></span>
+                            <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Target Elo <InfoHint text={`Official Stockfish UCI_Elo setting. Valid range for both Stockfish 18 variants is ${ELO_MIN}-${ELO_MAX}.`} /></span>
                             <select
                               value={eloIndex}
                               onChange={(event) => setEloIndex(Number(event.target.value))}

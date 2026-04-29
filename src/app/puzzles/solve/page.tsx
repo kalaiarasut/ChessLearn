@@ -1,11 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Square } from "chess.js";
 import {
-  ArrowLeft, Sun, Moon, ChevronDown, RotateCcw, Lightbulb,
+  ArrowLeft, Sun, Moon, RotateCcw, Lightbulb,
   SkipForward, Eye, FlipVertical, Zap, Flame, Target,
   Check, X, Trophy, Clock, Heart,
 } from "lucide-react";
@@ -32,6 +33,7 @@ function SolverInner() {
   const params = useSearchParams();
   const mode = (params.get("mode") || "standard") as PuzzleMode;
   const themeFilter = params.get("theme") || "";
+  const requestedPuzzleId = params.get("id");
   const { toggleTheme, isDark } = useTheme();
 
   const boardTheme = themeManifest.defaultBoardTheme;
@@ -50,7 +52,7 @@ function SolverInner() {
   const [legalMoves, setLegalMoves] = useState<string[]>([]);
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [puzzlePrefs, setPuzzlePrefs] = useState<PuzzleClientPreferences | null>(null);
+  const [puzzlePrefs, setPuzzlePrefs] = useState<PuzzleClientPreferences>(() => loadClientPreferences().puzzle);
 
   // Storm state
   const [stormScore, setStormScore] = useState(0);
@@ -63,46 +65,21 @@ function SolverInner() {
 
   const [playerSide, setPlayerSide] = useState<"w" | "b">("w");
 
-  useEffect(() => {
+  const persistStormBest = useCallback((score: number) => {
     const prefs = loadClientPreferences();
+    if (score > prefs.puzzle.bestStormScore) prefs.puzzle.bestStormScore = score;
+    saveClientPreferences(prefs);
     setPuzzlePrefs(prefs.puzzle);
   }, []);
 
-  const fetchPuzzle = useCallback(async () => {
-    setLoading(true);
-    const ratingRange = mode === "streak"
-      ? `&minRating=${600 + streakCount * 50}&maxRating=${900 + streakCount * 50}`
-      : mode === "storm" ? "&minRating=600&maxRating=1400" : "";
-    const themeParam = themeFilter ? `&theme=${themeFilter}` : "";
-    try {
-      const res = await fetch(`/api/puzzles?count=1&random=true${ratingRange}${themeParam}`);
-      const data = await res.json();
-      if (data.puzzles?.[0]) {
-        initPuzzle(data.puzzles[0]);
-      }
-    } catch { setLoading(false); }
-  }, [mode, themeFilter, streakCount]);
+  const persistStreakBest = useCallback((score: number) => {
+    const prefs = loadClientPreferences();
+    if (score > prefs.puzzle.bestStreakScore) prefs.puzzle.bestStreakScore = score;
+    saveClientPreferences(prefs);
+    setPuzzlePrefs(prefs.puzzle);
+  }, []);
 
-  useEffect(() => { fetchPuzzle(); }, [fetchPuzzle]);
-
-  // Storm timer
-  useEffect(() => {
-    if (mode === "storm" && !loading && phase === "playing") {
-      stormTimerRef.current = setInterval(() => {
-        setStormTime(prev => {
-          if (prev <= 1) {
-            clearInterval(stormTimerRef.current!);
-            setPhase("storm_over");
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => { if (stormTimerRef.current) clearInterval(stormTimerRef.current); };
-    }
-  }, [mode, loading, phase]);
-
-  const initPuzzle = (p: PuzzleData) => {
+  function initPuzzle(p: PuzzleData) {
     const g = new Chess(p.fen);
     // Execute opponent's first move
     const firstMove = p.moves[0];
@@ -122,7 +99,52 @@ function SolverInner() {
     setLegalMoves([]);
     setLastMove(firstMove ? { from: firstMove.slice(0,2), to: firstMove.slice(2,4) } : null);
     setLoading(false);
-  };
+  }
+
+  const fetchPuzzle = useCallback(async () => {
+    setLoading(true);
+    const ratingRange = mode === "streak"
+      ? `&minRating=${600 + streakCount * 50}&maxRating=${900 + streakCount * 50}`
+      : mode === "storm" ? "&minRating=600&maxRating=1400" : "";
+    const themeParam = themeFilter ? `&theme=${themeFilter}` : "";
+    const shouldUseRequestedId = requestedPuzzleId && mode === "standard" && !puzzle;
+    const idParam = shouldUseRequestedId ? `&id=${encodeURIComponent(requestedPuzzleId)}` : "";
+    const excludeParam = !shouldUseRequestedId && puzzle?.id ? `&excludeId=${encodeURIComponent(puzzle.id)}` : "";
+    try {
+      const res = await fetch(`/api/puzzles?count=1&random=true${ratingRange}${themeParam}${idParam}${excludeParam}`);
+      const data = await res.json();
+      if (data.puzzles?.[0]) {
+        initPuzzle(data.puzzles[0]);
+      }
+    } catch {
+      setLoading(false);
+    }
+  }, [mode, themeFilter, streakCount, requestedPuzzleId, puzzle]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      void fetchPuzzle();
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, [fetchPuzzle]);
+
+  // Storm timer
+  useEffect(() => {
+    if (mode === "storm" && !loading && phase === "playing") {
+      stormTimerRef.current = setInterval(() => {
+        setStormTime(prev => {
+          if (prev <= 1) {
+            clearInterval(stormTimerRef.current!);
+            persistStormBest(stormScore);
+            setPhase("storm_over");
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => { if (stormTimerRef.current) clearInterval(stormTimerRef.current); };
+    }
+  }, [mode, loading, phase, persistStormBest, stormScore]);
 
   const handleSquareClick = (sq: string) => {
     if (!game || !puzzle || phase !== "playing") return;
@@ -130,7 +152,6 @@ function SolverInner() {
 
     if (selectedSq) {
       // Try to make a move
-      const moveStr = selectedSq + sq;
       attemptMove(selectedSq, sq);
       setSelectedSq(null);
       setLegalMoves([]);
@@ -189,9 +210,14 @@ function SolverInner() {
     if (mode === "storm") {
       const newLives = stormLives - 1;
       setStormLives(newLives);
-      if (newLives <= 0) { setPhase("storm_over"); return; }
+      if (newLives <= 0) {
+        persistStormBest(stormScore);
+        setPhase("storm_over");
+        return;
+      }
       setTimeout(() => { setMoveResult(null); fetchPuzzle(); }, 800);
     } else if (mode === "streak") {
+      persistStreakBest(streakCount);
       setPhase("streak_over");
     } else {
       setPhase("failed");
@@ -295,27 +321,11 @@ function SolverInner() {
 
   const handleRetry = () => { if (puzzle) initPuzzle(puzzle); };
 
-  // Save storm/streak scores on game over
-  useEffect(() => {
-    if (phase === "storm_over") {
-      const prefs = loadClientPreferences();
-      if (stormScore > prefs.puzzle.bestStormScore) prefs.puzzle.bestStormScore = stormScore;
-      saveClientPreferences(prefs);
-      setPuzzlePrefs(prefs.puzzle);
-    }
-    if (phase === "streak_over") {
-      const prefs = loadClientPreferences();
-      if (streakCount > prefs.puzzle.bestStreakScore) prefs.puzzle.bestStreakScore = streakCount;
-      saveClientPreferences(prefs);
-      setPuzzlePrefs(prefs.puzzle);
-    }
-  }, [phase]);
-
   // Board rendering
   const board = useMemo(() => {
     if (!game) return Array.from({ length: 8 }, () => Array(8).fill(null));
     return game.board().map(row => row.map(p => p ? `${p.color}${p.type}` : null));
-  }, [game?.fen()]);
+  }, [game]);
 
   const ranks = flipped ? [...RANKS].reverse() : RANKS;
   const files = flipped ? [...FILES].reverse() : FILES;
@@ -388,7 +398,14 @@ function SolverInner() {
           {/* Chessboard */}
           <div className="relative select-none" style={{ width: "min(85vw, 520px)", height: "min(85vw, 520px)" }}>
             {/* Board bg */}
-            <img src={boardPath} alt="" className="absolute inset-0 w-full h-full rounded-xl object-cover" draggable={false} />
+            <Image
+              src={boardPath}
+              alt=""
+              fill
+              sizes="(max-width: 768px) 85vw, 520px"
+              className="rounded-xl object-cover"
+              unoptimized
+            />
 
             {/* Move result overlay */}
             {moveResult && (
@@ -432,11 +449,13 @@ function SolverInner() {
 
                       {/* Piece */}
                       {piece && (
-                        <img
+                        <Image
                           src={`${piecePath}/${piece}.png`}
                           alt={piece}
-                          className="absolute inset-[8%] w-[84%] h-[84%] object-contain z-10 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]"
-                          draggable={false}
+                          fill
+                          sizes="64px"
+                          className="absolute inset-[8%] object-contain z-10 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]"
+                          unoptimized
                         />
                       )}
 
@@ -489,6 +508,9 @@ function SolverInner() {
               </div>
               <p className="text-[13px] text-[var(--text-muted)] font-medium">
                 {playerSide === "w" ? "White" : "Black"} to move — find the best continuation.
+              </p>
+              <p className="mt-3 text-[12px] text-[var(--text-dimmed)] font-medium">
+                Drawn from a live pool of 5,882,680 public-domain puzzles.
               </p>
             </div>
           )}

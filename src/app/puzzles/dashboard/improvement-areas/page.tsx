@@ -1,19 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { loadClientPreferences, PuzzleClientPreferences } from "@/lib/client-preferences";
 import { ThemeStatRow } from "../_components/ThemeStatRow";
-import { THEME_CATEGORIES } from "../../page";
+import { THEME_CATEGORIES } from "../../theme-categories";
 
 export default function ImprovementAreasPage() {
-  const [prefs, setPrefs] = useState<PuzzleClientPreferences | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    setPrefs(loadClientPreferences().puzzle);
-  }, []);
-
-  if (!mounted || !prefs) return null;
+  const [prefs] = useState<PuzzleClientPreferences>(() => loadClientPreferences().puzzle);
 
   // Calculate stats per theme
   const themesData = Object.entries(prefs.puzzleThemeStats)

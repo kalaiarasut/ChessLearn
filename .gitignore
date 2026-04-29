@@ -47,4 +47,5 @@ puzzles.sqlite3
 puzzles.sqlite3-wal
 puzzles.sqlite3-shm
 /puzzle-chunks/
+/puzzle-theme-fts-chunks/
 /.playwright-mcp/

@@ -1,16 +1,16 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { loadClientPreferences, PuzzleClientPreferences } from "@/lib/client-preferences";
 import { KpiCard } from "./_components/KpiCard";
-import { THEME_CATEGORIES } from "../page";
-import { Trophy, Clock, Target, Zap, Flame, Calendar, Play } from "lucide-react";
+import { THEME_CATEGORIES } from "../theme-categories";
+import { Trophy, Target, Zap, Flame, Calendar, Play } from "lucide-react";
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid
 } from "recharts";
-import type { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent";
+import type { ValueType } from "recharts/types/component/DefaultTooltipContent";
 
 const RADAR_THEMES = [
   "advancedPawn", "mate", "deflection", "discoveredAttack", "endgame",
@@ -19,16 +19,8 @@ const RADAR_THEMES = [
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [prefs, setPrefs] = useState<PuzzleClientPreferences | null>(null);
-  const [mounted, setMounted] = useState(false);
+  const [prefs] = useState<PuzzleClientPreferences>(() => loadClientPreferences().puzzle);
   const [timeRange, setTimeRange] = useState<number>(30); // days
-
-  useEffect(() => {
-    setMounted(true);
-    setPrefs(loadClientPreferences().puzzle);
-  }, []);
-
-  if (!mounted || !prefs) return null;
 
   // Filter functions based on time range
   const now = new Date().getTime();
@@ -139,7 +131,7 @@ export default function DashboardPage() {
                 <Tooltip 
                   contentStyle={{ backgroundColor: "var(--surface)", borderColor: "var(--border)", borderRadius: "8px" }}
                   itemStyle={{ color: "#f59e0b", fontWeight: "bold" }}
-                  formatter={(value: ValueType | undefined, _name: NameType | undefined) => [value ?? "-", "Rating"]}
+                  formatter={(value: ValueType | undefined) => [value ?? "-", "Rating"]}
                 />
               </RadarChart>
             </ResponsiveContainer>
