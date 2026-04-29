@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Chess, type Square } from "chess.js";
 import {
   ChevronDown,
@@ -64,13 +65,11 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/lib/theme-context";
 import { AuthMenu } from "@/components/auth-menu";
-import {
-  DEFAULT_CLIENT_PREFERENCES,
-  loadClientPreferences,
-  type PuzzleClientPreferences,
-} from "@/lib/client-preferences";
 import themeManifest from "@/data/themeManifest.json";
 import type { PuzzleEntry } from "@/lib/puzzle-service";
+import { usePuzzleProgress } from "@/lib/use-puzzle-progress";
+import { PuzzleLoginOverlay } from "./_components/PuzzleLoginOverlay";
+import { PuzzleSyncBanner } from "./_components/PuzzleSyncBanner";
 
 const PIECE_THEME_ASSETS = themeManifest.pieceAssets as Record<string, string>;
 const BOARD_THEME_ASSETS = themeManifest.boardAssets as Record<string, string>;
@@ -340,8 +339,10 @@ export default function PuzzlesClientPage({
 }: {
   initialDailyPuzzle: PuzzleEntry | null;
 }) {
+  const router = useRouter();
   const { toggleTheme, isDark } = useTheme();
-  const [puzzlePrefs] = useState<PuzzleClientPreferences>(() => loadClientPreferences().puzzle);
+  const { progress, authenticated, importNotice, syncStatus, dismissImportNotice, dismissSyncError } = usePuzzleProgress();
+  const [showDashboardOverlay, setShowDashboardOverlay] = useState(false);
 
   const dailyDisplayFen = useMemo(() => {
     if (!initialDailyPuzzle) return null;
@@ -379,7 +380,7 @@ export default function PuzzlesClientPage({
     }
   }, [initialDailyPuzzle]);
 
-  const stats: PuzzleClientPreferences = puzzlePrefs ?? DEFAULT_CLIENT_PREFERENCES.puzzle;
+  const stats = progress.summary;
 
   return (
     <div className="min-h-screen flex flex-col items-center overflow-x-hidden bg-[var(--bg)]">
@@ -423,6 +424,14 @@ export default function PuzzlesClientPage({
       </header>
 
       <main className="flex-1 w-full max-w-[1200px] px-6 py-12 mb-20 md:py-16">
+        <div className="mb-8">
+          <PuzzleSyncBanner
+            status={syncStatus}
+            notice={importNotice}
+            onDismissNotice={dismissImportNotice}
+            onDismissError={dismissSyncError}
+          />
+        </div>
         <div className="mb-14 md:mb-18">
           <Link
             href="/"
@@ -441,7 +450,7 @@ export default function PuzzlesClientPage({
         </div>
 
         {initialDailyPuzzle && dailyDisplayFen && (
-          <Link href={`/puzzles/solve?mode=standard&id=${initialDailyPuzzle.id}`}>
+          <Link href={`/puzzles/solve?mode=daily&id=${initialDailyPuzzle.id}`}>
             <div className="mb-14 group relative rounded-2xl border border-[var(--border)] hover:border-[var(--border-hover)] bg-gradient-to-br from-[var(--card-from)] to-[var(--card-to)] p-8 md:p-10 shadow-[var(--shadow-card)] hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden">
               <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-[var(--glow-orb)] blur-3xl pointer-events-none" />
 
@@ -463,6 +472,11 @@ export default function PuzzlesClientPage({
                         day: "numeric",
                       })}
                     </span>
+                    {progress.dailyStatus.completed && (
+                      <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-400">
+                        Solved
+                      </span>
+                    )}
                   </div>
 
                   <h2 className="text-[28px] md:text-[36px] font-serif text-[var(--text-primary)] font-[500] leading-tight mb-4">
@@ -561,18 +575,31 @@ export default function PuzzlesClientPage({
             <h2 className="text-[11px] uppercase tracking-[0.18em] font-bold text-[var(--text-dimmed)]">
               Your Progress
             </h2>
-            <Link
-              href="/puzzles/dashboard"
+            <button
+              onClick={() => {
+                if (!authenticated) {
+                  setShowDashboardOverlay(true);
+                  return;
+                }
+                router.push("/puzzles/dashboard");
+              }}
               className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--text-primary)] text-[var(--bg)] text-[14px] font-bold hover:opacity-90 transition-all shadow-sm"
             >
               View Dashboard
               <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
-            </Link>
+            </button>
           </div>
 
           <div className="rounded-2xl border border-[var(--border)] bg-gradient-to-br from-[var(--card-from)] to-[var(--card-to)] p-7 shadow-[var(--shadow-card)]">
+            <p className="mb-5 text-[13px] text-[var(--text-dimmed)] font-medium">
+              {progress.dataSource === "server"
+                ? "Signed-in progress is synced from your server-backed puzzle history."
+                : authenticated
+                  ? "Signed in, but still using local puzzle progress until account sync finishes."
+                  : "You are viewing local puzzle progress. Sign in to auto-sync replay queues, daily completion, and analytics on first login."}
+            </p>
             <div className="flex flex-wrap gap-4 justify-center md:justify-start">
-              <StatItem label="Rating" value={stats.puzzleRating} icon={TrendingUp} />
+              <StatItem label="Rating" value={stats.currentRating} icon={TrendingUp} />
               <StatItem label="Solved" value={stats.puzzlesSolved} icon={Trophy} />
               <StatItem label="Streak" value={stats.currentStreak} icon={Flame} />
               <StatItem label="Best Storm" value={stats.bestStormScore} icon={Zap} />
@@ -602,7 +629,7 @@ export default function PuzzlesClientPage({
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   {category.themes.map((theme) => {
-                    const themeStat = stats.puzzleThemeStats[theme.id];
+                    const themeStat = progress.themeStats[theme.id];
                     const solved = themeStat?.solved ?? 0;
                     const Icon = theme.icon;
 
@@ -673,6 +700,18 @@ export default function PuzzlesClientPage({
           </div>
         </div>
       </main>
+
+      <PuzzleLoginOverlay
+        open={showDashboardOverlay}
+        title="Sync your puzzle records"
+        description="Dashboard insights, replay queues, and saved puzzle records work best when they are tied to your account. Sign in to store them permanently, or continue locally for this session."
+        nextHref="/login?next=%2Fpuzzles%2Fdashboard"
+        onClose={() => setShowDashboardOverlay(false)}
+        onContinueLocal={() => {
+          setShowDashboardOverlay(false);
+          router.push("/puzzles/dashboard");
+        }}
+      />
     </div>
   );
 }

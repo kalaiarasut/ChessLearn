@@ -2,7 +2,7 @@
 
 import type { DragEvent, MouseEvent } from "react";
 import Link from "next/link";
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { Chess, type Square } from "chess.js";
 import { ArrowLeft, Settings, Play, Pause, Bot, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, ChevronUp, MoreHorizontal, Monitor, User, Gamepad2, MessageSquare, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, Crosshair, Crown, Info, LoaderCircle, CheckCircle2, AlertCircle } from "lucide-react";
 import themeManifest from "@/data/themeManifest.json";
@@ -258,6 +258,12 @@ type SerializableMove = {
   isCapture: boolean;
   isCastle: boolean;
   isPromotion: boolean;
+};
+
+type QueuedPremove = {
+  from: Square;
+  to: Square;
+  promotion?: "q" | "r" | "b" | "n";
 };
 
 type ReplayOutcome = "win" | "loss" | "draw";
@@ -803,6 +809,7 @@ export default function PlayComputerPage() {
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [draggedSquare, setDraggedSquare] = useState<Square | null>(null);
   const [dragOverSquare, setDragOverSquare] = useState<Square | null>(null);
+  const [queuedPremoves, setQueuedPremoves] = useState<QueuedPremove[]>([]);
   const [lastMove, setLastMove] = useState<SerializableMove | null>(null);
   const [whiteTimeSeconds, setWhiteTimeSeconds] = useState(10 * 60);
   const [blackTimeSeconds, setBlackTimeSeconds] = useState(10 * 60);
@@ -958,6 +965,13 @@ export default function PlayComputerPage() {
     !isReviewing &&
     (isBotMatchMode || gameRef.current.turn() === botSide) &&
     !gameRef.current.isGameOver();
+  const canUsePremoves =
+    !isBotMatchMode &&
+    botPreferences.premoveEnabled &&
+    gameState === "playing" &&
+    !isReviewing &&
+    !gameRef.current.isGameOver();
+  const isPremoveTurn = canUsePremoves && gameRef.current.turn() !== playerSide;
   const analysisRequestMaxTimeSeconds = gameState === "playing" && isBotTurn
     ? analysisMaxTimeSeconds > 0
       ? Math.min(analysisMaxTimeSeconds, 0.35)
@@ -1141,10 +1155,19 @@ export default function PlayComputerPage() {
     }));
   };
   const shouldLockBoard = isBotMatchMode || (isBotTurn && botPreferences.boardLock);
+  const clearQueuedPremoves = useCallback(() => {
+    setQueuedPremoves([]);
+  }, []);
 
   useEffect(() => {
     setClientPreferences(loadClientPreferences());
   }, []);
+
+  useEffect(() => {
+    if (!botPreferences.premoveEnabled && queuedPremoves.length > 0) {
+      setQueuedPremoves([]);
+    }
+  }, [botPreferences.premoveEnabled, queuedPremoves.length]);
 
   useEffect(() => {
     if (!engineVariantsResolved || typeof window === "undefined") {
@@ -1342,6 +1365,24 @@ export default function PlayComputerPage() {
     audio.currentTime = 0;
     audio.play().catch(() => {});
   };
+  const queuePremove = useCallback((from: Square, to: Square) => {
+    const piece = gameRef.current.get(from);
+    if (!piece || piece.color !== playerSide || from === to) {
+      playSound("illegal");
+      setSelectedSquare(null);
+      return false;
+    }
+
+    setQueuedPremoves((previous) => {
+      const nextEntry: QueuedPremove = { from, to };
+      return botPreferences.premoveMode === "multiple" ? [...previous, nextEntry] : [nextEntry];
+    });
+    setSelectedSquare(null);
+    setDraggedSquare(null);
+    setDragOverSquare(null);
+    playSound("move-self");
+    return true;
+  }, [botPreferences.premoveMode, playSound, playerSide]);
 
   const formatClock = (seconds: number) => {
     const safe = Math.max(0, seconds);
@@ -1489,6 +1530,7 @@ export default function PlayComputerPage() {
     setSelectedSquare(null);
     setDraggedSquare(null);
     setDragOverSquare(null);
+    setQueuedPremoves([]);
     setRightClickHighlights(new Set());
     setRightClickArrows([]);
     gameRef.current = seededGame;
@@ -1506,6 +1548,7 @@ export default function PlayComputerPage() {
     setGameState("setup");
     setIsPlayingHistory(false);
     setTimeoutStatus(null);
+    setQueuedPremoves([]);
   };
 
   const commitMove = (from: Square, to: Square, promotion?: string) => {
@@ -1599,6 +1642,31 @@ export default function PlayComputerPage() {
     }
   };
 
+  useEffect(() => {
+    if (!canUsePremoves || isPremoveTurn || queuedPremoves.length === 0) {
+      return;
+    }
+
+    const nextPremove = queuedPremoves[0];
+    const legalMove = gameRef.current
+      .moves({ verbose: true })
+      .find((move) => move.from === nextPremove.from && move.to === nextPremove.to);
+
+    if (!legalMove) {
+      clearQueuedPremoves();
+      playSound("illegal");
+      return;
+    }
+
+    const didMove = commitMove(nextPremove.from, nextPremove.to, nextPremove.promotion);
+    if (!didMove) {
+      clearQueuedPremoves();
+      return;
+    }
+
+    setQueuedPremoves((previous) => previous.slice(1));
+  }, [canUsePremoves, clearQueuedPremoves, commitMove, isPremoveTurn, playSound, queuedPremoves]);
+
   const setPositionFromHistory = (index: number) => {
     const bounded = Math.max(0, Math.min(index, history.length - 1));
     const fenAtIndex = history[bounded] ?? DEFAULT_FEN;
@@ -1608,6 +1676,7 @@ export default function PlayComputerPage() {
     setSelectedSquare(null);
     setDraggedSquare(null);
     setDragOverSquare(null);
+    setQueuedPremoves([]);
     setRightClickHighlights(new Set());
     setRightClickArrows([]);
   };
@@ -1627,11 +1696,40 @@ export default function PlayComputerPage() {
 
   const handleSquareClick = (square: Square) => {
     if (botPreferences.moveMethod === "drag") return;
-    if (gameState !== "playing" || shouldLockBoard || isReviewing) return;
+    if (gameState !== "playing" || isReviewing) return;
 
     const game = gameRef.current;
     const clickedPiece = game.get(square);
+    const clickedPlayerPiece = clickedPiece?.color === playerSide;
     const legalTargets = selectedSquare ? game.moves({ square: selectedSquare, verbose: true }).map((m) => m.to) : [];
+
+    if (isPremoveTurn) {
+      if (selectedSquare === square) {
+        setSelectedSquare(null);
+        return;
+      }
+
+      if (clickedPlayerPiece) {
+        setSelectedSquare(square);
+        return;
+      }
+
+      if (selectedSquare) {
+        queuePremove(selectedSquare, square);
+        return;
+      }
+
+      if (queuedPremoves.length > 0) {
+        clearQueuedPremoves();
+        playSound("move-self");
+      } else {
+        playSound("illegal");
+      }
+      setSelectedSquare(null);
+      return;
+    }
+
+    if (shouldLockBoard) return;
 
     if (selectedSquare === square) {
       setSelectedSquare(null);
@@ -1695,7 +1793,7 @@ export default function PlayComputerPage() {
       event.preventDefault();
       return;
     }
-    if (gameState !== "playing" || shouldLockBoard || isReviewing) {
+    if (gameState !== "playing" || isReviewing) {
       event.preventDefault();
       return;
     }
@@ -1703,7 +1801,13 @@ export default function PlayComputerPage() {
     const game = gameRef.current;
     const draggedPiece = game.get(square);
 
-    if (!draggedPiece || draggedPiece.color !== game.turn()) {
+    const expectedColor = isPremoveTurn ? playerSide : game.turn();
+    if (!draggedPiece || draggedPiece.color !== expectedColor) {
+      event.preventDefault();
+      return;
+    }
+
+    if (!isPremoveTurn && shouldLockBoard) {
       event.preventDefault();
       return;
     }
@@ -1722,7 +1826,14 @@ export default function PlayComputerPage() {
 
   const handleDrop = (event: DragEvent<HTMLDivElement>, square: Square) => {
     event.preventDefault();
-    if (!draggedSquare || shouldLockBoard || isReviewing || gameState !== "playing") return;
+    if (!draggedSquare || isReviewing || gameState !== "playing") return;
+
+    if (isPremoveTurn) {
+      queuePremove(draggedSquare, square);
+      return;
+    }
+
+    if (shouldLockBoard) return;
 
     if (botPreferences.moveConfirmation && !window.confirm(`Confirm move ${draggedSquare} to ${square}?`)) {
       setDraggedSquare(null);
@@ -1740,7 +1851,7 @@ export default function PlayComputerPage() {
 
   const game = gameRef.current;
   const boardState = game.board().map((row) => row.map((piece) => getPieceCode(piece)));
-  const legalTargets = selectedSquare && gameState === "playing" && !shouldLockBoard
+  const legalTargets = selectedSquare && gameState === "playing" && !shouldLockBoard && !isPremoveTurn
     ? game.moves({ square: selectedSquare, verbose: true }).map((move) => move.to)
     : [];
 
@@ -2874,7 +2985,7 @@ export default function PlayComputerPage() {
               ) : null}
 
               <div
-                className={`flex-1 aspect-square relative shadow-2xl transition-all duration-500 ${!engineReady && gameState === "setup" ? "opacity-90 grayscale-[0.3]" : ""}`}
+                className={`flex-1 aspect-square relative shadow-2xl ${!engineReady && gameState === "setup" ? "opacity-90 grayscale-[0.3]" : ""}`}
               >
               <BoardImage src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`} className="w-full h-full overflow-hidden rounded-sm">
                 <Confetti ref={confettiRef} className="pointer-events-none absolute inset-0 z-[95] h-full w-full" />
@@ -2973,6 +3084,10 @@ export default function PlayComputerPage() {
                     const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square;
                     const isDraggedSquare = draggedSquare === square;
                     const isKingInCheck = gameRef.current.isCheck() && squarePiece?.type === 'k' && squarePiece?.color === gameRef.current.turn();
+                    const queuedPremoveFromIndex = queuedPremoves.findIndex((move) => move.from === square);
+                    const queuedPremoveToIndex = queuedPremoves.findIndex((move) => move.to === square);
+                    const isQueuedPremoveFrom = queuedPremoveFromIndex >= 0;
+                    const isQueuedPremoveTo = queuedPremoveToIndex >= 0;
 
                     return (
                       <div
@@ -2982,6 +3097,7 @@ export default function PlayComputerPage() {
                         onMouseUp={(e) => handleRightClickUp(e, square)}
                         onContextMenu={(e) => e.preventDefault()}
                         onDragOver={(event) => {
+                          if (!draggedSquare || isPremoveTurn) return;
                           event.preventDefault();
                           if (dragOverSquare !== square) setDragOverSquare(square);
                         }}
@@ -2992,7 +3108,7 @@ export default function PlayComputerPage() {
                           handleDrop(event, square);
                           setDragOverSquare(null);
                         }}
-                        className={`relative flex items-center justify-center ${gameState === "playing" && !shouldLockBoard ? "cursor-pointer" : ""}`}
+                        className={`relative flex items-center justify-center ${gameState === "playing" && (!shouldLockBoard || isPremoveTurn) ? "cursor-pointer" : ""}`}
                       >
                         {dragOverSquare === square && (
                           <div className="absolute inset-0 ring-[3px] ring-white bg-white/20 z-20 pointer-events-none shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
@@ -3002,6 +3118,15 @@ export default function PlayComputerPage() {
                         )}
                         {isLastMoveSquare && (
                           <div className="absolute inset-[4%] rounded-[4px] bg-amber-300/20" />
+                        )}
+                        {isSelectedSquare && (
+                          <div className="absolute inset-[6%] rounded-[4px] ring-[3px] ring-sky-300/90 bg-sky-400/10 z-[6]" />
+                        )}
+                        {isQueuedPremoveFrom && (
+                          <div className="absolute inset-[8%] rounded-[4px] border-[3px] border-sky-300/90 bg-sky-400/12 z-[6]" />
+                        )}
+                        {isQueuedPremoveTo && (
+                          <div className="absolute inset-[14%] rounded-full border-[4px] border-sky-200/90 bg-sky-400/18 z-[6]" />
                         )}
                         {isKingInCheck && (
                           <div className="absolute inset-0 bg-red-500/40 animate-pulse shadow-[inset_0_0_20px_rgba(239,68,68,0.7)] z-[5]" />
@@ -3030,8 +3155,9 @@ export default function PlayComputerPage() {
                         <div
                           draggable={Boolean(
                             botPreferences.moveMethod !== "click" &&
+                            (botPreferences.moveMethod === "drag" || !isPremoveTurn) &&
                             squarePiece &&
-                            squarePiece.color === gameRef.current.turn(),
+                            squarePiece.color === (isPremoveTurn ? playerSide : gameRef.current.turn()),
                           )}
                           onDragStart={(event) => handleDragStart(event, square)}
                           onDragEnd={() => setDraggedSquare(null)}
@@ -3039,6 +3165,11 @@ export default function PlayComputerPage() {
                         >
                           {getPieceIcon(piece, pieceTheme)}
                         </div>
+                        {isQueuedPremoveFrom && botPreferences.premoveMode === "multiple" && (
+                          <span className="absolute right-1 top-1 z-[7] flex h-5 w-5 items-center justify-center rounded-full bg-sky-300 text-[11px] font-black text-slate-900 shadow-md">
+                            {queuedPremoveFromIndex + 1}
+                          </span>
+                        )}
                       </div>
                     );
                   })
@@ -3409,6 +3540,21 @@ export default function PlayComputerPage() {
                       <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
                         <span className="text-[14px] text-[var(--text-primary)]">Move Confirmation</span>
                         <input type="checkbox" checked={botPreferences.moveConfirmation} onChange={(event) => updateBotPreferences({ moveConfirmation: event.target.checked })} />
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Enable Premove</span>
+                        <input type="checkbox" checked={botPreferences.premoveEnabled} onChange={(event) => updateBotPreferences({ premoveEnabled: event.target.checked })} />
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Premove Mode</span>
+                        <select
+                          value={botPreferences.premoveMode}
+                          onChange={(event) => updateBotPreferences({ premoveMode: event.target.value as typeof botPreferences.premoveMode })}
+                          className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[160px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                        >
+                          <option value="single">Single premove</option>
+                          <option value="multiple">Multiple premoves</option>
+                        </select>
                       </div>
                       <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
                         <span className="text-[14px] text-[var(--text-primary)]">Auto Queen</span>

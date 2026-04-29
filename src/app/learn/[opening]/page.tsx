@@ -35,6 +35,12 @@ type SerializableMove = {
   isPromotion: boolean;
 };
 
+type QueuedPremove = {
+  from: Square;
+  to: Square;
+  promotion?: "q" | "r" | "b" | "n";
+};
+
 const formatOpeningTitle = (slug: string) =>
   slug
     .split(" ")
@@ -431,6 +437,7 @@ export default function OpeningPage() {
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [draggedSquare, setDraggedSquare] = useState<Square | null>(null);
   const [dragOverSquare, setDragOverSquare] = useState<Square | null>(null);
+  const [queuedPremoves, setQueuedPremoves] = useState<QueuedPremove[]>([]);
   const [lastMove, setLastMove] = useState<SerializableMove | null>(null);
   const [rightClickHighlights, setRightClickHighlights] = useState<Set<Square>>(new Set());
   const [rightClickArrows, setRightClickArrows] = useState<{ start: Square; end: Square }[]>([]);
@@ -591,6 +598,7 @@ export default function OpeningPage() {
     setSelectedSquare(null);
     setDraggedSquare(null);
     setDragOverSquare(null);
+    setQueuedPremoves([]);
     setLastMove(null);
     setRightClickHighlights(new Set());
     setRightClickArrows([]);
@@ -629,6 +637,7 @@ export default function OpeningPage() {
     setSelectedSquare(null);
     setDraggedSquare(null);
     setDragOverSquare(null);
+    setQueuedPremoves([]);
     setLastMove(null);
     setRightClickHighlights(new Set());
     setRightClickArrows([]);
@@ -872,8 +881,12 @@ export default function OpeningPage() {
 
   const game = new Chess(fen);
   const isUserTurnInTrainer = game.turn() === TRAINER_USER_COLOR;
+  const canUsePremoves = learnPreferences.premoveEnabled && currentMoveIndex === history.length - 1 && !game.isGameOver();
+  const isPremoveTurn = canUsePremoves && !isUserTurnInTrainer;
   const legalTargets = selectedSquare
-    ? expectedTrainerLegalMove
+    ? isPremoveTurn
+      ? []
+      : expectedTrainerLegalMove
       ? selectedSquare === expectedTrainerLegalMove.from
         ? [expectedTrainerLegalMove.to]
         : []
@@ -897,25 +910,51 @@ export default function OpeningPage() {
     stockfishVariant,
   );
   const { status: torchStatus, loading: torchLoading } = useTorchStatus();
+  const clearQueuedPremoves = useCallback(() => {
+    setQueuedPremoves([]);
+  }, []);
+  const validateQueuedLearnPremoves = useCallback((moves: QueuedPremove[]) => {
+    const preview = new Chess(fen);
+    let sanIndex = playedSanMoves.length;
 
-  useEffect(() => {
-    if (!expectedTrainerLegalMove || isUserTurnInTrainer) {
-      autoMoveTriggerKeyRef.current = "";
-      return;
+    for (const queuedMove of moves) {
+      while (preview.turn() !== TRAINER_USER_COLOR) {
+        const expectedAutoSan = activeLineSan[sanIndex] ?? null;
+        if (!expectedAutoSan) {
+          return false;
+        }
+
+        const autoMove = preview
+          .moves({ verbose: true })
+          .find((candidate) => normalizeSan(candidate.san) === normalizeSan(expectedAutoSan));
+
+        if (!autoMove) {
+          return false;
+        }
+
+        preview.move({ from: autoMove.from, to: autoMove.to, promotion: autoMove.promotion });
+        sanIndex += 1;
+      }
+
+      const legalMove = preview
+        .moves({ verbose: true })
+        .find((candidate) => candidate.from === queuedMove.from && candidate.to === queuedMove.to);
+
+      if (!legalMove) {
+        return false;
+      }
+
+      const expectedUserSan = activeLineSan[sanIndex] ?? null;
+      if (expectedUserSan && normalizeSan(legalMove.san) !== normalizeSan(expectedUserSan)) {
+        return false;
+      }
+
+      preview.move({ from: legalMove.from, to: legalMove.to, promotion: legalMove.promotion });
+      sanIndex += 1;
     }
 
-    const triggerKey = `${fen}|${expectedTrainerLegalMove.from}${expectedTrainerLegalMove.to}`;
-    if (autoMoveTriggerKeyRef.current === triggerKey) {
-      return;
-    }
-
-    autoMoveTriggerKeyRef.current = triggerKey;
-    const timer = window.setTimeout(() => {
-      commitMove(expectedTrainerLegalMove.from, expectedTrainerLegalMove.to);
-    }, 350);
-
-    return () => window.clearTimeout(timer);
-  }, [expectedTrainerLegalMove, isUserTurnInTrainer, fen]);
+    return true;
+  }, [activeLineSan, fen, playedSanMoves.length]);
 
   useEffect(() => {
     const loaded = loadClientPreferences();
@@ -924,6 +963,12 @@ export default function OpeningPage() {
     setIsBoardFlipped(loaded.learn.boardOrientation === "black");
     setVariationSortMode(loaded.learn.openingVariationSortMode);
   }, []);
+
+  useEffect(() => {
+    if (!learnPreferences.premoveEnabled && queuedPremoves.length > 0) {
+      setQueuedPremoves([]);
+    }
+  }, [learnPreferences.premoveEnabled, queuedPremoves.length]);
 
   const setVariationSortModePreference = useCallback((mode: VariationSortMode) => {
     setVariationSortMode(mode);
@@ -1030,6 +1075,7 @@ export default function OpeningPage() {
     setSelectedSquare(null);
     setDraggedSquare(null);
     setDragOverSquare(null);
+    setQueuedPremoves([]);
     setLastMove(null);
     setSelectedLineId(openingData?.mainLine.id ?? null);
     setTrainerHint(mainLineSan[0] ? `Required move: ${mainLineSan[0]}` : null);
@@ -1057,6 +1103,7 @@ export default function OpeningPage() {
     setSelectedSquare(null);
     setDraggedSquare(null);
     setDragOverSquare(null);
+    setQueuedPremoves([]);
     setLastMove(null);
     setRightClickHighlights(new Set());
     setRightClickArrows([]);
@@ -1249,12 +1296,115 @@ export default function OpeningPage() {
     }
   };
 
+  const queuePremove = useCallback((from: Square, to: Square) => {
+    const piece = game.get(from);
+    if (!piece || piece.color !== TRAINER_USER_COLOR || from === to) {
+      playSound("illegal");
+      setSelectedSquare(null);
+      return false;
+    }
+
+    let accepted = false;
+    setQueuedPremoves((previous) => {
+      const nextEntry: QueuedPremove = { from, to };
+      const nextQueue = learnPreferences.premoveMode === "multiple" ? [...previous, nextEntry] : [nextEntry];
+      accepted = validateQueuedLearnPremoves(nextQueue);
+      return accepted ? nextQueue : previous;
+    });
+
+    if (!accepted) {
+      setTrainerHint("Queued premove does not match the trainer line.");
+      playSound("illegal");
+      setSelectedSquare(null);
+      setDraggedSquare(null);
+      setDragOverSquare(null);
+      return false;
+    }
+
+    setSelectedSquare(null);
+    setDraggedSquare(null);
+    setDragOverSquare(null);
+    setTrainerHint("Premove queued.");
+    playSound("move-self");
+    return true;
+  }, [game, learnPreferences.premoveMode, playSound, validateQueuedLearnPremoves]);
+
+  useEffect(() => {
+    if (!expectedTrainerLegalMove || isUserTurnInTrainer) {
+      autoMoveTriggerKeyRef.current = "";
+      return;
+    }
+
+    const triggerKey = `${fen}|${expectedTrainerLegalMove.from}${expectedTrainerLegalMove.to}`;
+    if (autoMoveTriggerKeyRef.current === triggerKey) {
+      return;
+    }
+
+    autoMoveTriggerKeyRef.current = triggerKey;
+    const timer = window.setTimeout(() => {
+      commitMove(expectedTrainerLegalMove.from, expectedTrainerLegalMove.to);
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [commitMove, expectedTrainerLegalMove, fen, isUserTurnInTrainer]);
+
+  useEffect(() => {
+    if (!canUsePremoves || !isUserTurnInTrainer || queuedPremoves.length === 0) {
+      return;
+    }
+
+    const nextPremove = queuedPremoves[0];
+    const legalMove = game
+      .moves({ verbose: true })
+      .find((candidate) => candidate.from === nextPremove.from && candidate.to === nextPremove.to);
+
+    if (!legalMove) {
+      clearQueuedPremoves();
+      setTrainerHint("Queued premove is no longer legal.");
+      playSound("illegal");
+      return;
+    }
+
+    const didMove = commitMove(nextPremove.from, nextPremove.to);
+    if (!didMove) {
+      clearQueuedPremoves();
+      return;
+    }
+
+    setQueuedPremoves((previous) => previous.slice(1));
+  }, [canUsePremoves, clearQueuedPremoves, commitMove, game, isUserTurnInTrainer, playSound, queuedPremoves]);
+
   const handleSquareClick = (square: Square) => {
     if (learnPreferences.moveMethod === "drag") {
       return;
     }
 
-    if (expectedTrainerLegalMove && !isUserTurnInTrainer) {
+    if (isPremoveTurn) {
+      const clickedPiece = game.get(square);
+
+      if (selectedSquare === square) {
+        setSelectedSquare(null);
+        return;
+      }
+
+      if (selectedSquare) {
+        queuePremove(selectedSquare, square);
+        return;
+      }
+
+      if (clickedPiece?.color === TRAINER_USER_COLOR) {
+        setSelectedSquare(square);
+        return;
+      }
+
+      if (queuedPremoves.length > 0) {
+        clearQueuedPremoves();
+        setTrainerHint("Premoves cleared.");
+        playSound("move-self");
+      } else {
+        playSound("illegal");
+      }
+      setSelectedSquare(null);
       return;
     }
 
@@ -1346,17 +1496,18 @@ export default function OpeningPage() {
     }
     const draggedPiece = game.get(square);
 
-    if (!draggedPiece || draggedPiece.color !== game.turn()) {
+    const expectedColor = isPremoveTurn ? TRAINER_USER_COLOR : game.turn();
+    if (!draggedPiece || draggedPiece.color !== expectedColor) {
       event.preventDefault();
       return;
     }
 
-    if (expectedTrainerLegalMove && !isUserTurnInTrainer) {
+    if (expectedTrainerLegalMove && !isUserTurnInTrainer && !isPremoveTurn) {
       event.preventDefault();
       return;
     }
 
-    if (expectedTrainerLegalMove && square !== expectedTrainerLegalMove.from) {
+    if (expectedTrainerLegalMove && !isPremoveTurn && square !== expectedTrainerLegalMove.from) {
       event.preventDefault();
       setTrainerHint(`Required move: ${expectedTrainerLegalMove.san}`);
       playSound("illegal");
@@ -1380,6 +1531,11 @@ export default function OpeningPage() {
     event.preventDefault();
 
     if (!draggedSquare) {
+      return;
+    }
+
+    if (isPremoveTurn) {
+      queuePremove(draggedSquare, square);
       return;
     }
 
@@ -2239,6 +2395,21 @@ export default function OpeningPage() {
                             <input type="checkbox" checked={learnPreferences.moveConfirmation} onChange={(event) => updateLearnPreferences({ moveConfirmation: event.target.checked })} />
                           </div>
                           <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
+                            <span>Enable premove</span>
+                            <input type="checkbox" checked={learnPreferences.premoveEnabled} onChange={(event) => updateLearnPreferences({ premoveEnabled: event.target.checked })} />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Premove Mode</label>
+                            <select
+                              value={learnPreferences.premoveMode}
+                              onChange={(event) => updateLearnPreferences({ premoveMode: event.target.value as typeof learnPreferences.premoveMode })}
+                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                            >
+                              <option value="single">Single premove</option>
+                              <option value="multiple">Multiple premoves</option>
+                            </select>
+                          </div>
+                          <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
                             <span>Auto queen</span>
                             <input type="checkbox" checked={learnPreferences.autoQueen} onChange={(event) => updateLearnPreferences({ autoQueen: event.target.checked })} />
                           </div>
@@ -2399,6 +2570,10 @@ export default function OpeningPage() {
                       lastMove?.from === square || lastMove?.to === square;
                     const isDraggedSquare = draggedSquare === square;
                     const isKingInCheck = game.isCheck() && squarePiece?.type === 'k' && squarePiece?.color === game.turn();
+                    const queuedPremoveFromIndex = queuedPremoves.findIndex((move) => move.from === square);
+                    const queuedPremoveToIndex = queuedPremoves.findIndex((move) => move.to === square);
+                    const isQueuedPremoveFrom = queuedPremoveFromIndex >= 0;
+                    const isQueuedPremoveTo = queuedPremoveToIndex >= 0;
 
                     return (
                       <div
@@ -2428,6 +2603,12 @@ export default function OpeningPage() {
                         )}
                         {isLastMoveSquare && (
                           <div className="absolute inset-[4%] rounded-[4px] bg-amber-300/20" />
+                        )}
+                        {isQueuedPremoveFrom && (
+                          <div className="absolute inset-[8%] rounded-[4px] border-[3px] border-sky-300/90 bg-sky-400/12 z-[6]" />
+                        )}
+                        {isQueuedPremoveTo && (
+                          <div className="absolute inset-[14%] rounded-full border-[4px] border-sky-200/90 bg-sky-400/18 z-[6]" />
                         )}
 
                         {isKingInCheck && (
@@ -2461,13 +2642,22 @@ export default function OpeningPage() {
                         )}
 
                         <div
-                          draggable={Boolean(learnPreferences.moveMethod !== "click" && squarePiece && squarePiece.color === game.turn())}
+                          draggable={Boolean(
+                            learnPreferences.moveMethod !== "click" &&
+                            squarePiece &&
+                            squarePiece.color === (isPremoveTurn ? TRAINER_USER_COLOR : game.turn()),
+                          )}
                           onDragStart={(event) => handleDragStart(event, square)}
                           onDragEnd={() => setDraggedSquare(null)}
                           className={`relative z-10 h-full w-full p-[2.75%] ${isDraggedSquare ? "opacity-30" : "opacity-100"}`}
                         >
                           {getPieceIcon(piece, pieceTheme)}
                         </div>
+                        {isQueuedPremoveFrom && learnPreferences.premoveMode === "multiple" && (
+                          <span className="absolute right-1 top-1 z-[7] flex h-5 w-5 items-center justify-center rounded-full bg-sky-300 text-[11px] font-black text-slate-900 shadow-md">
+                            {queuedPremoveFromIndex + 1}
+                          </span>
+                        )}
                       </div>
                     );
                   })

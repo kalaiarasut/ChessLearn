@@ -1,5 +1,6 @@
 export type MoveMethod = "drag" | "click" | "both";
 export type BoardOrientation = "auto" | "white" | "black";
+export type PremoveMode = "single" | "multiple";
 export type LearnSortMode = "recommended" | "recent" | "mastery" | "new" | "white" | "black" | "popularity";
 export type OpeningVariationSortMode = "popularity" | "progress";
 
@@ -20,6 +21,8 @@ export type LearnOpeningProgress = {
 export type LearnClientPreferences = {
   autoQueen: boolean;
   moveConfirmation: boolean;
+  premoveEnabled: boolean;
+  premoveMode: PremoveMode;
   showLegalMoves: boolean;
   moveMethod: MoveMethod;
   boardOrientation: BoardOrientation;
@@ -34,6 +37,8 @@ export type LearnClientPreferences = {
 export type BotClientPreferences = {
   autoQueen: boolean;
   moveConfirmation: boolean;
+  premoveEnabled: boolean;
+  premoveMode: PremoveMode;
   showLegalMoves: boolean;
   moveMethod: MoveMethod;
   boardOrientation: BoardOrientation;
@@ -82,6 +87,8 @@ export const DEFAULT_CLIENT_PREFERENCES: ClientPreferences = {
   learn: {
     autoQueen: false,
     moveConfirmation: false,
+    premoveEnabled: true,
+    premoveMode: "single",
     showLegalMoves: true,
     moveMethod: "both",
     boardOrientation: "auto",
@@ -95,6 +102,8 @@ export const DEFAULT_CLIENT_PREFERENCES: ClientPreferences = {
   bot: {
     autoQueen: false,
     moveConfirmation: false,
+    premoveEnabled: true,
+    premoveMode: "single",
     showLegalMoves: true,
     moveMethod: "both",
     boardOrientation: "auto",
@@ -157,6 +166,8 @@ export function loadClientPreferences(): ClientPreferences {
         ...DEFAULT_CLIENT_PREFERENCES.learn,
         autoQueen: legacy.autoQueen === true,
         moveConfirmation: legacy.moveConfirmation === true,
+        premoveEnabled: legacy.premoveEnabled !== false,
+        premoveMode: toPremoveMode(legacy.premoveMode),
         showLegalMoves: legacy.showLegalMoves !== false,
         moveMethod: toMoveMethod(legacy.moveMethod),
         boardOrientation: toBoardOrientation(legacy.boardOrientation),
@@ -171,6 +182,8 @@ export function loadClientPreferences(): ClientPreferences {
         ...DEFAULT_CLIENT_PREFERENCES.bot,
         autoQueen: legacy.autoQueen === true,
         moveConfirmation: legacy.moveConfirmation === true,
+        premoveEnabled: legacy.premoveEnabled !== false,
+        premoveMode: toPremoveMode(legacy.premoveMode),
         showLegalMoves: legacy.showLegalMoves !== false,
         moveMethod: toMoveMethod(legacy.moveMethod),
         boardOrientation: toBoardOrientation(legacy.boardOrientation),
@@ -262,6 +275,13 @@ function toMoveMethod(value: unknown): MoveMethod {
   return DEFAULT_CLIENT_PREFERENCES.learn.moveMethod;
 }
 
+function toPremoveMode(value: unknown): PremoveMode {
+  if (value === "single" || value === "multiple") {
+    return value;
+  }
+  return DEFAULT_CLIENT_PREFERENCES.learn.premoveMode;
+}
+
 function toBoardOrientation(value: unknown): BoardOrientation {
   if (value === "auto" || value === "white" || value === "black") {
     return value;
@@ -316,21 +336,36 @@ function normalizePuzzlePreferences(value: Partial<PuzzleClientPreferences> | un
   let ratingHistory: { date: string; rating: number }[] = [];
   if (Array.isArray(value.ratingHistory)) {
     ratingHistory = value.ratingHistory.filter((entry): entry is { date: string; rating: number } => {
-      return typeof entry === "object" && entry !== null && typeof (entry as any).date === "string" && typeof (entry as any).rating === "number";
+      if (!entry || typeof entry !== "object") {
+        return false;
+      }
+
+      const parsed = entry as { date?: unknown; rating?: unknown };
+      return typeof parsed.date === "string" && typeof parsed.rating === "number";
     });
   }
 
   let recentActivity: PuzzleActivityEntry[] = [];
   if (Array.isArray(value.recentActivity)) {
     recentActivity = value.recentActivity.filter((entry): entry is PuzzleActivityEntry => {
+      if (!entry || typeof entry !== "object") {
+        return false;
+      }
+
+      const parsed = entry as {
+        puzzleId?: unknown;
+        theme?: unknown;
+        rating?: unknown;
+        solved?: unknown;
+        timestamp?: unknown;
+      };
+
       return (
-        typeof entry === "object" &&
-        entry !== null &&
-        typeof (entry as any).puzzleId === "string" &&
-        typeof (entry as any).theme === "string" &&
-        typeof (entry as any).rating === "number" &&
-        typeof (entry as any).solved === "boolean" &&
-        typeof (entry as any).timestamp === "string"
+        typeof parsed.puzzleId === "string" &&
+        typeof parsed.theme === "string" &&
+        typeof parsed.rating === "number" &&
+        typeof parsed.solved === "boolean" &&
+        typeof parsed.timestamp === "string"
       );
     });
   }

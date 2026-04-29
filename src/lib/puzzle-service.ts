@@ -25,6 +25,7 @@ type PuzzleQueryOptions = {
   random?: boolean;
   id?: string | null;
   excludeId?: string | null;
+  excludeIds?: string[];
 };
 
 const DB_ID_FALLBACK = "e6b0defb-7070-4138-9448-a2e82ee477a5";
@@ -118,6 +119,12 @@ async function buildFilter(options: PuzzleQueryOptions) {
   if (options.excludeId) {
     clauses.push("puzzles.id != ?");
     params.push(options.excludeId);
+  }
+
+  const excludeIds = Array.from(new Set(options.excludeIds ?? [])).filter(Boolean);
+  if (excludeIds.length > 0) {
+    clauses.push(`puzzles.id NOT IN (${excludeIds.map(() => "?").join(", ")})`);
+    params.push(...excludeIds);
   }
 
   const theme = options.theme;

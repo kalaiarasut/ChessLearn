@@ -327,6 +327,16 @@ export default function SettingsPage() {
                 />
                 <Toggle checked={learnPrefs.showLegalMoves} onChange={(value) => setLearnPrefs((prev) => ({ ...prev, showLegalMoves: value }))} label="Show Legal Moves" />
                 <Toggle checked={learnPrefs.moveConfirmation} onChange={(value) => setLearnPrefs((prev) => ({ ...prev, moveConfirmation: value }))} label="Move Confirmation" />
+                <Toggle checked={learnPrefs.premoveEnabled} onChange={(value) => setLearnPrefs((prev) => ({ ...prev, premoveEnabled: value }))} label="Enable Premove" />
+                <Select
+                  label="Premove Mode"
+                  value={learnPrefs.premoveMode}
+                  onChange={(value) => setLearnPrefs((prev) => ({ ...prev, premoveMode: value as LearnClientPreferences["premoveMode"] }))}
+                  options={[
+                    { value: "single", label: "Single premove" },
+                    { value: "multiple", label: "Multiple premoves" },
+                  ]}
+                />
                 <Toggle checked={learnPrefs.autoQueen} onChange={(value) => setLearnPrefs((prev) => ({ ...prev, autoQueen: value }))} label="Auto Queen" />
                 <Toggle checked={learnPrefs.showOpeningNames} onChange={(value) => setLearnPrefs((prev) => ({ ...prev, showOpeningNames: value }))} label="Show Opening Name" />
                 <Slider value={learnPrefs.engineDepth} onChange={(value) => setLearnPrefs((prev) => ({ ...prev, engineDepth: value }))} min={10} max={24} label="Engine Depth" />
@@ -359,6 +369,16 @@ export default function SettingsPage() {
                 />
                 <Toggle checked={botPrefs.showLegalMoves} onChange={(value) => setBotPrefs((prev) => ({ ...prev, showLegalMoves: value }))} label="Show Legal Moves" />
                 <Toggle checked={botPrefs.moveConfirmation} onChange={(value) => setBotPrefs((prev) => ({ ...prev, moveConfirmation: value }))} label="Move Confirmation" />
+                <Toggle checked={botPrefs.premoveEnabled} onChange={(value) => setBotPrefs((prev) => ({ ...prev, premoveEnabled: value }))} label="Enable Premove" />
+                <Select
+                  label="Premove Mode"
+                  value={botPrefs.premoveMode}
+                  onChange={(value) => setBotPrefs((prev) => ({ ...prev, premoveMode: value as BotClientPreferences["premoveMode"] }))}
+                  options={[
+                    { value: "single", label: "Single premove" },
+                    { value: "multiple", label: "Multiple premoves" },
+                  ]}
+                />
                 <Toggle checked={botPrefs.autoQueen} onChange={(value) => setBotPrefs((prev) => ({ ...prev, autoQueen: value }))} label="Auto Queen" />
                 <Toggle checked={botPrefs.boardLock} onChange={(value) => setBotPrefs((prev) => ({ ...prev, boardLock: value }))} label="Lock Board On Bot Turn" />
                 <Toggle checked={botPrefs.lowTimeWarning} onChange={(value) => setBotPrefs((prev) => ({ ...prev, lowTimeWarning: value }))} label="Low Time Warning" />

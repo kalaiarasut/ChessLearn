@@ -12,6 +12,7 @@ type ThemeStatRowProps = {
   performance: number | string;
   solvedPercent: number;
   toReplay: number;
+  onReplayClick?: (themeId: string) => void;
 };
 
 export function ThemeStatRow({
@@ -22,6 +23,7 @@ export function ThemeStatRow({
   performance,
   solvedPercent,
   toReplay,
+  onReplayClick,
 }: ThemeStatRowProps) {
   const router = useRouter();
 
@@ -47,7 +49,13 @@ export function ThemeStatRow({
           value={toReplay}
           icon={Play}
           colorType="replay"
-          onClick={() => router.push(`/puzzles/solve?mode=standard&theme=${themeId}`)}
+          onClick={() => {
+            if (onReplayClick) {
+              onReplayClick(themeId);
+              return;
+            }
+            router.push(`/puzzles/solve?mode=review&theme=${themeId}`);
+          }}
         />
       </div>
     </div>
