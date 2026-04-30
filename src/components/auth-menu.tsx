@@ -89,7 +89,7 @@ export function AuthMenu() {
       <>
         <Link
           href="/settings"
-          className="p-2.5 rounded-full bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all duration-300 shadow-sm flex items-center justify-center"
+          className="p-2.5 rounded-full bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all duration-300 shadow-sm inline-flex items-center justify-center"
           title="Settings"
         >
           <Settings className="w-[18px] h-[18px]" />
@@ -121,12 +121,12 @@ export function AuthMenu() {
     <>
       <Link
         href="/settings"
-        className="p-2.5 rounded-full bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all duration-300 shadow-sm flex items-center justify-center"
+        className="p-2.5 rounded-full bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all duration-300 shadow-sm inline-flex items-center justify-center"
         title="Settings"
       >
         <Settings className="w-[18px] h-[18px]" />
       </Link>
-      <Link href="/login" className="relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all duration-300 hidden sm:block after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[1px] after:bg-[var(--text-primary)] hover:after:w-full after:transition-all after:duration-300">
+      <Link href="/login" className="relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[1px] after:bg-[var(--text-primary)] hover:after:w-full after:transition-all after:duration-300">
         Login
       </Link>
       <Link href="/signup" className="px-6 py-[8px] border border-transparent bg-[var(--cta-bg)] text-[var(--cta-text)] font-bold rounded-full hover:bg-[var(--cta-hover)] hover:scale-105 transition-all duration-300 relative overflow-hidden group">
