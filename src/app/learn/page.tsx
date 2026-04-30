@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ArrowLeft, Sun, Moon, Search } from "lucide-react";
+import { ChevronDown, ArrowLeft, Sun, Moon, Search, Menu, X } from "lucide-react";
 import { useTheme } from "@/lib/theme-context";
 import { AuthMenu } from "@/components/auth-menu";
 import { loadClientPreferences, saveClientPreferences, type LearnOpeningProgress, type LearnSortMode } from "@/lib/client-preferences";
@@ -382,6 +382,7 @@ export default function LearnPage() {
   const [openingProgressBySlug, setOpeningProgressBySlug] = useState<Record<string, LearnOpeningProgress>>({});
   const [sortMode, setSortMode] = useState<LearnSortMode>("recommended");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const loaded = loadClientPreferences();
@@ -544,9 +545,8 @@ export default function LearnPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center overflow-x-hidden bg-[var(--bg)]">
-      {/* Navbar (matching home) */}
-      <header className="w-full max-w-[1400px] px-6 py-8 flex items-center justify-between">
-        <Link href="/" className="text-[26px] font-serif tracking-normal font-[800] text-[var(--text-primary)] cursor-pointer select-none">
+      <header className="w-full max-w-[1400px] px-6 py-8 max-[1024px]:py-5 max-[480px]:px-4 flex items-center justify-between z-50 relative">
+        <Link href="/" className="text-[26px] max-[480px]:text-[22px] font-serif tracking-normal font-[800] text-[var(--text-primary)] cursor-pointer select-none">
           CHESS
         </Link>
 
@@ -573,9 +573,33 @@ export default function LearnPage() {
           >
             {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
           </button>
-          <AuthMenu />
+          <div className="flex items-center space-x-5 max-[1024px]:hidden">
+            <AuthMenu />
+          </div>
+          <button
+            className="hidden max-[1024px]:flex p-2.5 rounded-full bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all duration-300"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
       </header>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-40 bg-[var(--bg)] pt-24 px-6 flex flex-col hidden max-[1024px]:flex overflow-y-auto">
+          <nav className="flex flex-col space-y-6 text-xl font-medium text-[var(--text-primary)]">
+            <Link href="/puzzles" onClick={() => setIsMobileMenuOpen(false)}>Puzzles</Link>
+            <Link href="/learn" onClick={() => setIsMobileMenuOpen(false)}>Learn</Link>
+            <Link href="/play/computer" onClick={() => setIsMobileMenuOpen(false)}>Play Bot</Link>
+            <a href="#" onClick={() => setIsMobileMenuOpen(false)}>News</a>
+            <a href="#" onClick={() => setIsMobileMenuOpen(false)}>Social</a>
+          </nav>
+          <div className="mt-auto pb-10 pt-6 flex items-center space-x-6">
+            <AuthMenu />
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 w-full max-w-[1200px] px-6 py-12 mb-20 md:py-20">

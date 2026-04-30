@@ -1683,16 +1683,17 @@ export default function OpeningPage() {
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-[var(--bg)]">
-      <header className="w-full px-8 py-5 flex items-center justify-between border-b border-[var(--border)]">
-        <Link href="/" className="text-[22px] font-serif font-[800] text-[var(--text-primary)]">
+      <header className="w-full px-4 sm:px-8 py-4 sm:py-5 flex items-center justify-between border-b border-[var(--border)]">
+        <Link href="/" className="text-[20px] sm:text-[22px] font-serif font-[800] text-[var(--text-primary)]">
           CHESS
         </Link>
         <Link
           href="/learn"
-          className="inline-flex items-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-[14px] font-medium group"
+          className="inline-flex items-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-[13px] sm:text-[14px] font-medium group"
         >
-          <ArrowLeft className="w-4 h-4 mr-2 transform group-hover:-translate-x-1 transition-transform" />
-          Back to Learn
+          <ArrowLeft className="w-4 h-4 mr-1.5 sm:mr-2 transform group-hover:-translate-x-1 transition-transform" />
+          <span className="hidden sm:inline">Back to Learn</span>
+          <span className="sm:hidden">Back</span>
         </Link>
       </header>
 
