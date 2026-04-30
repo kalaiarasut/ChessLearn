@@ -15,7 +15,7 @@ export default function LoginPage() {
 
   const nextPath = useMemo(() => {
     const next = searchParams.get("next");
-    return next && next.startsWith("/") ? next : "/learn";
+    return next && next.startsWith("/") ? next : "/";
   }, [searchParams]);
 
   const callbackError = searchParams.get("error");
@@ -68,7 +68,11 @@ export default function LoginPage() {
                   type="email"
                   autoComplete="email"
                   placeholder="grandmaster@chess.com"
-                  className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-primary)] rounded-xl px-12 py-4 focus:outline-none focus:border-[var(--text-primary)] focus:ring-1 focus:ring-[var(--text-primary)] transition-all duration-300 placeholder:text-[var(--text-dimmed)] text-[15px]"
+                  className={`w-full bg-[var(--input-bg)] border text-[var(--text-primary)] rounded-xl px-12 py-4 focus:outline-none focus:ring-1 transition-all duration-300 placeholder:text-[var(--text-dimmed)] text-[15px] ${
+                    state.field === "email"
+                      ? "border-[var(--error-border)] focus:border-[var(--error-text)] focus:ring-[var(--error-text)]"
+                      : "border-[var(--input-border)] focus:border-[var(--text-primary)] focus:ring-[var(--text-primary)]"
+                  }`}
                   required
                 />
               </div>
@@ -93,7 +97,11 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   placeholder="********"
-                  className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--text-primary)] rounded-xl pl-12 pr-12 py-4 focus:outline-none focus:border-[var(--text-primary)] focus:ring-1 focus:ring-[var(--text-primary)] transition-all duration-300 placeholder:text-[var(--text-dimmed)] text-[15px] tracking-widest"
+                  className={`w-full bg-[var(--input-bg)] border text-[var(--text-primary)] rounded-xl pl-12 pr-12 py-4 focus:outline-none focus:ring-1 transition-all duration-300 placeholder:text-[var(--text-dimmed)] text-[15px] tracking-widest ${
+                    state.field === "password"
+                      ? "border-[var(--error-border)] focus:border-[var(--error-text)] focus:ring-[var(--error-text)]"
+                      : "border-[var(--input-border)] focus:border-[var(--text-primary)] focus:ring-[var(--text-primary)]"
+                  }`}
                   required
                 />
                 <button
@@ -113,7 +121,7 @@ export default function LoginPage() {
             )}
 
             {state.success && (
-              <p className="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-2 text-sm text-[var(--success-text)]">{state.success}</p>
+              <p className="rounded-lg border border-[var(--notice-border)] bg-[var(--notice-bg)] px-3 py-2 text-sm text-[var(--notice-text)]">{state.success}</p>
             )}
 
             <button

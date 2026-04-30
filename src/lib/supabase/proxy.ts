@@ -62,7 +62,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && isAuthRoute) {
-    return NextResponse.redirect(new URL("/learn", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return response;

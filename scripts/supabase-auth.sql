@@ -42,6 +42,22 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute procedure public.handle_new_user();
 
+-- Used by signup to show a direct "account already exists" message.
+create or replace function public.auth_email_exists(email_to_check text)
+returns boolean
+language sql
+security definer
+set search_path = auth, public
+as $$
+  select exists (
+    select 1
+    from auth.users
+    where lower(email) = lower(email_to_check)
+  );
+$$;
+
+grant execute on function public.auth_email_exists(text) to anon, authenticated;
+
 -- Preferences table for board/piece/sound settings
 create table if not exists public.user_preferences (
   user_id uuid primary key references auth.users(id) on delete cascade,

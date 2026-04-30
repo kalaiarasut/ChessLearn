@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Square } from "chess.js";
 import {
   ArrowLeft,
@@ -23,10 +23,14 @@ import {
   Clock,
   Heart,
   LogIn,
+  Settings,
+  Play,
+  Pause,
 } from "lucide-react";
 import { useTheme } from "@/lib/theme-context";
 import { AuthMenu } from "@/components/auth-menu";
-import { loadClientPreferences, saveClientPreferences } from "@/lib/client-preferences";
+import { BoardSettingsModal } from "@/components/board-settings-modal";
+import { loadClientPreferences, saveClientPreferences, type MoveMethod } from "@/lib/client-preferences";
 import themeManifest from "@/data/themeManifest.json";
 import { PuzzleSyncBanner } from "../_components/PuzzleSyncBanner";
 import {
@@ -40,6 +44,9 @@ import { usePuzzleProgress } from "@/lib/use-puzzle-progress";
 
 const PIECE_ASSETS = themeManifest.pieceAssets as Record<string, string>;
 const BOARD_ASSETS = themeManifest.boardAssets as Record<string, string>;
+const AVAILABLE_BOARD_THEMES = themeManifest.boardThemes as string[];
+const AVAILABLE_PIECE_THEMES = themeManifest.pieceThemes as string[];
+const PUZZLE_APPEARANCE_STORAGE_KEY = "chessify-puzzle-appearance";
 
 type PuzzleData = {
   id: string;
@@ -54,9 +61,65 @@ type MoveResult = "correct" | "wrong" | null;
 type GamePhase = "playing" | "solved" | "failed" | "storm_over" | "streak_over";
 type PuzzleMode = "standard" | "daily" | "review" | "storm" | "streak";
 type EmptyState = "none" | "review_empty" | "review_auth";
+type SolutionState = "hidden" | "paused" | "playing" | "complete";
+type FreeMoveHistoryEntry = {
+  fen: string;
+  lastMove: { from: string; to: string } | null;
+};
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"];
+
+function PuzzleSolveSkeleton() {
+  return (
+    <>
+      <div className="flex flex-col items-center gap-4">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-5 h-5 rounded-full bg-[var(--skeleton)] animate-pulse" />
+          <div className="h-4 w-36 rounded-full bg-[var(--skeleton)] animate-pulse" />
+          <div className="h-7 w-24 rounded-full bg-[var(--skeleton)] animate-pulse" />
+        </div>
+
+        <div className="relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-alt)]" style={{ width: "min(85vw, 520px)", height: "min(85vw, 520px)" }}>
+          <div className="absolute inset-0 grid grid-cols-8 grid-rows-8">
+            {Array.from({ length: 64 }).map((_, index) => {
+              const row = Math.floor(index / 8);
+              const col = index % 8;
+              return (
+                <div
+                  key={index}
+                  className={`relative ${((row + col) % 2 === 0 ? "bg-[var(--skeleton-soft)]" : "bg-[var(--skeleton)]")} animate-pulse`}
+                >
+                  {col === 0 && <div className="absolute top-[4px] left-[4px] h-2 w-2 rounded bg-[var(--surface)]/50" />}
+                  {row === 7 && <div className="absolute bottom-[4px] right-[4px] h-2 w-2 rounded bg-[var(--surface)]/50" />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="h-4 w-56 rounded-full bg-[var(--skeleton)] animate-pulse" />
+      </div>
+
+      <div className="w-full lg:w-[300px] flex flex-col gap-4">
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-5">
+          <div className="flex flex-wrap gap-2 mb-4">
+            <div className="h-[30px] w-[92px] rounded-full bg-[var(--skeleton)] animate-pulse" />
+            <div className="h-[30px] w-[118px] rounded-full bg-[var(--skeleton)] animate-pulse" />
+            <div className="h-[30px] w-[84px] rounded-full bg-[var(--skeleton)] animate-pulse" />
+          </div>
+          <div className="h-[17px] w-[230px] rounded bg-[var(--skeleton-soft)] animate-pulse" />
+        </div>
+        <div className="h-[46px] rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] animate-pulse" />
+        <div className="grid grid-cols-2 gap-3">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="h-14 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] animate-pulse" />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
 
 function SolverInner() {
   const params = useSearchParams();
@@ -69,9 +132,14 @@ function SolverInner() {
   const requestedPuzzleId = params.get("id");
   const { toggleTheme, isDark } = useTheme();
   const { progress, authenticated, importNotice, syncStatus, dismissImportNotice, dismissSyncError, refresh, setProgress } = usePuzzleProgress();
-
-  const boardTheme = themeManifest.defaultBoardTheme;
-  const pieceTheme = themeManifest.defaultPieceTheme;
+  const [boardTheme, setBoardTheme] = useState(themeManifest.defaultBoardTheme);
+  const [pieceTheme, setPieceTheme] = useState(themeManifest.defaultPieceTheme);
+  const [showLegalMoves, setShowLegalMoves] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [masterVolume, setMasterVolume] = useState(80);
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
+  const [preferencesError, setPreferencesError] = useState<string | null>(null);
   const piecePath = PIECE_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`;
   const boardPath = BOARD_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`;
 
@@ -86,9 +154,21 @@ function SolverInner() {
   const [legalMoves, setLegalMoves] = useState<string[]>([]);
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [preferencesReady, setPreferencesReady] = useState(false);
+  const [visualReady, setVisualReady] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [emptyState, setEmptyState] = useState<EmptyState>("none");
   const [reviewItem, setReviewItem] = useState<PuzzleReviewItem | null>(null);
+  const [moveMethod, setMoveMethod] = useState<MoveMethod>("both");
+  const [solutionState, setSolutionState] = useState<SolutionState>("hidden");
+  const [solutionStepCount, setSolutionStepCount] = useState(0);
+  const [solutionTotalSteps, setSolutionTotalSteps] = useState(0);
+  const [wrongMoveSquare, setWrongMoveSquare] = useState<string | null>(null);
+  const [rightClickHighlights, setRightClickHighlights] = useState<Set<string>>(new Set());
+  const [rightClickArrows, setRightClickArrows] = useState<Array<{ start: string; end: string }>>([]);
+  const [rightClickStartSquare, setRightClickStartSquare] = useState<string | null>(null);
+  const [freeMoveHistory, setFreeMoveHistory] = useState<FreeMoveHistoryEntry[]>([]);
+  const [freeMoveHistoryIndex, setFreeMoveHistoryIndex] = useState(0);
 
   const [stormScore, setStormScore] = useState(0);
   const [stormLives, setStormLives] = useState(3);
@@ -100,6 +180,125 @@ function SolverInner() {
 
   const consumedRequestedIdRef = useRef<string | null>(null);
   const solveStartedAtRef = useRef<number>(Date.now());
+  const draggingFromRef = useRef<string | null>(null);
+  const prefetchedPuzzleRef = useRef<{
+    mode: PuzzleMode;
+    theme: string;
+    requestedPuzzleId: string | null;
+    streakCount: number;
+    sourcePuzzleId: string | null;
+    puzzle: PuzzleData;
+  } | null>(null);
+  const prefetchInFlightRef = useRef(false);
+  const solutionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const solutionGameRef = useRef<Chess | null>(null);
+  const solutionCursorRef = useRef<number | null>(null);
+  const solutionPlayingRef = useRef(false);
+  const solutionAutoReplayRef = useRef(false);
+  const audioPoolRef = useRef<Record<string, HTMLAudioElement[]>>({});
+  const nextAudioIndexRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    const preferences = loadClientPreferences();
+    setMoveMethod(preferences.learn.moveMethod);
+    setShowLegalMoves(preferences.learn.showLegalMoves);
+    setMasterVolume(preferences.learn.masterVolume);
+
+    try {
+      const raw = window.localStorage.getItem(PUZZLE_APPEARANCE_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { boardTheme?: string; pieceTheme?: string; soundEnabled?: boolean };
+        if (typeof parsed.boardTheme === "string") {
+          setBoardTheme(parsed.boardTheme);
+        }
+        if (typeof parsed.pieceTheme === "string") {
+          setPieceTheme(parsed.pieceTheme);
+        }
+        if (typeof parsed.soundEnabled === "boolean") {
+          setSoundEnabled(parsed.soundEnabled);
+        }
+      }
+    } catch {
+    } finally {
+      setPreferencesReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(
+      PUZZLE_APPEARANCE_STORAGE_KEY,
+      JSON.stringify({ boardTheme, pieceTheme, soundEnabled })
+    );
+  }, [boardTheme, pieceTheme, soundEnabled]);
+
+  function persistGameplayPreferences(nextMoveMethod: MoveMethod, nextShowLegalMoves: boolean) {
+    const preferences = loadClientPreferences();
+    preferences.learn.moveMethod = nextMoveMethod;
+    preferences.learn.showLegalMoves = nextShowLegalMoves;
+    preferences.learn.masterVolume = masterVolume;
+    saveClientPreferences(preferences);
+  }
+
+  const playSound = (name: string, force = false) => {
+    if (!force && !soundEnabled) return;
+    if (typeof Audio === "undefined") return;
+
+    if (!audioPoolRef.current[name]) {
+      audioPoolRef.current[name] = Array.from({ length: 3 }, () => {
+        const audio = new Audio(`/sounds/${name}.mp3`);
+        audio.preload = "auto";
+        return audio;
+      });
+      nextAudioIndexRef.current[name] = 0;
+    }
+
+    const pool = audioPoolRef.current[name];
+    const currentIndex = nextAudioIndexRef.current[name] ?? 0;
+    const audio = pool[currentIndex];
+    nextAudioIndexRef.current[name] = (currentIndex + 1) % pool.length;
+    audio.volume = Math.min(1, Math.max(0, masterVolume / 100));
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+  };
+
+  const getMoveSound = (gameAfterMove: Chess, moveResultValue: { captured?: string; flags: string; promotion?: string }) => {
+    if (gameAfterMove.isCheck()) return "move-check";
+    if (moveResultValue.promotion) return "promote";
+    if (moveResultValue.flags.includes("k") || moveResultValue.flags.includes("q")) return "castle";
+    if (moveResultValue.captured) return "capture";
+    return "move-self";
+  };
+
+  const savePuzzleSettings = async () => {
+    setPreferencesError(null);
+    setPreferencesSaving(true);
+
+    try {
+      const preferences = loadClientPreferences();
+      preferences.learn.moveMethod = moveMethod;
+      preferences.learn.showLegalMoves = showLegalMoves;
+      preferences.learn.masterVolume = masterVolume;
+      saveClientPreferences(preferences);
+
+      try {
+        await fetch("/api/preferences", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ boardTheme, pieceTheme, soundEnabled }),
+        });
+      } catch {}
+
+      setIsSettingsOpen(false);
+    } catch (error) {
+      setPreferencesError(error instanceof Error ? error.message : "Failed to save preferences.");
+    } finally {
+      setPreferencesSaving(false);
+    }
+  };
 
   const syncLocalAttempt = (attempt: PuzzleAttemptInput) => {
     const preferences = loadClientPreferences();
@@ -173,6 +372,13 @@ function SolverInner() {
     setGame(nextGame);
     setPuzzle(nextPuzzle);
     setReviewItem(nextReviewItem ?? null);
+    setSolutionState("hidden");
+    setSolutionStepCount(0);
+    setSolutionTotalSteps(0);
+    solutionGameRef.current = null;
+    solutionCursorRef.current = null;
+    solutionPlayingRef.current = false;
+    solutionAutoReplayRef.current = false;
     setMoveIndex(1);
     setPhase("playing");
     setMoveResult(null);
@@ -180,89 +386,182 @@ function SolverInner() {
     setSelectedSq(null);
     setLegalMoves([]);
     setLastMove(firstMove ? { from: firstMove.slice(0, 2), to: firstMove.slice(2, 4) } : null);
+    setFreeMoveHistory([]);
+    setFreeMoveHistoryIndex(0);
     setFetchError(null);
     setEmptyState("none");
     setLoading(false);
+  }
+
+  function clearSolutionTimer() {
+    if (solutionTimerRef.current) {
+      clearTimeout(solutionTimerRef.current);
+      solutionTimerRef.current = null;
+    }
+    solutionPlayingRef.current = false;
+    solutionAutoReplayRef.current = false;
+  }
+
+  async function requestPuzzleData(args: {
+    initialLoad?: boolean;
+    currentPuzzleId?: string | null;
+    currentRecentIds?: string[];
+  }) {
+    if (mode === "review") {
+      const reviewResponse = await fetch(
+        `/api/puzzle-progress/review${themeFilter ? `?theme=${encodeURIComponent(themeFilter)}` : ""}`,
+        { cache: "no-store" },
+      );
+
+      if (reviewResponse.status === 401) {
+        return { kind: "review_auth" as const };
+      }
+
+      const reviewData = await reviewResponse.json();
+      if (!reviewResponse.ok || !reviewData.puzzle) {
+        return { kind: "review_empty" as const };
+      }
+
+      return {
+        kind: "ok" as const,
+        puzzle: reviewData.puzzle as PuzzleData,
+        reviewItem: (reviewData.item as PuzzleReviewItem | null) ?? null,
+      };
+    }
+
+    const search = new URLSearchParams();
+    search.set("count", "1");
+    search.set("mode", mode);
+    if (themeFilter) {
+      search.set("theme", themeFilter);
+    }
+
+    if (mode === "storm") {
+      search.set("minRating", "600");
+      search.set("maxRating", "1400");
+    } else if (mode === "streak") {
+      search.set("minRating", `${600 + streakCount * 50}`);
+      search.set("maxRating", `${900 + streakCount * 50}`);
+    }
+
+    const shouldUseRequestedId =
+      requestedPuzzleId &&
+      (mode === "standard" || mode === "daily") &&
+      (args.initialLoad || consumedRequestedIdRef.current !== requestedPuzzleId);
+
+    if (shouldUseRequestedId) {
+      search.set("puzzleId", requestedPuzzleId);
+    } else if (mode === "daily" && !requestedPuzzleId) {
+      search.set("mode", "daily");
+    } else {
+      search.set("random", "true");
+      if (args.currentPuzzleId) {
+        search.set("excludeId", args.currentPuzzleId);
+      }
+
+      if (progress.dataSource === "server") {
+        search.set("excludeRecent", "true");
+      } else if ((args.currentRecentIds ?? []).length > 0) {
+        search.set("excludeIds", args.currentRecentIds!.join(","));
+      }
+    }
+
+    const response = await fetch(`/api/puzzles?${search.toString()}`, { cache: "no-store" });
+    const data = await response.json();
+
+    if (!response.ok || !data.puzzles?.[0]) {
+      throw new Error(data.details ?? data.error ?? "No puzzle found.");
+    }
+
+    return {
+      kind: "ok" as const,
+      puzzle: data.puzzles[0] as PuzzleData,
+      reviewItem: null,
+    };
+  }
+
+  async function prefetchNextPuzzle(currentPuzzleId: string) {
+    if (mode === "review" || requestedPuzzleId || prefetchInFlightRef.current) {
+      return;
+    }
+
+    prefetchInFlightRef.current = true;
+    try {
+      const result = await requestPuzzleData({
+        currentPuzzleId,
+        currentRecentIds:
+          progress.dataSource === "server" ? [] : [...progress.recentPuzzleIds, currentPuzzleId],
+      });
+
+      if (result.kind === "ok" && result.puzzle.id !== currentPuzzleId) {
+        prefetchedPuzzleRef.current = {
+          mode,
+          theme: themeFilter,
+          requestedPuzzleId,
+          streakCount,
+          sourcePuzzleId: currentPuzzleId,
+          puzzle: result.puzzle,
+        };
+      }
+    } catch {
+      prefetchedPuzzleRef.current = null;
+    } finally {
+      prefetchInFlightRef.current = false;
+    }
   }
 
   async function fetchPuzzle(initialLoad = false) {
     setLoading(true);
     setFetchError(null);
     setEmptyState("none");
+    clearSolutionTimer();
+
+    const currentPuzzleId = puzzle?.id ?? null;
+    const canUsePrefetched =
+      !initialLoad &&
+      prefetchedPuzzleRef.current &&
+      prefetchedPuzzleRef.current.mode === mode &&
+      prefetchedPuzzleRef.current.theme === themeFilter &&
+      prefetchedPuzzleRef.current.requestedPuzzleId === requestedPuzzleId &&
+      prefetchedPuzzleRef.current.streakCount === streakCount &&
+      prefetchedPuzzleRef.current.sourcePuzzleId === currentPuzzleId;
+
+    if (canUsePrefetched) {
+      const prefetched = prefetchedPuzzleRef.current;
+      if (!prefetched) {
+        return;
+      }
+      prefetchedPuzzleRef.current = null;
+      initPuzzle(prefetched.puzzle);
+      void prefetchNextPuzzle(prefetched.puzzle.id);
+      return;
+    }
 
     try {
-      if (mode === "review") {
-        const reviewResponse = await fetch(
-          `/api/puzzle-progress/review${themeFilter ? `?theme=${encodeURIComponent(themeFilter)}` : ""}`,
-          { cache: "no-store" },
-        );
+      const result = await requestPuzzleData({
+        initialLoad,
+        currentPuzzleId,
+        currentRecentIds: progress.recentPuzzleIds,
+      });
 
-        if (reviewResponse.status === 401) {
-          setEmptyState("review_auth");
-          setPuzzle(null);
-          setGame(null);
-          setLoading(false);
-          return;
-        }
-
-        const reviewData = await reviewResponse.json();
-        if (!reviewResponse.ok || !reviewData.puzzle) {
-          setEmptyState("review_empty");
-          setPuzzle(null);
-          setGame(null);
-          setLoading(false);
-          return;
-        }
-
-        initPuzzle(reviewData.puzzle as PuzzleData, reviewData.item as PuzzleReviewItem | null);
+      if (result.kind === "review_auth") {
+        setEmptyState("review_auth");
+        setPuzzle(null);
+        setGame(null);
+        setLoading(false);
         return;
       }
 
-      const search = new URLSearchParams();
-      search.set("count", "1");
-      search.set("mode", mode);
-      if (themeFilter) {
-        search.set("theme", themeFilter);
+      if (result.kind === "review_empty") {
+        setEmptyState("review_empty");
+        setPuzzle(null);
+        setGame(null);
+        setLoading(false);
+        return;
       }
 
-      if (mode === "storm") {
-        search.set("minRating", "600");
-        search.set("maxRating", "1400");
-      } else if (mode === "streak") {
-        search.set("minRating", `${600 + streakCount * 50}`);
-        search.set("maxRating", `${900 + streakCount * 50}`);
-      }
-
-      const shouldUseRequestedId =
-        requestedPuzzleId &&
-        (mode === "standard" || mode === "daily") &&
-        (initialLoad || consumedRequestedIdRef.current !== requestedPuzzleId);
-
-      if (shouldUseRequestedId) {
-        search.set("puzzleId", requestedPuzzleId);
-      } else if (mode === "daily" && !requestedPuzzleId) {
-        search.set("mode", "daily");
-      } else {
-        search.set("random", "true");
-        if (puzzle?.id) {
-          search.set("excludeId", puzzle.id);
-        }
-
-        if (progress.dataSource === "server") {
-          search.set("excludeRecent", "true");
-        } else if (progress.recentPuzzleIds.length > 0) {
-          search.set("excludeIds", progress.recentPuzzleIds.join(","));
-        }
-      }
-
-      const response = await fetch(`/api/puzzles?${search.toString()}`, { cache: "no-store" });
-      const data = await response.json();
-
-      if (!response.ok || !data.puzzles?.[0]) {
-        throw new Error(data.error ?? "No puzzle found.");
-      }
-
-      initPuzzle(data.puzzles[0] as PuzzleData);
+      initPuzzle(result.puzzle, result.reviewItem);
+      void prefetchNextPuzzle(result.puzzle.id);
     } catch (error) {
       setFetchError(error instanceof Error ? error.message : "Failed to load puzzle.");
       setPuzzle(null);
@@ -282,6 +581,20 @@ function SolverInner() {
     setSelectedSq(null);
     setLegalMoves([]);
     setLastMove(null);
+    setSolutionState("hidden");
+    setSolutionStepCount(0);
+    setSolutionTotalSteps(0);
+    solutionGameRef.current = null;
+    solutionCursorRef.current = null;
+    solutionPlayingRef.current = false;
+    solutionAutoReplayRef.current = false;
+    setRightClickHighlights(new Set());
+    setRightClickArrows([]);
+    setRightClickStartSquare(null);
+    setFreeMoveHistory([]);
+    setFreeMoveHistoryIndex(0);
+    prefetchedPuzzleRef.current = null;
+    clearSolutionTimer();
 
     if (mode === "storm") {
       setStormScore(0);
@@ -322,55 +635,216 @@ function SolverInner() {
     }
   }, [mode, loading, phase]);
 
-  const handleSquareClick = (sq: string) => {
-    if (!game || !puzzle || phase !== "playing") {
+  const pushFreeMove = (nextGame: Chess, nextLastMove: { from: string; to: string }) => {
+    const nextEntry = { fen: nextGame.fen(), lastMove: nextLastMove };
+    setFreeMoveHistory((previous) => {
+      const base =
+        previous.length > 0
+          ? previous.slice(0, freeMoveHistoryIndex + 1)
+          : game
+            ? [{ fen: game.fen(), lastMove }]
+            : [];
+      const next = [...base, nextEntry];
+      setFreeMoveHistoryIndex(next.length - 1);
+      return next;
+    });
+  };
+
+  const goToFreeMoveHistory = (direction: -1 | 1) => {
+    if (freeMoveHistory.length === 0) {
       return;
     }
-    if (game.turn() !== playerSide) {
+
+    const nextIndex = freeMoveHistoryIndex + direction;
+    const entry = freeMoveHistory[nextIndex];
+    if (!entry) {
+      return;
+    }
+
+    setFreeMoveHistoryIndex(nextIndex);
+    setGame(new Chess(entry.fen));
+    setLastMove(entry.lastMove);
+    setSelectedSq(null);
+    setLegalMoves([]);
+  };
+
+  const handleSquareClick = (sq: string) => {
+    if (!game || !puzzle || (phase !== "playing" && phase !== "solved" && phase !== "failed")) {
+      return;
+    }
+    if (phase === "playing" && game.turn() !== playerSide) {
+      return;
+    }
+    if (phase === "playing" && solutionState !== "hidden") {
+      return;
+    }
+    if (moveMethod === "drag") {
+      return;
+    }
+
+    const piece = game.get(sq as Square);
+    const activeColor = phase === "playing" ? playerSide : game.turn();
+
+    if (selectedSq === sq) {
+      setSelectedSq(null);
+      setLegalMoves([]);
       return;
     }
 
     if (selectedSq) {
+      if (piece && piece.color === activeColor) {
+        setSelectedSq(sq);
+        const nextMoves = game.moves({ square: sq as Square, verbose: true });
+        setLegalMoves(nextMoves.map((move) => move.to));
+        return;
+      }
+
+      if (!legalMoves.includes(sq)) {
+        handleWrongMove(selectedSq);
+        setSelectedSq(null);
+        setLegalMoves([]);
+        return;
+      }
+
+      if (phase !== "playing") {
+        const sandboxGame = new Chess(game.fen());
+        const moved = sandboxGame.move({ from: selectedSq as Square, to: sq as Square, promotion: "q" });
+        if (moved) {
+          pushFreeMove(sandboxGame, { from: selectedSq, to: sq });
+          setGame(sandboxGame);
+          setLastMove({ from: selectedSq, to: sq });
+          playSound(getMoveSound(sandboxGame, moved));
+        }
+        setSelectedSq(null);
+        setLegalMoves([]);
+        return;
+      }
+
       attemptMove(selectedSq, sq);
       setSelectedSq(null);
       setLegalMoves([]);
       return;
     }
 
-    const piece = game.get(sq as Square);
-    if (piece && piece.color === playerSide) {
+    if (piece && piece.color === activeColor) {
       setSelectedSq(sq);
       const moves = game.moves({ square: sq as Square, verbose: true });
       setLegalMoves(moves.map((move) => move.to));
     }
   };
 
-  const handleWrongMove = () => {
-    setMoveResult("wrong");
+  const handleRightClickDown = (event: MouseEvent, square: string) => {
+    if (event.button === 2) {
+      setRightClickStartSquare(square);
+      return;
+    }
 
-    if (mode === "storm") {
-      const nextLives = stormLives - 1;
-      void submitAttempt("failed", stormScore);
-      setStormLives(nextLives);
-      if (nextLives <= 0) {
-        setPhase("storm_over");
-        return;
+    if (rightClickHighlights.size > 0) {
+      setRightClickHighlights(new Set());
+    }
+    if (rightClickArrows.length > 0) {
+      setRightClickArrows([]);
+    }
+  };
+
+  const handleRightClickUp = (event: MouseEvent, square: string) => {
+    if (event.button !== 2 || !rightClickStartSquare) {
+      return;
+    }
+
+    if (rightClickStartSquare === square) {
+      setRightClickHighlights((previous) => {
+        const next = new Set(previous);
+        if (next.has(square)) {
+          next.delete(square);
+        } else {
+          next.add(square);
+        }
+        return next;
+      });
+    } else {
+      setRightClickArrows((previous) => {
+        const existingIndex = previous.findIndex(
+          (arrow) => arrow.start === rightClickStartSquare && arrow.end === square
+        );
+        if (existingIndex >= 0) {
+          return previous.filter((_, index) => index !== existingIndex);
+        }
+        return [...previous, { start: rightClickStartSquare, end: square }];
+      });
+    }
+
+    setRightClickStartSquare(null);
+  };
+
+  const handleDragStart = (sq: string) => {
+    if (!game || (phase !== "playing" && phase !== "solved" && phase !== "failed")) {
+      return;
+    }
+    if ((phase === "playing" && solutionState !== "hidden") || moveMethod === "click") {
+      return;
+    }
+    if (phase === "playing" && game.turn() !== playerSide) {
+      return;
+    }
+
+    const piece = game.get(sq as Square);
+    const activeColor = phase === "playing" ? playerSide : game.turn();
+    if (!piece || piece.color !== activeColor) {
+      return;
+    }
+
+    draggingFromRef.current = sq;
+    setSelectedSq(sq);
+    const moves = game.moves({ square: sq as Square, verbose: true });
+    setLegalMoves(moves.map((move) => move.to));
+  };
+
+  const handleDragEnd = () => {
+    draggingFromRef.current = null;
+    setSelectedSq(null);
+    setLegalMoves([]);
+  };
+
+  const handleDrop = (sq: string) => {
+    const from = draggingFromRef.current;
+    draggingFromRef.current = null;
+
+    if (!from || !legalMoves.includes(sq)) {
+      if (from) {
+        handleWrongMove(from);
       }
-      setTimeout(() => {
-        setMoveResult(null);
-        void fetchPuzzle();
-      }, 800);
+      setSelectedSq(null);
+      setLegalMoves([]);
       return;
     }
 
-    if (mode === "streak") {
-      void submitAttempt("failed", streakCount);
-      setPhase("streak_over");
+    if (phase !== "playing" && game) {
+      const sandboxGame = new Chess(game.fen());
+      const moved = sandboxGame.move({ from: from as Square, to: sq as Square, promotion: "q" });
+      if (moved) {
+        pushFreeMove(sandboxGame, { from, to: sq });
+        setGame(sandboxGame);
+        setLastMove({ from, to: sq });
+        playSound(getMoveSound(sandboxGame, moved));
+      }
+      setSelectedSq(null);
+      setLegalMoves([]);
       return;
     }
 
-    void submitAttempt("failed");
-    setPhase("failed");
+    attemptMove(from, sq);
+    setSelectedSq(null);
+    setLegalMoves([]);
+  };
+
+  const handleWrongMove = (from: string) => {
+    playSound("illegal");
+    setWrongMoveSquare(from);
+    setMoveResult(null);
+    window.setTimeout(() => {
+      setWrongMoveSquare((current) => (current === from ? null : current));
+    }, 450);
   };
 
   const handlePuzzleSolved = () => {
@@ -402,6 +876,12 @@ function SolverInner() {
     if (!game || !puzzle) {
       return;
     }
+    clearSolutionTimer();
+    setSolutionState("hidden");
+    setSolutionStepCount(0);
+    setSolutionTotalSteps(0);
+    solutionGameRef.current = null;
+    solutionCursorRef.current = null;
 
     const expectedUci = puzzle.moves[moveIndex];
     if (!expectedUci) {
@@ -421,13 +901,14 @@ function SolverInner() {
       });
 
       if (!moveResultValue) {
-        handleWrongMove();
+        handleWrongMove(from);
         return;
       }
 
       setGame(nextGame);
       setLastMove({ from, to });
       setMoveResult("correct");
+      playSound(getMoveSound(nextGame, moveResultValue));
 
       const nextIndex = moveIndex + 1;
       if (nextIndex >= puzzle.moves.length) {
@@ -447,11 +928,12 @@ function SolverInner() {
         setLastMove({ from: replyMove.slice(0, 2), to: replyMove.slice(2, 4) });
         setMoveIndex(nextIndex + 1);
         setMoveResult(null);
+        playSound(replyGame.isCheck() ? "move-check" : "move-opponent");
       }, 500);
       return;
     }
 
-    handleWrongMove();
+    handleWrongMove(from);
   };
 
   const handleHint = () => {
@@ -461,30 +943,129 @@ function SolverInner() {
     setHintSquare(puzzle.moves[moveIndex].slice(0, 2));
   };
 
-  const handleShowSolution = () => {
+  function initializeSolutionReplay() {
     if (!game || !puzzle) {
+      return false;
+    }
+
+    setSolutionStepCount(0);
+    setSolutionTotalSteps(Math.max(0, puzzle.moves.length - moveIndex));
+    solutionGameRef.current = new Chess(game.fen());
+    solutionCursorRef.current = moveIndex;
+    setPhase("playing");
+    return true;
+  }
+
+  function runSolutionStep(autoReplay: boolean) {
+    if (!puzzle || !solutionGameRef.current) {
+      return;
+    }
+    if (autoReplay && !solutionPlayingRef.current) {
       return;
     }
 
-    const solvedGame = new Chess(game.fen());
-    for (let index = moveIndex; index < puzzle.moves.length; index += 1) {
-      const move = puzzle.moves[index];
-      solvedGame.move({
-        from: move.slice(0, 2) as Square,
-        to: move.slice(2, 4) as Square,
-        promotion: (move[4] as "q" | "r" | "b" | "n") || undefined,
-      });
+    const cursor = solutionCursorRef.current;
+    if (cursor === null) {
+      return;
     }
 
-    setGame(solvedGame);
-    setPhase("solved");
+    const nextUci = puzzle.moves[cursor];
+    if (!nextUci) {
+      solutionPlayingRef.current = false;
+      solutionAutoReplayRef.current = false;
+      solutionCursorRef.current = null;
+      setSolutionState("complete");
+      setPhase("solved");
+      return;
+    }
+
+    const replayGame = solutionGameRef.current;
+    const moved = replayGame.move({
+      from: nextUci.slice(0, 2) as Square,
+      to: nextUci.slice(2, 4) as Square,
+      promotion: (nextUci[4] as "q" | "r" | "b" | "n") || undefined,
+    });
+
+    if (!moved) {
+      solutionPlayingRef.current = false;
+      solutionAutoReplayRef.current = false;
+      solutionCursorRef.current = null;
+      setSolutionState("complete");
+      setPhase("solved");
+      return;
+    }
+
+    const nextIndex = cursor + 1;
+    solutionCursorRef.current = nextIndex;
+    setGame(new Chess(replayGame.fen()));
+    setMoveIndex(nextIndex);
+    setLastMove({ from: nextUci.slice(0, 2), to: nextUci.slice(2, 4) });
+    setMoveResult(null);
+    setHintSquare(null);
+    setSelectedSq(null);
+    setLegalMoves([]);
+    setSolutionStepCount((value) => value + 1);
+    playSound(getMoveSound(replayGame, moved));
+
+    if (nextIndex >= puzzle.moves.length) {
+      solutionPlayingRef.current = false;
+      solutionAutoReplayRef.current = false;
+      solutionCursorRef.current = null;
+      setSolutionState("complete");
+      setPhase("solved");
+      return;
+    }
+
+    if (autoReplay) {
+      solutionTimerRef.current = setTimeout(() => runSolutionStep(true), 700);
+    } else {
+      setSolutionState("paused");
+    }
+  }
+
+  const handleShowSolution = () => {
+    if (solutionState === "playing") {
+      clearSolutionTimer();
+      setSolutionState("paused");
+      return;
+    }
+
+    if (solutionState === "hidden") {
+      if (!initializeSolutionReplay()) {
+        return;
+      }
+    }
+
+    clearSolutionTimer();
+    solutionPlayingRef.current = true;
+    solutionAutoReplayRef.current = true;
+    setSolutionState("playing");
+    solutionTimerRef.current = setTimeout(() => runSolutionStep(true), 150);
+  };
+
+  const handleNextSolutionMove = () => {
+    if (solutionState === "complete") {
+      return;
+    }
+
+    clearSolutionTimer();
+    if (solutionState === "hidden" && !initializeSolutionReplay()) {
+      return;
+    }
+
+    solutionPlayingRef.current = false;
+    solutionAutoReplayRef.current = false;
+    runSolutionStep(false);
   };
 
   const handleRetry = () => {
+    clearSolutionTimer();
     if (puzzle) {
       initPuzzle(puzzle, reviewItem);
     }
   };
+
+  useEffect(() => () => clearSolutionTimer(), []);
 
   const board = useMemo(() => {
     if (!game) {
@@ -493,8 +1074,59 @@ function SolverInner() {
     return game.board().map((row) => row.map((piece) => (piece ? `${piece.color}${piece.type}` : null)));
   }, [game]);
 
+  useEffect(() => {
+    if (!game || !puzzle || !preferencesReady) {
+      setVisualReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    setVisualReady(false);
+
+    const pieceCodes = new Set<string>();
+    for (const row of game.board()) {
+      for (const piece of row) {
+        if (piece) {
+          pieceCodes.add(`${piece.color}${piece.type}`);
+        }
+      }
+    }
+
+    const sources = [boardPath, ...Array.from(pieceCodes).map((piece) => `${piecePath}/${piece}.png`)];
+    let remaining = sources.length;
+
+    const markLoaded = () => {
+      remaining -= 1;
+      if (!cancelled && remaining <= 0) {
+        setVisualReady(true);
+      }
+    };
+
+    for (const source of sources) {
+      const image = new window.Image();
+      image.onload = markLoaded;
+      image.onerror = markLoaded;
+      image.src = source;
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [boardPath, game, piecePath, preferencesReady, puzzle]);
+
   const ranks = flipped ? [...RANKS].reverse() : RANKS;
   const files = flipped ? [...FILES].reverse() : FILES;
+  const getBoardArrowCoords = (square: string) => {
+    const col = FILES.indexOf(square[0]);
+    const row = 8 - Number.parseInt(square[1] ?? "1", 10);
+    const visibleCol = flipped ? 7 - col : col;
+    const visibleRow = flipped ? 7 - row : row;
+
+    return {
+      x: (visibleCol + 0.5) * 12.5,
+      y: (visibleRow + 0.5) * 12.5,
+    };
+  };
 
   const modeTitle =
     mode === "storm"
@@ -520,11 +1152,7 @@ function SolverInner() {
 
   const renderEmptyPanel = () => {
     if (loading) {
-      return (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-8 text-center text-[var(--text-muted)] font-medium">
-          Loading puzzle...
-        </div>
-      );
+      return null;
     }
 
     if (emptyState === "review_auth") {
@@ -593,6 +1221,8 @@ function SolverInner() {
     return null;
   };
 
+  const shouldShowSkeleton = loading || !preferencesReady || Boolean(puzzle && game && !visualReady);
+
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)]">
       <header className="w-full max-w-[1400px] mx-auto px-6 py-6 flex items-center justify-between">
@@ -627,7 +1257,9 @@ function SolverInner() {
       )}
 
       <main className="flex-1 flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 px-6 py-8 max-w-[1200px] mx-auto w-full">
-        {!puzzle || !game ? (
+        {shouldShowSkeleton ? (
+          <PuzzleSolveSkeleton />
+        ) : !puzzle || !game ? (
           <div className="w-full max-w-[640px]">{renderEmptyPanel()}</div>
         ) : (
           <>
@@ -695,7 +1327,55 @@ function SolverInner() {
                   />
                 )}
 
-                <div className="absolute inset-0 grid grid-cols-8 grid-rows-8 rounded-xl overflow-hidden">
+                {rightClickArrows.length > 0 && (
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none z-[16]" viewBox="0 0 100 100" preserveAspectRatio="none" opacity="0.85">
+                    <defs>
+                      <marker id="puzzle-right-click-arrow-head" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="3.4" markerHeight="3.4" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="rgb(255, 170, 0)" />
+                      </marker>
+                    </defs>
+                    {rightClickArrows.map((arrow, index) => {
+                      const start = getBoardArrowCoords(arrow.start);
+                      const end = getBoardArrowCoords(arrow.end);
+                      const dx = end.x - start.x;
+                      const dy = end.y - start.y;
+                      const isKnightMove = Math.abs(dx) > 0 && Math.abs(dy) > 0 && Math.abs(dx) !== Math.abs(dy);
+
+                      if (isKnightMove) {
+                        const useXFirst = Math.abs(dx) > Math.abs(dy);
+                        const corner = useXFirst ? { x: end.x, y: start.y } : { x: start.x, y: end.y };
+                        return (
+                          <path
+                            key={`${arrow.start}-${arrow.end}-${index}`}
+                            d={`M ${start.x} ${start.y} L ${corner.x} ${corner.y} L ${end.x} ${end.y}`}
+                            stroke="rgb(255, 170, 0)"
+                            strokeWidth="1.8"
+                            fill="none"
+                            strokeLinecap="butt"
+                            strokeLinejoin="miter"
+                            markerEnd="url(#puzzle-right-click-arrow-head)"
+                          />
+                        );
+                      }
+
+                      return (
+                        <line
+                          key={`${arrow.start}-${arrow.end}-${index}`}
+                          x1={start.x}
+                          y1={start.y}
+                          x2={end.x}
+                          y2={end.y}
+                          stroke="rgb(255, 170, 0)"
+                          strokeWidth="1.8"
+                          strokeLinecap="butt"
+                          markerEnd="url(#puzzle-right-click-arrow-head)"
+                        />
+                      );
+                    })}
+                  </svg>
+                )}
+
+                <div className="absolute inset-0 grid grid-cols-8 grid-rows-8 rounded-xl overflow-hidden" onContextMenu={(event) => event.preventDefault()}>
                   {ranks.map((rank, rankIndex) =>
                     files.map((file, fileIndex) => {
                       const square = `${file}${rank}`;
@@ -706,22 +1386,35 @@ function SolverInner() {
                       const isLegal = legalMoves.includes(square);
                       const isLastMove = lastMove && (lastMove.from === square || lastMove.to === square);
                       const isHint = hintSquare === square;
+                      const isWrongMoveSource = wrongMoveSquare === square;
                       const hasPiece = Boolean(piece);
+                      const activeColor = phase === "playing" ? playerSide : game.turn();
 
                       return (
                         <div
                           key={square}
                           className="relative flex items-center justify-center cursor-pointer"
                           onClick={() => handleSquareClick(square)}
+                          onMouseDown={(event) => handleRightClickDown(event, square)}
+                          onMouseUp={(event) => handleRightClickUp(event, square)}
+                          onContextMenu={(event) => event.preventDefault()}
+                          onDragOver={(event) => {
+                            if (moveMethod !== "click") {
+                              event.preventDefault();
+                            }
+                          }}
+                          onDrop={() => handleDrop(square)}
                         >
                           {isLastMove && <div className="absolute inset-0 bg-amber-400/25 z-10" />}
+                          {rightClickHighlights.has(square) && <div className="absolute inset-0 bg-red-500/50 z-[4]" />}
                           {isSelected && <div className="absolute inset-0 bg-emerald-400/30 z-10" />}
                           {isHint && <div className="absolute inset-0 bg-sky-400/35 z-10 animate-pulse" />}
+                          {isWrongMoveSource && <div className="absolute inset-0 bg-red-500/45 z-20 animate-pulse" />}
 
-                          {isLegal && !hasPiece && (
+                          {showLegalMoves && isLegal && !hasPiece && (
                             <div className="absolute z-20 w-[26%] h-[26%] rounded-full bg-[var(--text-primary)] opacity-20" />
                           )}
-                          {isLegal && hasPiece && (
+                          {showLegalMoves && isLegal && hasPiece && (
                             <div className="absolute z-20 inset-0 border-[3px] border-[var(--text-primary)] opacity-20 rounded-full" />
                           )}
 
@@ -733,16 +1426,19 @@ function SolverInner() {
                               sizes="64px"
                               className="absolute inset-[8%] object-contain z-10 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]"
                               unoptimized
+                              draggable={moveMethod !== "click" && piece[0] === activeColor}
+                              onDragStart={() => handleDragStart(square)}
+                              onDragEnd={handleDragEnd}
                             />
                           )}
 
                           {fileIndex === 0 && (
-                            <span className="absolute top-[2px] left-[4px] text-[9px] font-bold z-20 opacity-50 text-[var(--text-primary)] pointer-events-none select-none">
+                            <span className="absolute top-[2px] left-[4px] text-[11px] font-bold z-20 opacity-60 text-[var(--text-primary)] pointer-events-none select-none">
                               {rank}
                             </span>
                           )}
                           {rankIndex === 7 && (
-                            <span className="absolute bottom-[1px] right-[4px] text-[9px] font-bold z-20 opacity-50 text-[var(--text-primary)] pointer-events-none select-none">
+                            <span className="absolute bottom-[1px] right-[4px] text-[11px] font-bold z-20 opacity-60 text-[var(--text-primary)] pointer-events-none select-none">
                               {file}
                             </span>
                           )}
@@ -769,9 +1465,8 @@ function SolverInner() {
                   </span>
                 )}
                 {phase === "failed" && (
-                  <span className="text-red-400 flex items-center gap-1.5">
-                    <X className="w-4 h-4" />
-                    Incorrect
+                  <span className="text-[var(--text-muted)] flex items-center gap-1.5">
+                    Free play
                   </span>
                 )}
               </div>
@@ -792,15 +1487,20 @@ function SolverInner() {
                 <p className="text-[13px] text-[var(--text-muted)] font-medium">
                   {playerSide === "w" ? "White" : "Black"} to move - find the best continuation.
                 </p>
-                <p className="mt-3 text-[12px] text-[var(--text-dimmed)] font-medium">
-                  Drawn from a live pool of 5,882,680 public-domain puzzles.
-                </p>
                 {mode === "review" && reviewItem && (
                   <p className="mt-3 text-[12px] text-sky-400 font-semibold">
                     Replay item #{reviewItem.id} due {new Date(reviewItem.nextReviewAt).toLocaleString()}.
                   </p>
                 )}
               </div>
+
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all text-[13px] font-semibold"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </button>
 
               {phase === "playing" && (
                 <div className="grid grid-cols-2 gap-3">
@@ -824,8 +1524,16 @@ function SolverInner() {
                         onClick={handleShowSolution}
                         className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all text-[13px] font-semibold"
                       >
-                        <Eye className="w-4 h-4" />
-                        Solution
+                        {solutionState === "playing" ? <Pause className="w-4 h-4" /> : solutionState === "paused" ? <Play className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {solutionState === "playing" ? "Pause" : solutionState === "paused" ? "Auto Replay" : "Auto Replay"}
+                      </button>
+                      <button
+                        onClick={handleNextSolutionMove}
+                        disabled={solutionState === "complete"}
+                        className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all text-[13px] font-semibold disabled:opacity-50"
+                      >
+                        <Play className="w-4 h-4" />
+                        Next Move
                       </button>
                       <button
                         onClick={() => {
@@ -841,24 +1549,34 @@ function SolverInner() {
                 </div>
               )}
 
-              {(phase === "solved" || phase === "failed") && (mode === "standard" || mode === "daily" || mode === "review") && (
+              {phase === "solved" && (mode === "standard" || mode === "daily" || mode === "review") && (
                 <div
-                  className={`rounded-xl border p-5 ${
-                    phase === "solved" ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"
-                  }`}
+                  className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5"
                 >
                   <div className="flex items-center gap-2 mb-3">
-                    {phase === "solved" ? (
-                      <>
-                        <Check className="w-5 h-5 text-emerald-400" />
-                        <span className="text-[16px] font-bold text-emerald-400">Correct!</span>
-                      </>
-                    ) : (
-                      <>
-                        <X className="w-5 h-5 text-red-400" />
-                        <span className="text-[16px] font-bold text-red-400">Incorrect</span>
-                      </>
-                    )}
+                    <Check className="w-5 h-5 text-emerald-400" />
+                    <span className="text-[16px] font-bold text-emerald-400">Correct!</span>
+                  </div>
+                  <div className="mb-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-3">
+                    <p className="mb-2 text-[12px] font-semibold text-[var(--text-muted)]">Free move navigation</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => goToFreeMoveHistory(-1)}
+                        disabled={freeMoveHistoryIndex <= 0}
+                        className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[12px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        Prev Move
+                      </button>
+                      <button
+                        onClick={() => goToFreeMoveHistory(1)}
+                        disabled={freeMoveHistoryIndex >= freeMoveHistory.length - 1}
+                        className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[12px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <SkipForward className="w-4 h-4" />
+                        Next Move
+                      </button>
+                    </div>
                   </div>
                   <div className="flex gap-3">
                     <button
@@ -920,10 +1638,69 @@ function SolverInner() {
                   </div>
                 </div>
               )}
+
+              {solutionState !== "hidden" && puzzle && (
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[13px] font-bold text-[var(--text-primary)]">Solution Replay</p>
+                      <p className="text-[12px] text-[var(--text-dimmed)] font-medium">
+                        Showing the line one move at a time: {solutionStepCount} / {solutionTotalSteps}
+                      </p>
+                    </div>
+                    {solutionState !== "complete" && (
+                      <button
+                        onClick={handleShowSolution}
+                        className="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[12px] font-semibold text-[var(--text-primary)]"
+                      >
+                        {solutionState === "playing" ? "Pause" : "Resume"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
       </main>
+
+      <BoardSettingsModal
+        open={isSettingsOpen}
+        boardTheme={boardTheme}
+        pieceTheme={pieceTheme}
+        boardThemes={AVAILABLE_BOARD_THEMES}
+        pieceThemes={AVAILABLE_PIECE_THEMES}
+        boardAssets={BOARD_ASSETS}
+        pieceAssets={PIECE_ASSETS}
+        moveMethod={moveMethod}
+        showLegalMoves={showLegalMoves}
+        soundEnabled={soundEnabled}
+        masterVolume={masterVolume}
+        saving={preferencesSaving}
+        error={preferencesError}
+        onBoardThemeChange={setBoardTheme}
+        onPieceThemeChange={setPieceTheme}
+        onMoveMethodChange={(next) => {
+          setMoveMethod(next);
+          persistGameplayPreferences(next, showLegalMoves);
+        }}
+        onShowLegalMovesChange={(next) => {
+          setShowLegalMoves(next);
+          persistGameplayPreferences(moveMethod, next);
+        }}
+        onSoundEnabledChange={setSoundEnabled}
+        onMasterVolumeChange={(next) => {
+          setMasterVolume(next);
+          const preferences = loadClientPreferences();
+          preferences.learn.masterVolume = next;
+          saveClientPreferences(preferences);
+        }}
+        onPreviewSound={() => playSound("move-self", true)}
+        onClose={() => setIsSettingsOpen(false)}
+        onSave={() => {
+          void savePuzzleSettings();
+        }}
+      />
     </div>
   );
 }

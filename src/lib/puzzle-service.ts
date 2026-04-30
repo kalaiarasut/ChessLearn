@@ -29,7 +29,10 @@ type PuzzleQueryOptions = {
 };
 
 const DB_ID_FALLBACK = "e6b0defb-7070-4138-9448-a2e82ee477a5";
-const PUZZLE_SELECT = "SELECT puzzles.id, puzzles.fen, puzzles.moves, puzzles.rating, puzzles.themes, puzzles.popularity FROM puzzles";
+const PUZZLE_SELECT =
+  "SELECT puzzles.id, puzzles.fen, puzzles.moves, puzzles.rating, puzzles.themes, puzzles.popularity";
+const D1_FETCH_TIMEOUT_MS = 5_000;
+const D1_RETRY_ATTEMPTS = 1;
 
 let themeFtsAvailablePromise: Promise<boolean> | null = null;
 
@@ -55,28 +58,63 @@ function hashSeed(value: string) {
 
 async function queryD1<T>(sql: string, params: unknown[] = []) {
   const { accountId, dbId, token } = getCredentials();
+  let lastError: Error | null = null;
 
-  const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/query`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ sql, params }),
-      cache: "no-store",
+  for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/query`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ sql, params }),
+          cache: "no-store",
+          signal: AbortSignal.timeout(D1_FETCH_TIMEOUT_MS),
+        }
+      );
+
+      const responseText = await response.text();
+      let data: {
+        success?: boolean;
+        errors?: unknown;
+        result?: Array<{ results?: T[] }>;
+      };
+
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        throw new Error(`D1 query returned a non-JSON response (status ${response.status}).`);
+      }
+
+      if (!data.success || !data.result?.[0]?.results) {
+        const serializedErrors =
+          data.errors && Array.isArray(data.errors) && data.errors.length > 0
+            ? JSON.stringify(data.errors)
+            : responseText;
+
+        console.error("D1 API Error:", serializedErrors);
+        throw new Error(`D1 query failed (status ${response.status}): ${serializedErrors}`);
+      }
+
+      return data.result[0].results as T[];
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error("D1 query failed");
+      const message = lastError.message.toLowerCase();
+      const isTimeout =
+        message.includes("timeout") ||
+        message.includes("fetch failed") ||
+        message.includes("aborted");
+
+      if (!isTimeout || attempt === D1_RETRY_ATTEMPTS) {
+        throw lastError;
+      }
     }
-  );
-
-  const data = await response.json();
-
-  if (!data.success || !data.result?.[0]?.results) {
-    console.error("D1 API Error:", data.errors);
-    throw new Error("D1 query failed");
   }
 
-  return data.result[0].results as T[];
+  throw lastError ?? new Error("D1 query failed");
 }
 
 async function hasThemeFtsIndex() {
@@ -148,7 +186,10 @@ async function buildFilter(options: PuzzleQueryOptions) {
 
 export async function getPuzzles(options: PuzzleQueryOptions = {}) {
   if (options.id) {
-    const results = await queryD1<D1ResponseRow>(`${PUZZLE_SELECT} WHERE puzzles.id = ? LIMIT 1`, [options.id]);
+    const results = await queryD1<D1ResponseRow>(
+      `${PUZZLE_SELECT} FROM puzzles WHERE puzzles.id = ? LIMIT 1`,
+      [options.id]
+    );
     return formatPuzzles(results);
   }
 

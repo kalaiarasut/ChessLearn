@@ -1,0 +1,64 @@
+
+> chessify@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.3 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.1.60.190:3000
+- Environments: .env.local
+✓ Ready in 2.4s
+
+ GET /puzzles/solve?mode=standard 200 in 1882ms (next.js: 382ms, proxy.ts: 603ms, application-code: 897ms)
+○ Compiling /puzzles ...
+ GET /puzzles 200 in 21.8s (next.js: 5.9s, proxy.ts: 4.3s, application-code: 11.6s)
+ GET /api/puzzle-progress 200 in 2.3s (next.js: 534ms, application-code: 1801ms)
+ GET /api/puzzle-progress 200 in 2.9s (next.js: 521ms, application-code: 2.4s)
+ GET /api/puzzle-progress 200 in 5.6s (next.js: 2.1s, application-code: 3.4s)
+ GET /api/puzzle-progress 200 in 8.8s (next.js: 50ms, application-code: 8.7s)
+○ Compiling /puzzles/dashboard ...
+ GET /api/puzzle-progress 200 in 3.6s (next.js: 228ms, application-code: 3.4s)
+ GET /puzzles/solve?mode=standard&theme=queenRookEndgame 200 in 2.2s (next.js: 53ms, proxy.ts: 1741ms, application-code: 403ms)
+ GET /api/puzzle-progress 200 in 1762ms (next.js: 18ms, application-code: 1744ms)
+ GET /api/puzzle-progress 200 in 2.5s (next.js: 16ms, application-code: 2.5s)
+ GET /api/puzzle-progress 200 in 3.2s (next.js: 47ms, application-code: 3.1s)
+ GET /puzzles/dashboard 200 in 25.6s (next.js: 23.4s, proxy.ts: 2.0s, application-code: 139ms)
+ GET /api/puzzles?count=1&mode=standard&theme=queenRookEndgame&random=true&excludeIds=70BF3%2CfTeWk%2Cl24ox%2CPpND6%2CEpMS9%2CuLTI9%2C0V5FZ%2CJ0ILf%2CpUuJt%2CbGUg0 200 in 19.3s (next.js: 3.1s, application-code: 16.2s)
+ GET /api/puzzles?count=1&mode=standard&theme=queenRookEndgame&random=true&excludeId=WSA1T&excludeIds=70BF3%2CfTeWk%2Cl24ox%2CPpND6%2CEpMS9%2CuLTI9%2C0V5FZ%2CJ0ILf%2CpUuJt%2CbGUg0%2CWSA1T 200 in 2.6s (next.js: 7ms, application-code: 2.6s)
+ GET /settings 200 in 4.1s (next.js: 1911ms, proxy.ts: 2.1s, application-code: 133ms)
+○ Compiling / ...
+ GET / 200 in 15.2s (next.js: 11.4s, proxy.ts: 3.7s, application-code: 80ms)
+ GET /puzzles/solve?mode=standard 200 in 869ms (next.js: 56ms, proxy.ts: 35ms, application-code: 779ms)
+ GET /api/puzzles?count=1&mode=standard&random=true 200 in 2.9s (next.js: 39ms, application-code: 2.9s)
+✓ Compiled in 7.1s
+○ Compiling /_error ...
+ GET / 500 in 8.8s (next.js: 4.6s, proxy.ts: 3.6s, application-code: 589ms)
+ GET / 500 in 973ms (next.js: 22ms, proxy.ts: 917ms, application-code: 34ms)
+ GET / 500 in 350ms (next.js: 29ms, proxy.ts: 275ms, application-code: 46ms)
+ GET / 500 in 5.0s (next.js: 31ms, proxy.ts: 4.8s, application-code: 115ms)
+✓ Compiled in 3.1s
+ GET / 200 in 3.3s (next.js: 205ms, proxy.ts: 2.2s, application-code: 797ms)
+ GET /puzzles/solve?mode=standard 200 in 1140ms (next.js: 458ms, proxy.ts: 21ms, application-code: 662ms)
+○ Compiling /play/computer ...
+ GET /play/computer 200 in 5.6s (next.js: 3.5s, proxy.ts: 1889ms, application-code: 232ms)
+ GET /puzzles 200 in 11.2s (next.js: 71ms, proxy.ts: 3.2s, application-code: 7.9s)
+ GET /api/puzzle-progress 200 in 2.2s (next.js: 256ms, application-code: 1909ms)
+ GET /api/puzzle-progress 200 in 2.0s (next.js: 16ms, application-code: 1989ms)
+ GET /api/puzzle-progress 200 in 3.3s (next.js: 38ms, application-code: 3.3s)
+ GET /puzzles/solve?mode=standard 200 in 6.5s (next.js: 12ms, proxy.ts: 6.4s, application-code: 80ms)
+ GET /api/puzzle-progress 200 in 3.7s (next.js: 20ms, application-code: 3.6s)
+ GET /api/puzzle-progress 200 in 3.8s (next.js: 13ms, application-code: 3.8s)
+ GET /api/puzzle-progress 200 in 4.4s (next.js: 36ms, application-code: 4.3s)
+ GET /api/puzzles?count=1&mode=standard&random=true&excludeIds=70BF3%2CfTeWk%2Cl24ox%2CPpND6%2CEpMS9%2CuLTI9%2C0V5FZ%2CJ0ILf%2CpUuJt%2CbGUg0 500 in 41s (next.js: 108ms, application-code: 40s)
+ GET /api/puzzle-progress 200 in 4.9s (next.js: 12ms, application-code: 4.9s)
+ GET /puzzles/solve?mode=standard 200 in 3.7s (next.js: 55ms, proxy.ts: 1972ms, application-code: 1705ms)
+ GET /api/puzzle-progress 200 in 2.0s (next.js: 5ms, application-code: 1997ms)
+ GET /api/puzzle-progress 200 in 2.9s (next.js: 7ms, application-code: 2.9s)
+ GET /api/puzzle-progress 200 in 2.8s (next.js: 13ms, application-code: 2.8s)
+ GET /api/puzzle-progress 200 in 1262ms (next.js: 28ms, application-code: 1234ms)
+ GET /api/puzzle-progress 200 in 13.0s (next.js: 6ms, application-code: 13.0s)
+ GET /api/puzzle-progress 200 in 4.9s (next.js: 20ms, application-code: 4.9s)
+ GET /api/puzzle-progress 200 in 3.7s (next.js: 10ms, application-code: 3.7s)
+ GET / 200 in 1641ms (next.js: 15ms, proxy.ts: 1292ms, application-code: 334ms)
+ GET /puzzles 200 in 5.5s (next.js: 8ms, proxy.ts: 987ms, application-code: 4.5s)
+ GET /api/puzzles?count=1&mode=standard&random=true&excludeIds=70BF3%2CfTeWk%2Cl24ox%2CPpND6%2CEpMS9%2CuLTI9%2C0V5FZ%2CJ0ILf%2CpUuJt%2CbGUg0 200 in 34.2s (next.js: 9ms, application-code: 34.2s)
+[?25h
