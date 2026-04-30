@@ -63,7 +63,7 @@ export function SettingsModalLayout({
           ))}
         </div>
 
-        <div className={`flex-1 flex flex-col relative min-w-0 ${contentBg} text-[var(--text-primary)] overflow-y-auto`}>
+        <div className={`flex-1 min-h-0 flex flex-col relative min-w-0 ${contentBg} text-[var(--text-primary)]`}>
           <div className="px-5 md:px-8 pt-5 md:pt-6 pb-3 shrink-0">
             <h2 className="text-[20px] md:text-[24px] font-bold mb-1 font-sans">{activeTab.title}</h2>
             <p className="text-[var(--text-secondary)] text-[14px]">{activeTab.description}</p>
@@ -71,7 +71,7 @@ export function SettingsModalLayout({
             {error && <p className="text-[var(--error-text)] text-[12px] mt-2">{error}</p>}
           </div>
 
-          <div className="flex-1 min-h-0 relative">
+          <div className="flex-1 min-h-0 relative flex flex-col">
             {activeTab.content}
           </div>
 

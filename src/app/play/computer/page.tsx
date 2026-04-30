@@ -700,7 +700,7 @@ const buildPvDisplayMoves = (fen: string, pv: string[]) => {
 const InfoHint = ({ text }: { text: string }) => (
   <span className="relative inline-flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer group transition-colors ml-1 align-bottom z-50">
     <Info className="w-3.5 h-3.5" />
-    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[min(260px,90vw)] px-3 py-2 bg-[var(--surface-hover)] border border-[var(--border-hover)] text-[var(--text-primary)] text-[12px] font-normal normal-case tracking-normal rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all text-center pointer-events-none before:content-[''] before:absolute before:top-full before:left-1/2 before:-translate-x-1/2 before:border-[5px] before:border-transparent before:border-t-[var(--border-hover)]">
+    <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-max max-w-[min(260px,90vw)] px-3 py-2 bg-[var(--surface-hover)] border border-[var(--border-hover)] text-[var(--text-primary)] text-[12px] font-normal normal-case tracking-normal rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all text-center pointer-events-none before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-[5px] before:border-transparent before:border-b-[var(--border-hover)]">
       {text}
     </span>
   </span>
@@ -3365,9 +3365,9 @@ export default function PlayComputerPage() {
                 title: "Gameplay",
                 description: "Configure rules and preferences for your games.",
                 content: (
-                  <div className="flex-1 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
+                  <div className="flex-1 min-h-0 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
                     <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
-                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                         <span className="text-[14px] text-[var(--text-primary)]">Move Method</span>
                         <select
                           value={botPreferences.moveMethod}
@@ -3379,19 +3379,19 @@ export default function PlayComputerPage() {
                           <option value="both">Both</option>
                         </select>
                       </div>
-                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                         <span className="text-[14px] text-[var(--text-primary)]">Show Legal Moves</span>
                         <input type="checkbox" checked={botPreferences.showLegalMoves} onChange={(event) => updateBotPreferences({ showLegalMoves: event.target.checked })} />
                       </div>
-                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                         <span className="text-[14px] text-[var(--text-primary)]">Move Confirmation</span>
                         <input type="checkbox" checked={botPreferences.moveConfirmation} onChange={(event) => updateBotPreferences({ moveConfirmation: event.target.checked })} />
                       </div>
-                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                         <span className="text-[14px] text-[var(--text-primary)]">Enable Premove</span>
                         <input type="checkbox" checked={botPreferences.premoveEnabled} onChange={(event) => updateBotPreferences({ premoveEnabled: event.target.checked })} />
                       </div>
-                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                         <span className="text-[14px] text-[var(--text-primary)]">Premove Mode</span>
                         <select
                           value={botPreferences.premoveMode}
@@ -3402,15 +3402,15 @@ export default function PlayComputerPage() {
                           <option value="multiple">Multiple premoves</option>
                         </select>
                       </div>
-                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                         <span className="text-[14px] text-[var(--text-primary)]">Auto Queen</span>
                         <input type="checkbox" checked={botPreferences.autoQueen} onChange={(event) => updateBotPreferences({ autoQueen: event.target.checked })} />
                       </div>
-                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                         <span className="text-[14px] text-[var(--text-primary)]">Lock Board On Bot Turn</span>
                         <input type="checkbox" checked={botPreferences.boardLock} onChange={(event) => updateBotPreferences({ boardLock: event.target.checked })} />
                       </div>
-                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                         <span className="text-[14px] text-[var(--text-primary)]">Low Time Warning</span>
                         <input type="checkbox" checked={botPreferences.lowTimeWarning} onChange={(event) => updateBotPreferences({ lowTimeWarning: event.target.checked })} />
                       </div>
@@ -3425,7 +3425,7 @@ export default function PlayComputerPage() {
                 title: "Engine",
                 description: "Configure Stockfish strength and analysis parameters.",
                 content: (
-                  <div className="flex-1 px-5 md:px-8 pb-5 md:pb-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar pt-2">
+                  <div className="flex-1 min-h-0 px-5 md:px-8 pb-5 md:pb-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar pt-2">
                     {/* GAME REVIEW Section */}
                     <div>
                       <h3 className="text-[11px] font-bold tracking-widest text-[var(--text-muted)] uppercase mb-3 px-1">Game Review</h3>
@@ -3611,9 +3611,9 @@ export default function PlayComputerPage() {
                 title: "Interface",
                 description: "Change platform language, sounds, and UI interactions.",
                 content: (
-                  <div className="flex-1 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
+                  <div className="flex-1 min-h-0 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
                     <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
-                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                         <span className="text-[14px] text-[var(--text-primary)]">Default Board Orientation</span>
                         <select
                           value={botPreferences.boardOrientation}
@@ -3625,7 +3625,7 @@ export default function PlayComputerPage() {
                           <option value="black">Black bottom</option>
                         </select>
                       </div>
-                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                         <span className="text-[14px] text-[var(--text-primary)]">Sound Volume</span>
                         <div className="flex items-center gap-3">
                           <input

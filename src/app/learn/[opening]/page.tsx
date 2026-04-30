@@ -2215,23 +2215,22 @@ export default function OpeningPage() {
                   title: "Gameplay",
                   description: "Configure interaction and move behavior for Learn mode.",
                   content: (
-                    <div className="flex-1 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
-                      <div className="px-2 py-2 space-y-4 text-[var(--text-primary)]">
-                        <div className="space-y-1">
-                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Move Method</label>
+                    <div className="flex-1 min-h-0 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
+                      <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Move Method</span>
                           <select
                             value={learnPreferences.moveMethod}
                             onChange={(event) => updateLearnPreferences({ moveMethod: event.target.value as typeof learnPreferences.moveMethod })}
-                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)]"
                           >
                             <option value="drag">Drag only</option>
                             <option value="click">Click only</option>
                             <option value="both">Both</option>
                           </select>
                         </div>
-    
-                        <div className="space-y-1">
-                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Board Orientation</label>
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Board Orientation</span>
                           <select
                             value={learnPreferences.boardOrientation}
                             onChange={(event) => {
@@ -2240,48 +2239,49 @@ export default function OpeningPage() {
                               if (orientation === "black") setIsBoardFlipped(true);
                               if (orientation === "white") setIsBoardFlipped(false);
                             }}
-                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)]"
                           >
                             <option value="auto">Auto</option>
                             <option value="white">White bottom</option>
                             <option value="black">Black bottom</option>
                           </select>
                         </div>
-    
-                        <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
-                          <span>Show legal moves</span>
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Show legal moves</span>
                           <input type="checkbox" checked={learnPreferences.showLegalMoves} onChange={(event) => updateLearnPreferences({ showLegalMoves: event.target.checked })} />
                         </div>
-                        <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
-                          <span>Move confirmation</span>
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Move confirmation</span>
                           <input type="checkbox" checked={learnPreferences.moveConfirmation} onChange={(event) => updateLearnPreferences({ moveConfirmation: event.target.checked })} />
                         </div>
-                        <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
-                          <span>Enable premove</span>
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Enable premove</span>
                           <input type="checkbox" checked={learnPreferences.premoveEnabled} onChange={(event) => updateLearnPreferences({ premoveEnabled: event.target.checked })} />
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Premove Mode</label>
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Premove Mode</span>
                           <select
                             value={learnPreferences.premoveMode}
                             onChange={(event) => updateLearnPreferences({ premoveMode: event.target.value as typeof learnPreferences.premoveMode })}
-                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)]"
                           >
                             <option value="single">Single premove</option>
                             <option value="multiple">Multiple premoves</option>
                           </select>
                         </div>
-                        <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
-                          <span>Auto queen</span>
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Auto queen</span>
                           <input type="checkbox" checked={learnPreferences.autoQueen} onChange={(event) => updateLearnPreferences({ autoQueen: event.target.checked })} />
                         </div>
-                        <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
-                          <span>Show opening title</span>
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Show opening title</span>
                           <input type="checkbox" checked={learnPreferences.showOpeningNames} onChange={(event) => updateLearnPreferences({ showOpeningNames: event.target.checked })} />
                         </div>
-    
-                        <div className="space-y-1">
-                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Engine Depth</label>
+                      </div>
+
+                      <div className="mt-6 space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Engine Depth</span>
                           <input
                             type="range"
                             min={10}
@@ -2292,19 +2292,18 @@ export default function OpeningPage() {
                               updateLearnPreferences({ engineDepth: depth });
                               setAnalysisDepth(depth);
                             }}
-                            className="w-full"
+                            className="w-[120px] md:w-[150px]"
                           />
                         </div>
-    
-                        <div className="space-y-1">
-                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Sound Volume</label>
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Sound Volume</span>
                           <input
                             type="range"
                             min={0}
                             max={100}
                             value={learnPreferences.masterVolume}
                             onChange={(event) => updateLearnPreferences({ masterVolume: Number(event.target.value) })}
-                            className="w-full"
+                            className="w-[120px] md:w-[150px]"
                           />
                         </div>
                       </div>
@@ -2318,14 +2317,14 @@ export default function OpeningPage() {
                   title: "Engine",
                   description: "Configure analysis engine options and line depth.",
                   content: (
-                    <div className="flex-1 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
-                      <div className="px-2 py-2 space-y-4 text-[var(--text-primary)]">
-                        <div className="space-y-1">
-                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Strength</label>
+                    <div className="flex-1 min-h-0 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
+                      <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Strength</span>
                           <select
                             value={analysisStrength}
                             onChange={(event) => setAnalysisStrength(event.target.value as AnalysisStrength)}
-                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)]"
                           >
                             <option value="fast">Fast (~1 sec, 3270 Rating)</option>
                             <option value="standard">Standard (~5 sec, 3430 Rating)</option>
@@ -2333,13 +2332,12 @@ export default function OpeningPage() {
                             <option value="maximum">Maximum (~1 min 30 sec, 3560 Rating)</option>
                           </select>
                         </div>
-    
-                        <div className="space-y-1">
-                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Analysis Engine</label>
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Analysis Engine</span>
                           <select
                             value={analysisEngineChoice}
                             onChange={(event) => setAnalysisEngineChoice(event.target.value as AnalysisEngineChoice)}
-                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] max-w-[200px]"
                           >
                             <option value="stockfish-18">Stockfish 18 (108MB download)</option>
                             <option value="stockfish-18-lite">Stockfish 18 Lite (7MB download)</option>
@@ -2348,13 +2346,12 @@ export default function OpeningPage() {
                             <option value="off">Engine Off</option>
                           </select>
                         </div>
-    
-                        <div className="space-y-1">
-                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Number of Lines</label>
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Number of Lines</span>
                           <select
                             value={analysisMultiPv}
                             onChange={(event) => setAnalysisMultiPv(Number(event.target.value))}
-                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)]"
                           >
                             <option value={1}>1</option>
                             <option value={2}>2</option>
@@ -2362,21 +2359,19 @@ export default function OpeningPage() {
                             <option value={4}>4</option>
                           </select>
                         </div>
-    
-                        <div className="space-y-1">
-                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Maximum Time (sec)</label>
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Maximum Time (sec)</span>
                           <input
                             type="number"
                             min={1}
                             max={180}
                             value={analysisMaxTimeSeconds}
                             onChange={(event) => setAnalysisMaxTimeSeconds(Math.max(1, Number(event.target.value) || 1))}
-                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                            className="w-[80px] bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] text-right"
                           />
                         </div>
-    
-                        <div className="space-y-1">
-                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Threads</label>
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                          <span className="text-[14px] text-[var(--text-primary)]">Threads</span>
                           <input
                             type="number"
                             min={1}
@@ -2384,7 +2379,7 @@ export default function OpeningPage() {
                             value={analysisThreads}
                             onChange={(event) => setAnalysisThreads(Math.max(1, Number(event.target.value) || 1))}
                             disabled
-                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-muted)] cursor-not-allowed"
+                            className="w-[80px] bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-muted)] text-[13px] rounded px-3 py-1.5 cursor-not-allowed text-right"
                           />
                         </div>
     
