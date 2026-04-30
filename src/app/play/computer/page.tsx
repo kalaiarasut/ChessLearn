@@ -3281,13 +3281,13 @@ export default function PlayComputerPage() {
           <SettingsModalLayout
             open={isSettingsOpen}
             onClose={() => setIsSettingsOpen(false)}
-            activeTabId={activeCategory === "boards" || activeCategory === "pieces" ? "board" : activeCategory}
+            activeTabId={activeCategory}
             onTabChange={(id) => {
               if (id === "board") {
                 setActiveCategory("board");
                 setActiveSettingsTab("boards");
               } else {
-                setActiveCategory(id);
+                setActiveCategory(id as "board" | "engine" | "gameplay" | "interface");
               }
             }}
             loading={preferencesLoading}
