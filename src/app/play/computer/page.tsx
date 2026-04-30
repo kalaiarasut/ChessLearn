@@ -12,6 +12,7 @@ import { useStockfishAnalysis } from "../../learn/[opening]/use-stockfish-analys
 import { useStockfishEngineDownload } from "./use-stockfish-engine-download";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreferences } from "@/lib/client-preferences";
+import { SettingsModalLayout, BoardPiecesSettingsTab } from "@/components/settings-layout";
 import { Confetti, type ConfettiRef } from "@/registry/magicui/confetti";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
@@ -2242,8 +2243,8 @@ export default function PlayComputerPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col overflow-x-hidden bg-[var(--bg)]">
-      <header className="w-full px-8 py-5 flex items-center justify-between border-b border-[var(--border)]">
+    <div className="min-h-screen flex flex-col overflow-x-hidden overflow-y-scroll bg-[var(--bg)]">
+      <header className="w-full px-4 py-3 md:px-8 md:py-5 flex items-center justify-between border-b border-[var(--border)]">
         <Link href="/" className="text-[22px] font-serif font-[800] text-[var(--text-primary)]">
           CHESS
         </Link>
@@ -2897,33 +2898,33 @@ export default function PlayComputerPage() {
         </div>
 
         {/* Right Side: The Board */}
-        <div className="w-full lg:w-[65%] flex-1 flex flex-row items-center lg:items-start justify-center lg:justify-end bg-[var(--bg-alt)] p-8 lg:p-0 lg:pr-[70px] relative shadow-[-30px_0_50px_rgba(0,0,0,0.15)] border-l border-[var(--border)]">
-          <div className="absolute top-6 right-6 flex flex-col gap-3 z-50">
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center"
-              title="Settings"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setIsBoardViewInverted((current) => !current)}
-              className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center flex-col gap-[2px]"
-              title="Flip Board"
-            >
-              <ArrowLeft className="w-[14px] h-[14px] -ml-1" />
-              <ArrowLeft className="w-[14px] h-[14px] -mr-1 rotate-180" />
-            </button>
-            <button
-              onClick={toggleTheme}
-              data-theme-toggle
-              className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center"
-            >
-              {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
-            </button>
-          </div>
-
-          <div className="flex flex-col items-center justify-start h-[75vh] max-h-[720px] max-w-[95%] lg:max-w-[70%] lg:min-w-[500px] w-full relative shrink-0 lg:ml-auto lg:mr-8 lg:mt-4">
+        <div className="w-full lg:w-[65%] flex-1 flex flex-row items-center lg:items-start justify-center lg:justify-end bg-[var(--bg-alt)] p-2 sm:p-4 lg:p-0 lg:pr-[70px] relative shadow-[-30px_0_50px_rgba(0,0,0,0.15)] border-l border-[var(--border)]">
+          <div className="flex flex-col items-center justify-start h-[75vh] max-h-[720px] max-w-[100%] px-1 sm:px-0 sm:max-w-[95%] lg:max-w-[70%] lg:min-w-[500px] w-full relative shrink-0 lg:ml-auto lg:mr-8 lg:mt-4">
+            
+            <div className="w-full lg:w-auto flex justify-end lg:absolute lg:-top-2 lg:-right-[52px] flex-row lg:flex-col gap-2 sm:gap-3 z-50 mb-2 lg:mb-0 px-1 lg:px-0 items-center">
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center"
+                title="Settings"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setIsBoardViewInverted((current) => !current)}
+                className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center flex-col gap-[2px]"
+                title="Flip Board"
+              >
+                <ArrowLeft className="w-[14px] h-[14px] -ml-1" />
+                <ArrowLeft className="w-[14px] h-[14px] -mr-1 rotate-180" />
+              </button>
+              <button
+                onClick={toggleTheme}
+                data-theme-toggle
+                className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center"
+              >
+                {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
+              </button>
+            </div>
             {/* Top Side Panel */}
             {gameState !== "setup" && (
               <div className="w-full flex items-center justify-between mb-3 bg-[var(--surface)] px-2.5 py-1 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
@@ -2961,9 +2962,9 @@ export default function PlayComputerPage() {
               </div>
             )}
             
-            <div className="w-full flex items-stretch gap-3">
+            <div className="w-full flex items-stretch gap-1 md:gap-3">
               {gameState !== "setup" && showEvaluationBar ? (
-                <div className="w-[30px] md:w-[30px] shrink-0 bg-[#333333] rounded overflow-hidden flex flex-col relative shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
+                <div className="w-[16px] md:w-[30px] shrink-0 bg-[#333333] rounded overflow-hidden flex flex-col relative shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
                   <div
                     className={`w-full transition-[height] duration-300 relative ${topSideColor === "w" ? "bg-white" : "bg-[#202020]"}`}
                     style={{ height: `${topEvalShare}%` }}
@@ -2977,7 +2978,7 @@ export default function PlayComputerPage() {
                     {bottomSideColor === "b" ? <div className="absolute inset-0 bg-white/5 animate-pulse" /> : null}
                   </div>
                   <div className="pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-center px-[2px]">
-                    <span className="rounded bg-black/70 px-1 py-0.5 text-center text-[9px] md:text-[10px] font-[700] text-white shadow-sm">
+                    <span className="rounded bg-black/70 px-1 py-1 md:py-0.5 text-center text-[10px] md:text-[10px] font-[700] text-white shadow-sm [writing-mode:vertical-lr] md:[writing-mode:horizontal-tb] rotate-180 md:rotate-0 tracking-widest md:tracking-normal">
                       {analysis.evaluationText}
                     </span>
                   </div>
@@ -3275,71 +3276,156 @@ export default function PlayComputerPage() {
           </div>
         ) : null}
 
-        {/* Settings Modal (Copied exactly from learn page but adjusted) */}
+        {/* Settings Modal */}
         {isSettingsOpen && (
-          <div 
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
-            onClick={() => setIsSettingsOpen(false)}
-          >
-            <div 
-              className="w-[1050px] max-w-[95vw] h-[720px] max-h-[90vh] bg-[var(--surface-alt)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden flex flex-row relative cursor-default"
-              onClick={(e) => e.stopPropagation()}
-            >
-              
-              <div className="w-[240px] md:w-[260px] bg-[var(--surface)] border-r border-[var(--border)] flex flex-col py-4 overflow-y-auto shrink-0 z-10 custom-scrollbar">
-                <div className="px-5 mb-4">
-                  <span className="text-[var(--text-muted)] text-[11px] font-bold uppercase tracking-wider">Settings</span>
-                </div>
-                <button 
-                  onClick={() => setActiveCategory("board")}
-                  className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${activeCategory === "board" ? "bg-[var(--surface-alt)] text-[var(--text-primary)] font-medium border-[var(--border-hover)] shadow-[-10px_0_20px_rgba(0,0,0,0.12)]" : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"}`}>
-                  <LayoutGrid className="w-[18px] h-[18px]" />
-                  <span className="text-[14px]">Board & Pieces</span>
-                </button>
-                <button 
-                  onClick={() => setActiveCategory("gameplay")}
-                  className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${activeCategory === "gameplay" ? "bg-[var(--surface-alt)] text-[var(--text-primary)] font-medium border-[var(--border-hover)] shadow-[-10px_0_20px_rgba(0,0,0,0.12)]" : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"}`}>
-                  <Gamepad2 className="w-[18px] h-[18px]" />
-                  <span className="text-[14px]">Gameplay</span>
-                </button>
-                <button 
-                  onClick={() => setActiveCategory("engine")}
-                  className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${activeCategory === "engine" ? "bg-[var(--surface-alt)] text-[var(--text-primary)] font-medium border-[var(--border-hover)] shadow-[-10px_0_20px_rgba(0,0,0,0.12)]" : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"}`}>
-                  <Bot className="w-[18px] h-[18px]" />
-                  <span className="text-[14px]">Engine</span>
-                </button>
-                <button 
-                  onClick={() => setActiveCategory("interface")}
-                  className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${activeCategory === "interface" ? "bg-[var(--surface-alt)] text-[var(--text-primary)] font-medium border-[var(--border-hover)] shadow-[-10px_0_20px_rgba(0,0,0,0.12)]" : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"}`}>
-                  <Monitor className="w-[18px] h-[18px]" />
-                  <span className="text-[14px]">Interface</span>
-                </button>
-              </div>
+          <SettingsModalLayout
+            open={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            activeTabId={activeCategory === "boards" || activeCategory === "pieces" ? "board" : activeCategory}
+            onTabChange={(id) => {
+              if (id === "board") {
+                setActiveCategory("board");
+                setActiveSettingsTab("boards");
+              } else {
+                setActiveCategory(id);
+              }
+            }}
+            loading={preferencesLoading}
+            error={preferencesError}
+            tabs={[
+              {
+                id: "board",
+                icon: <LayoutGrid className="w-[18px] h-[18px]" />,
+                label: "Board & Pieces",
+                title: "Board & Pieces",
+                description: "Customize the look and feel of your chess set.",
+                content: (
+                  <BoardPiecesSettingsTab
+                    activeSettingsTab={activeSettingsTab === "pieces" ? "pieces" : "boards"}
+                    setActiveSettingsTab={setActiveSettingsTab}
+                    boardTheme={boardTheme}
+                    pieceTheme={pieceTheme}
+                    boardThemes={AVAILABLE_BOARD_THEMES}
+                    pieceThemes={AVAILABLE_PIECE_THEMES}
+                    boardAssets={BOARD_THEME_ASSETS}
+                    pieceAssets={PIECE_THEME_ASSETS}
+                    soundEnabled={soundEnabled}
+                    onBoardThemeChange={(theme) => setBoardTheme(theme)}
+                    onPieceThemeChange={(theme) => setPieceTheme(theme)}
+                    onSoundEnabledChange={setSoundEnabled}
+                    onPreviewSound={() => playSound("move-self", true)}
+                    boardPreviewNode={
+                      <div className="w-full aspect-square relative shadow-xl rounded-sm overflow-hidden border border-[var(--border)]">
+                        <BoardImage src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`} className="w-full h-full">
+                         <div className="w-full h-full grid grid-cols-3 grid-rows-3 relative">
+                           {Array.from({length: 9}).map((_, i) => {
+                             const row = Math.floor(i / 3);
+                             const col = i % 3;
+                             
+                             let piece = null;
+                             if (row === 0 && col === 0) piece = "bb";
+                             if (row === 0 && col === 1) piece = "bq";
+                             if (row === 0 && col === 2) piece = "bp";
+                             
+                             if (row === 2 && col === 0) piece = "wn";
+                             if (row === 2 && col === 1) piece = "wk";
+                             if (row === 2 && col === 2) piece = "wr";
 
-              <div className="flex-1 flex flex-col relative min-w-0 bg-[var(--bg)]">
-                <div className="px-8 pt-6 pb-3 shrink-0">
-                  <h2 className="text-[24px] font-bold text-[var(--text-primary)] mb-1 font-sans">
-                    {activeCategory === "board" && "Board & Pieces"}
-                    {activeCategory === "engine" && "Engine"}
-                    {activeCategory === "gameplay" && "Gameplay"}
-                    {activeCategory === "interface" && "Interface"}
-                  </h2>
-                  <p className="text-[var(--text-secondary)] text-[14px]">
-                    {activeCategory === "board" && "Customize the look and feel of your chess set."}
-                    {activeCategory === "engine" && "Configure Stockfish strength and analysis parameters."}
-                    {activeCategory === "gameplay" && "Configure rules and preferences for your games."}
-                    {activeCategory === "interface" && "Change platform language, sounds, and UI interactions."}
-                  </p>
-                  {preferencesLoading && (
-                    <p className="text-[var(--text-muted)] text-[12px] mt-2">Loading saved preferences...</p>
-                  )}
-                  {preferencesError && (
-                    <p className="text-[var(--error-text)] text-[12px] mt-2">{preferencesError}</p>
-                  )}
-                </div>
+                             const isLightSquare = (row + col) % 2 === 0;
 
-                {activeCategory === "engine" && (
-                  <div className="flex-1 px-8 pb-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar pt-2">
+                             return (
+                               <div key={i} className="flex items-center justify-center relative p-1 md:p-2">
+                                 {col === 0 && (
+                                   <span className={`absolute top-1 left-1.5 text-[14px] font-bold ${isLightSquare ? "text-[#b07b46]" : "text-[#e6ca9a]"} select-none`}>
+                                     {8 - row}
+                                   </span>
+                                 )}
+                                 {piece && (
+                                   <PieceImage 
+                                     src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${piece}.png`} 
+                                     alt={piece}
+                                     className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] flex items-center justify-center"
+                                     skeletonClassName="w-[45%] h-[45%]"
+                                   />
+                                 )}
+                               </div>
+                             );
+                           })}
+                         </div>
+                        </BoardImage>
+                      </div>
+                    }
+                  />
+                ),
+              },
+              {
+                id: "gameplay",
+                icon: <Gamepad2 className="w-[18px] h-[18px]" />,
+                label: "Gameplay",
+                title: "Gameplay",
+                description: "Configure rules and preferences for your games.",
+                content: (
+                  <div className="flex-1 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
+                    <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Move Method</span>
+                        <select
+                          value={botPreferences.moveMethod}
+                          onChange={(event) => updateBotPreferences({ moveMethod: event.target.value as typeof botPreferences.moveMethod })}
+                          className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5"
+                        >
+                          <option value="drag">Drag only</option>
+                          <option value="click">Click only</option>
+                          <option value="both">Both</option>
+                        </select>
+                      </div>
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Show Legal Moves</span>
+                        <input type="checkbox" checked={botPreferences.showLegalMoves} onChange={(event) => updateBotPreferences({ showLegalMoves: event.target.checked })} />
+                      </div>
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Move Confirmation</span>
+                        <input type="checkbox" checked={botPreferences.moveConfirmation} onChange={(event) => updateBotPreferences({ moveConfirmation: event.target.checked })} />
+                      </div>
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Enable Premove</span>
+                        <input type="checkbox" checked={botPreferences.premoveEnabled} onChange={(event) => updateBotPreferences({ premoveEnabled: event.target.checked })} />
+                      </div>
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Premove Mode</span>
+                        <select
+                          value={botPreferences.premoveMode}
+                          onChange={(event) => updateBotPreferences({ premoveMode: event.target.value as typeof botPreferences.premoveMode })}
+                          className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] w-full md:w-auto md:min-w-[160px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                        >
+                          <option value="single">Single premove</option>
+                          <option value="multiple">Multiple premoves</option>
+                        </select>
+                      </div>
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Auto Queen</span>
+                        <input type="checkbox" checked={botPreferences.autoQueen} onChange={(event) => updateBotPreferences({ autoQueen: event.target.checked })} />
+                      </div>
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Lock Board On Bot Turn</span>
+                        <input type="checkbox" checked={botPreferences.boardLock} onChange={(event) => updateBotPreferences({ boardLock: event.target.checked })} />
+                      </div>
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
+                        <span className="text-[14px] text-[var(--text-primary)]">Low Time Warning</span>
+                        <input type="checkbox" checked={botPreferences.lowTimeWarning} onChange={(event) => updateBotPreferences({ lowTimeWarning: event.target.checked })} />
+                      </div>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                id: "engine",
+                icon: <Bot className="w-[18px] h-[18px]" />,
+                label: "Engine",
+                title: "Engine",
+                description: "Configure Stockfish strength and analysis parameters.",
+                content: (
+                  <div className="flex-1 px-5 md:px-8 pb-5 md:pb-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar pt-2">
                     {/* GAME REVIEW Section */}
                     <div>
                       <h3 className="text-[11px] font-bold tracking-widest text-[var(--text-muted)] uppercase mb-3 px-1">Game Review</h3>
@@ -3389,7 +3475,7 @@ export default function PlayComputerPage() {
                               onChange={(event) => setSkillLevel(Math.max(0, Math.min(20, Number(event.target.value) || 0)))}
                               min="0"
                               max="20"
-                              className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] w-[200px]"
+                              className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px]"
                             />
                           </div>
                         ) : (
@@ -3433,7 +3519,7 @@ export default function PlayComputerPage() {
                               onChange={(event) => setBotFixedMoveTimeMs(Math.max(50, Number(event.target.value) || 1000))}
                               min="50"
                               max="120000"
-                              className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] w-[200px]"
+                              className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px]"
                             />
                           </div>
                         ) : null}
@@ -3447,7 +3533,7 @@ export default function PlayComputerPage() {
                               if (next === "standard") setAnalysisDepth(17);
                               if (next === "deep") setAnalysisDepth(20);
                             }}
-                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTUgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] w-full md:w-auto md:min-w-full md:w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTUgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
                           >
                             <option value="fast">Fast (~1 sec, 3270 Rating)</option>
                             <option value="standard">Standard (~3 sec, 3500 Rating)</option>
@@ -3510,72 +3596,24 @@ export default function PlayComputerPage() {
                             onChange={(event) => setAnalysisThreads(Math.max(1, Math.min(32, Number(event.target.value) || 1)))}
                             min="1"
                             max="32"
-                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] w-[200px]"
+                            className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px]"
                           />
                         </div>
                       </div>
                     </div>
                   </div>
-                )}
-
-                {activeCategory === "gameplay" && (
-                  <div className="flex-1 px-8 pb-8 overflow-y-auto custom-scrollbar pt-2">
+                ),
+              },
+              {
+                id: "interface",
+                icon: <Monitor className="w-[18px] h-[18px]" />,
+                label: "Interface",
+                title: "Interface",
+                description: "Change platform language, sounds, and UI interactions.",
+                content: (
+                  <div className="flex-1 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
                     <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
-                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
-                        <span className="text-[14px] text-[var(--text-primary)]">Move Method</span>
-                        <select
-                          value={botPreferences.moveMethod}
-                          onChange={(event) => updateBotPreferences({ moveMethod: event.target.value as typeof botPreferences.moveMethod })}
-                          className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5"
-                        >
-                          <option value="drag">Drag only</option>
-                          <option value="click">Click only</option>
-                          <option value="both">Both</option>
-                        </select>
-                      </div>
-                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
-                        <span className="text-[14px] text-[var(--text-primary)]">Show Legal Moves</span>
-                        <input type="checkbox" checked={botPreferences.showLegalMoves} onChange={(event) => updateBotPreferences({ showLegalMoves: event.target.checked })} />
-                      </div>
-                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
-                        <span className="text-[14px] text-[var(--text-primary)]">Move Confirmation</span>
-                        <input type="checkbox" checked={botPreferences.moveConfirmation} onChange={(event) => updateBotPreferences({ moveConfirmation: event.target.checked })} />
-                      </div>
-                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
-                        <span className="text-[14px] text-[var(--text-primary)]">Enable Premove</span>
-                        <input type="checkbox" checked={botPreferences.premoveEnabled} onChange={(event) => updateBotPreferences({ premoveEnabled: event.target.checked })} />
-                      </div>
-                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
-                        <span className="text-[14px] text-[var(--text-primary)]">Premove Mode</span>
-                        <select
-                          value={botPreferences.premoveMode}
-                          onChange={(event) => updateBotPreferences({ premoveMode: event.target.value as typeof botPreferences.premoveMode })}
-                          className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[160px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
-                        >
-                          <option value="single">Single premove</option>
-                          <option value="multiple">Multiple premoves</option>
-                        </select>
-                      </div>
-                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
-                        <span className="text-[14px] text-[var(--text-primary)]">Auto Queen</span>
-                        <input type="checkbox" checked={botPreferences.autoQueen} onChange={(event) => updateBotPreferences({ autoQueen: event.target.checked })} />
-                      </div>
-                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
-                        <span className="text-[14px] text-[var(--text-primary)]">Lock Board On Bot Turn</span>
-                        <input type="checkbox" checked={botPreferences.boardLock} onChange={(event) => updateBotPreferences({ boardLock: event.target.checked })} />
-                      </div>
-                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
-                        <span className="text-[14px] text-[var(--text-primary)]">Low Time Warning</span>
-                        <input type="checkbox" checked={botPreferences.lowTimeWarning} onChange={(event) => updateBotPreferences({ lowTimeWarning: event.target.checked })} />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeCategory === "interface" && (
-                  <div className="flex-1 px-8 pb-8 overflow-y-auto custom-scrollbar pt-2">
-                    <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
-                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
                         <span className="text-[14px] text-[var(--text-primary)]">Default Board Orientation</span>
                         <select
                           value={botPreferences.boardOrientation}
@@ -3587,7 +3625,7 @@ export default function PlayComputerPage() {
                           <option value="black">Black bottom</option>
                         </select>
                       </div>
-                      <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)]">
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 md:gap-0 px-3 py-2.5 bg-[var(--bg)]">
                         <span className="text-[14px] text-[var(--text-primary)]">Sound Volume</span>
                         <div className="flex items-center gap-3">
                           <input
@@ -3602,164 +3640,19 @@ export default function PlayComputerPage() {
                       </div>
                     </div>
                   </div>
-                )}
-
-                {activeCategory === "board" && (
-                  <div className="flex flex-col md:flex-row px-8 pb-8 pt-0 gap-8 h-[650px] max-h-[75vh] w-full">
-                  <div className="w-full md:w-[55%] flex flex-col h-full min-h-0">
-                    <div className="flex border-b border-[var(--border)] mb-4 shrink-0">
-                      <button
-                        onClick={() => setActiveSettingsTab("boards")}
-                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "boards" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
-                      >
-                        Boards
-                        {activeSettingsTab === "boards" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[var(--border-hover)]" />}
-                      </button>
-                      <button
-                        onClick={() => setActiveSettingsTab("pieces")}
-                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "pieces" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
-                      >
-                        Pieces
-                        {activeSettingsTab === "pieces" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[var(--border-hover)]" />}
-                      </button>
-                    </div>
-
-                    <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-                      {activeSettingsTab === "boards" && (
-                        <div className="grid grid-cols-4 gap-4 px-2 py-3 pb-6">
-                          {AVAILABLE_BOARD_THEMES.map((theme) => {
-                            const isSelected = boardTheme === theme;
-                            const bgImage = BOARD_THEME_ASSETS[theme] ?? `/boards/${theme}.png`;
-                            return (
-                              <button
-                                key={theme}
-                                onClick={() => {
-                                  setBoardTheme(theme);
-                                  playSound("move-self");
-                                }}
-                                className={`group relative flex flex-col gap-1.5 transition-all ${isSelected ? "z-10" : "z-0"}`}
-                              >
-                                <div className={`relative aspect-square rounded-lg border-2 overflow-hidden transition-all ${isSelected ? "border-[var(--border-hover)] scale-[1.05] shadow-[0_0_15px_rgba(0,0,0,0.25)]" : "border-transparent group-hover:border-[var(--border-hover)]"}`}>
-                                  <BoardThumbnail src={bgImage} className="w-full h-full" />
-                                  {isSelected && (
-                                    <div className="absolute top-1 right-1 w-4 h-4 bg-[var(--text-primary)] rounded-full flex items-center justify-center z-20">
-                                      <svg className="w-2.5 h-2.5 text-[var(--surface)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                    </div>
-                                  )}
-                                </div>
-                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]"}`}>
-                                  {theme.replace(/_/g, " ")}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {activeSettingsTab === "pieces" && (
-                        <div className="grid grid-cols-4 gap-4 px-2 py-3 pb-6">
-                          {AVAILABLE_PIECE_THEMES.map((theme) => {
-                            const isSelected = pieceTheme === theme;
-                            const knightSrc = `${PIECE_THEME_ASSETS[theme] ?? `/pieces/${theme}/150`}/wn.png`;
-                            return (
-                              <button
-                                key={theme}
-                                onClick={() => {
-                                  setPieceTheme(theme);
-                                  playSound("move-self");
-                                }}
-                                className={`group relative flex flex-col gap-1.5 transition-all ${isSelected ? "z-10" : "z-0"}`}
-                              >
-                                <div className={`relative aspect-square rounded-lg border-2 bg-[var(--skeleton)] flex items-center justify-center transition-all p-2 ${isSelected ? "border-[var(--border-hover)] scale-[1.05] shadow-[0_0_15px_rgba(0,0,0,0.25)]" : "border-transparent group-hover:border-[var(--border-hover)] group-hover:bg-[var(--skeleton-soft)]"}`}>
-                                  <PieceThumbnail src={knightSrc} alt={theme} />
-                                  {isSelected && (
-                                    <div className="absolute top-1 right-1 w-4 h-4 bg-[var(--text-primary)] rounded-full flex items-center justify-center z-10">
-                                      <svg className="w-2.5 h-2.5 text-[var(--surface)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                    </div>
-                                  )}
-                                </div>
-                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]"}`}>
-                                  {theme.replace(/_/g, " ")}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="w-full md:w-[45%] flex flex-col items-center justify-start rounded-xl p-0 relative shrink-0">
-                    <div className="w-full aspect-square relative shadow-xl rounded-sm overflow-hidden border border-[var(--border)]">
-                      <BoardImage src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`} className="w-full h-full">
-                       <div className="w-full h-full grid grid-cols-3 grid-rows-3 relative">
-                         {Array.from({length: 9}).map((_, i) => {
-                           const row = Math.floor(i / 3);
-                           const col = i % 3;
-                           
-                           let piece = null;
-                           if (row === 0 && col === 0) piece = "bb";
-                           if (row === 0 && col === 1) piece = "bq";
-                           if (row === 0 && col === 2) piece = "bp";
-                           
-                           if (row === 2 && col === 0) piece = "wn";
-                           if (row === 2 && col === 1) piece = "wk";
-                           if (row === 2 && col === 2) piece = "wr";
-
-                           const isLightSquare = (row + col) % 2 === 0;
-
-                           return (
-                             <div key={i} className="flex items-center justify-center relative p-1 md:p-2">
-                               {col === 0 && (
-                                 <span className={`absolute top-1 left-1.5 text-[14px] font-bold ${isLightSquare ? "text-[#b07b46]" : "text-[#e6ca9a]"} select-none`}>
-                                   {8 - row}
-                                 </span>
-                               )}
-                               {piece && (
-                                 <PieceImage 
-                                   src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${piece}.png`} 
-                                   alt={piece}
-                                   className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] flex items-center justify-center"
-                                   skeletonClassName="w-[45%] h-[45%]"
-                                 />
-                               )}
-                             </div>
-                           );
-                         })}
-                       </div>
-                      </BoardImage>
-                    </div>
-                    
-                    <div className="mt-8 w-full flex items-center justify-start gap-4">
-                      <label className="relative inline-flex items-center cursor-pointer group">
-                        <input 
-                          type="checkbox" 
-                          checked={soundEnabled} 
-                          onChange={(e) => {
-                            setSoundEnabled(e.target.checked);
-                            if (e.target.checked) playSound("move-self", true);
-                          }} 
-                          className="sr-only peer" 
-                        />
-                        <div className="w-11 h-6 bg-[var(--skeleton)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-[var(--border)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--text-muted)] after:border border-[var(--border)] after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--border-hover)] peer-checked:after:bg-[var(--surface)] group-hover:after:scale-[1.05]"></div>
-                        <span className="ml-3 text-[14px] text-[var(--text-secondary)] font-medium group-hover:text-[var(--text-primary)] transition-colors">Enable Sounds</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-                )}
-
-                <div className="mt-auto bg-[var(--surface-alt)] px-8 py-5 flex items-center justify-end border-t border-[var(--border)] w-full shrink-0">
-                  <button 
-                    onClick={() => savePreferences().catch(() => {})}
-                    disabled={preferencesSaving || preferencesLoading}
-                    className="px-8 py-2.5 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] font-bold rounded-lg transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {preferencesSaving ? "Saving..." : "Save"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+                ),
+              },
+            ]}
+            footer={
+              <button 
+                onClick={() => savePreferences().catch(() => {})}
+                disabled={preferencesSaving || preferencesLoading}
+                className="px-8 py-2.5 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] font-bold rounded-lg transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {preferencesSaving ? "Saving..." : "Save"}
+              </button>
+            }
+          />
         )}
 
       </main>

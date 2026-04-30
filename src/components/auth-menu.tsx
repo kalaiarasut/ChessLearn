@@ -12,9 +12,14 @@ export function AuthMenu() {
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     async function loadUsername(userId: string) {
@@ -65,14 +70,39 @@ export function AuthMenu() {
     router.refresh();
   };
 
-  if (loading) {
-    return (
-      <>
-        <div className="w-[38px] h-[38px] animate-pulse bg-[var(--skeleton)] rounded-full" />
-        <div className="w-[45px] h-[20px] animate-pulse bg-[var(--skeleton)] rounded-md hidden sm:block" />
-        <div className="w-[82px] h-[40px] animate-pulse bg-[var(--skeleton)] rounded-full" />
-      </>
-    );
+  if (loading || !mounted) {
+    if (!mounted) {
+      return <div className="w-[120px] h-[40px]" />;
+    }
+
+    let guessLoggedIn = false;
+    if (document.cookie.includes("-auth-token=")) {
+      guessLoggedIn = true;
+    } else {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("sb-") && key.endsWith("-auth-token")) {
+          guessLoggedIn = true;
+          break;
+        }
+      }
+    }
+
+    if (guessLoggedIn) {
+      return (
+        <div className="flex items-center space-x-2">
+          <div className="w-[38px] h-[38px] animate-pulse bg-[var(--skeleton)] rounded-full" />
+          <div className="w-[120px] h-[16px] animate-pulse bg-[var(--skeleton)] rounded hidden lg:block ml-2" />
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center space-x-5">
+          <div className="w-[40px] h-[20px] animate-pulse bg-[var(--skeleton)] rounded hidden sm:block" />
+          <div className="w-[82px] h-[40px] animate-pulse bg-[var(--skeleton)] rounded-full" />
+        </div>
+      );
+    }
   }
 
   if (session?.user) {

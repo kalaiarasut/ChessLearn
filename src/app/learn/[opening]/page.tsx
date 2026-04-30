@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Square } from "chess.js";
 import { ArrowLeft, Settings, Play, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Monitor, User, Gamepad2, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, MoreHorizontal, ChevronDown, ChevronUp } from "lucide-react";
+import { SettingsModalLayout, BoardPiecesSettingsTab } from "@/components/settings-layout";
 import themeManifest from "@/data/themeManifest.json";
 import { useStockfishAnalysis } from "./use-stockfish-analysis";
 import { useTorchStatus } from "./use-torch-status";
@@ -1682,7 +1683,7 @@ export default function OpeningPage() {
     });
   }
 
-  const isEngineLoading = isEngineEnabled && !analysis.ready && !analysis.error;
+
   if (openingLoading || preferencesLoading) {
     return <OpeningLoading />;
   }
@@ -2131,420 +2132,290 @@ export default function OpeningPage() {
           </div>
 
           {isSettingsOpen && (
-            <div 
-              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[var(--skeleton-soft)] backdrop-blur-sm animate-in fade-in duration-200"
-              onClick={() => setIsSettingsOpen(false)}
-            >
-              <div 
-                className="w-[1050px] max-w-[95vw] h-[720px] max-h-[90vh] bg-[var(--surface-alt)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden flex flex-row relative cursor-default"
-                onClick={(e) => e.stopPropagation()}
-              >
-                
-                {/* Left Sidebar Menu */}
-                <div className="w-[240px] md:w-[260px] bg-[var(--surface)] border-r border-[var(--border)] flex flex-col py-4 overflow-y-auto shrink-0 z-10 custom-scrollbar">
-                  <div className="px-5 mb-4">
-                    <span className="text-[var(--text-muted)] text-[11px] font-bold uppercase tracking-wider">Settings</span>
-                  </div>
-                  <button
-                    onClick={() => setActiveSettingsTab("boards")}
-                    className={`flex items-center gap-3 px-5 py-3 w-full text-left font-medium border-l-2 transition-colors ${
-                      activeSettingsTab === "boards" || activeSettingsTab === "pieces"
-                        ? "bg-[var(--surface-alt)] text-[var(--text-primary)] border-[var(--border-hover)] shadow-[-10px_0_20px_rgba(0,0,0,0.12)]"
-                        : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"
-                    }`}
-                  >
-                    <LayoutGrid className="w-[18px] h-[18px]" />
-                    <span className="text-[14px]">Board & Pieces</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveSettingsTab("gameplay")}
-                    className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${
-                      activeSettingsTab === "gameplay"
-                        ? "bg-[var(--surface-alt)] text-[var(--text-primary)] font-medium border-[var(--border-hover)] shadow-[-10px_0_20px_rgba(0,0,0,0.12)]"
-                        : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"
-                    }`}
-                  >
-                    <Monitor className="w-[18px] h-[18px]" />
-                    <span className="text-[14px]">Gameplay</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveSettingsTab("engine")}
-                    className={`flex items-center gap-3 px-5 py-3 w-full text-left transition-colors border-l-2 ${
-                      activeSettingsTab === "engine"
-                        ? "bg-[var(--surface-alt)] text-[var(--text-primary)] font-medium border-[var(--border-hover)] shadow-[-10px_0_20px_rgba(0,0,0,0.12)]"
-                        : "text-[var(--text-muted)] hover:bg-[var(--skeleton)] hover:text-[var(--text-primary)] border-transparent"
-                    }`}
-                  >
-                    <Gamepad2 className="w-[18px] h-[18px]" />
-                    <span className="text-[14px]">Engine</span>
-                  </button>
-                </div>
-
-                {/* Main Content Area */}
-                <div className="flex-1 flex flex-col relative min-w-0 bg-[var(--surface-alt)] text-[var(--text-primary)]">
-                  {/* Header */}
-                  <div className="px-8 pt-6 pb-3 shrink-0">
-                  <h2 className="text-[24px] font-bold mb-1 font-sans">
-                    {activeSettingsTab === "engine" ? "Engine" : activeSettingsTab === "gameplay" ? "Gameplay" : "Board & Pieces"}
-                  </h2>
-                  <p className="text-[var(--text-muted)] text-[14px]">
-                    {activeSettingsTab === "engine"
-                      ? "Configure analysis engine options and line depth."
-                      : activeSettingsTab === "gameplay"
-                        ? "Configure interaction and move behavior for Learn mode."
-                      : "Customize the look and feel of your chess set."}
-                  </p>
-                  {preferencesLoading && (
-                    <p className="text-[var(--text-muted)] text-[12px] mt-2">Loading saved preferences...</p>
-                  )}
-                  {preferencesError && (
-                    <p className="text-[var(--error-text)] text-[12px] mt-2">{preferencesError}</p>
-                  )}
-                </div>
-
-                {/* Body */}
-                <div className="flex flex-col md:flex-row px-8 pb-8 pt-0 gap-8 h-[650px] max-h-[75vh] w-full">
-                  {/* Left Side: Tabs & Grid */}
-                  <div className="w-full md:w-[55%] flex flex-col h-full min-h-0">
-                    {/* Tabs */}
-                    {(activeSettingsTab === "boards" || activeSettingsTab === "pieces") && (
-                    <div className="flex border-b border-[var(--border)] mb-4 shrink-0">
-                      <button
-                        onClick={() => setActiveSettingsTab("boards")}
-                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "boards" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
-                      >
-                        Boards
-                        {activeSettingsTab === "boards" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[var(--border-hover)]" />}
-                      </button>
-                      <button
-                        onClick={() => setActiveSettingsTab("pieces")}
-                        className={`px-4 py-2 font-semibold text-[14px] transition-colors relative ${activeSettingsTab === "pieces" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}
-                      >
-                        Pieces
-                        {activeSettingsTab === "pieces" && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[var(--border-hover)]" />}
-                      </button>
-                    </div>
-                    )}
-
-                    {/* Grid Selection */}
-                    <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-                      {activeSettingsTab === "boards" && (
-                        <div className="grid grid-cols-4 gap-4 px-2 py-3 pb-6">
-                          {AVAILABLE_BOARD_THEMES.map((theme) => {
-                            const isSelected = boardTheme === theme;
-                            const bgImage = BOARD_THEME_ASSETS[theme] ?? `/boards/${theme}.png`;
-                            return (
-                              <button
-                                key={theme}
-                                onClick={() => {
-                                  setBoardTheme(theme);
-                                  playSound("move-self");
-                                }}
-                                className={`group relative flex flex-col gap-1.5 transition-all ${isSelected ? "z-10" : "z-0"}`}
-                              >
-                                <div className={`relative aspect-square rounded-lg border-2 overflow-hidden transition-all ${isSelected ? "border-[var(--border-hover)] scale-[1.05] shadow-[0_0_15px_rgba(0,0,0,0.25)]" : "border-transparent group-hover:border-[var(--border)]"}`}>
-                                  <BoardThumbnail src={bgImage} className="w-full h-full" />
-                                  {isSelected && (
-                                    <div className="absolute top-1 right-1 w-4 h-4 bg-[var(--text-primary)] rounded-full flex items-center justify-center z-20">
-                                      <svg className="w-2.5 h-2.5 text-[var(--surface)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                    </div>
-                                  )}
-                                </div>
-                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]"}`}>
-                                  {theme.replace(/_/g, " ")}
-                                </span>
-                              </button>
-                            );
-                          })}
+            <SettingsModalLayout
+              open={isSettingsOpen}
+              onClose={() => setIsSettingsOpen(false)}
+              activeTabId={activeSettingsTab === "boards" || activeSettingsTab === "pieces" ? "board" : activeSettingsTab}
+              onTabChange={(id) => {
+                if (id === "board") setActiveSettingsTab("boards");
+                else setActiveSettingsTab(id as "boards" | "pieces" | "engine" | "gameplay");
+              }}
+              loading={preferencesLoading}
+              error={preferencesError}
+              tabs={[
+                {
+                  id: "board",
+                  icon: <LayoutGrid className="w-[18px] h-[18px]" />,
+                  label: "Board & Pieces",
+                  title: "Board & Pieces",
+                  description: "Customize the look and feel of your chess set.",
+                  content: (
+                    <BoardPiecesSettingsTab
+                      activeSettingsTab={activeSettingsTab === "pieces" ? "pieces" : "boards"}
+                      setActiveSettingsTab={setActiveSettingsTab}
+                      boardTheme={boardTheme}
+                      pieceTheme={pieceTheme}
+                      boardThemes={AVAILABLE_BOARD_THEMES}
+                      pieceThemes={AVAILABLE_PIECE_THEMES}
+                      boardAssets={BOARD_THEME_ASSETS}
+                      pieceAssets={PIECE_THEME_ASSETS}
+                      soundEnabled={soundEnabled}
+                      onBoardThemeChange={(theme) => setBoardTheme(theme)}
+                      onPieceThemeChange={(theme) => setPieceTheme(theme)}
+                      onSoundEnabledChange={setSoundEnabled}
+                      onPreviewSound={() => new Audio("/sounds/move-self.mp3").play().catch(() => {})}
+                      boardPreviewNode={
+                        <div className="w-full aspect-square relative shadow-2xl rounded-sm overflow-hidden border border-[var(--border)]">
+                          <BoardImage src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`} className="w-full h-full">
+                           <div className="w-full h-full grid grid-cols-3 grid-rows-3 relative">
+                             {Array.from({length: 9}).map((_, i) => {
+                               const row = Math.floor(i / 3);
+                               const col = i % 3;
+                               
+                               let piece = null;
+                               if (row === 0 && col === 0) piece = "bb";
+                               if (row === 0 && col === 1) piece = "bq";
+                               if (row === 0 && col === 2) piece = "bp";
+                               
+                               if (row === 2 && col === 0) piece = "wn";
+                               if (row === 2 && col === 1) piece = "wk";
+                               if (row === 2 && col === 2) piece = "wr";
+    
+                               const isLightSquare = (row + col) % 2 === 0;
+    
+                               return (
+                                 <div key={i} className="flex items-center justify-center relative p-1 md:p-2">
+                                   {col === 0 && (
+                                     <span className={`absolute top-1 left-1.5 text-[14px] font-bold ${isLightSquare ? "text-[#b07b46]" : "text-[#e6ca9a]"} select-none`}>
+                                       {8 - row}
+                                     </span>
+                                   )}
+                                   {piece && (
+                                     <PieceImage 
+                                       src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${piece}.png`} 
+                                       alt={piece}
+                                       className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] flex items-center justify-center"
+                                       skeletonClassName="w-[45%] h-[45%]"
+                                     />
+                                   )}
+                                 </div>
+                               );
+                             })}
+                           </div>
+                          </BoardImage>
                         </div>
-                      )}
-                      {activeSettingsTab === "pieces" && (
-                        <div className="grid grid-cols-4 gap-4 px-2 py-3 pb-6">
-                          {AVAILABLE_PIECE_THEMES.map((theme) => {
-                            const isSelected = pieceTheme === theme;
-                            const knightSrc = `${PIECE_THEME_ASSETS[theme] ?? `/pieces/${theme}/150`}/wn.png`;
-                            return (
-                              <button
-                                key={theme}
-                                onClick={() => {
-                                  setPieceTheme(theme);
-                                  playSound("move-self");
-                                }}
-                                className={`group relative flex flex-col gap-1.5 transition-all ${isSelected ? "z-10" : "z-0"}`}
-                              >
-                                <div className={`relative aspect-square rounded-lg border-2 bg-[var(--skeleton)] flex items-center justify-center transition-all p-2 ${isSelected ? "border-[var(--border-hover)] bg-[var(--skeleton-soft)] scale-[1.05] shadow-[0_0_15px_rgba(0,0,0,0.25)]" : "border-transparent group-hover:border-[var(--border)] group-hover:bg-[var(--skeleton-soft)]"}`}>
-                                  <PieceThumbnail src={knightSrc} alt={theme} />
-                                  {isSelected && (
-                                    <div className="absolute top-1 right-1 w-4 h-4 bg-[var(--text-primary)] rounded-full flex items-center justify-center z-10">
-                                      <svg className="w-2.5 h-2.5 text-[var(--surface)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                    </div>
-                                  )}
-                                </div>
-                                <span className={`text-[10px] uppercase tracking-wider font-bold truncate px-1 transition-colors ${isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] group-hover:text-[var(--text-primary)]"}`}>
-                                  {theme.replace(/_/g, " ")}
-                                </span>
-                              </button>
-                            );
-                          })}
+                      }
+                    />
+                  ),
+                },
+                {
+                  id: "gameplay",
+                  icon: <Monitor className="w-[18px] h-[18px]" />,
+                  label: "Gameplay",
+                  title: "Gameplay",
+                  description: "Configure interaction and move behavior for Learn mode.",
+                  content: (
+                    <div className="flex-1 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
+                      <div className="px-2 py-2 space-y-4 text-[var(--text-primary)]">
+                        <div className="space-y-1">
+                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Move Method</label>
+                          <select
+                            value={learnPreferences.moveMethod}
+                            onChange={(event) => updateLearnPreferences({ moveMethod: event.target.value as typeof learnPreferences.moveMethod })}
+                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                          >
+                            <option value="drag">Drag only</option>
+                            <option value="click">Click only</option>
+                            <option value="both">Both</option>
+                          </select>
                         </div>
-                      )}
-                      {activeSettingsTab === "engine" && (
-                        <div className="px-2 py-2 space-y-4 text-[var(--text-primary)]">
-                          <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Strength</label>
-                            <select
-                              value={analysisStrength}
-                              onChange={(event) => setAnalysisStrength(event.target.value as AnalysisStrength)}
-                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
-                            >
-                              <option value="fast">Fast (~1 sec, 3270 Rating)</option>
-                              <option value="standard">Standard (~5 sec, 3430 Rating)</option>
-                              <option value="deep">Deep (~20 sec, 3500 Rating)</option>
-                              <option value="maximum">Maximum (~1 min 30 sec, 3560 Rating)</option>
-                            </select>
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Analysis Engine</label>
-                            <select
-                              value={analysisEngineChoice}
-                              onChange={(event) => setAnalysisEngineChoice(event.target.value as AnalysisEngineChoice)}
-                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
-                            >
-                              <option value="stockfish-18">Stockfish 18 (108MB download)</option>
-                              <option value="stockfish-18-lite">Stockfish 18 Lite (7MB download)</option>
-                              <option value="torch-4">Torch 4 (73MB download)</option>
-                              <option value="torch-4-lite">Torch 4 Lite (6MB download)</option>
-                              <option value="off">Engine Off</option>
-                            </select>
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Number of Lines</label>
-                            <select
-                              value={analysisMultiPv}
-                              onChange={(event) => setAnalysisMultiPv(Number(event.target.value))}
-                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
-                            >
-                              <option value={1}>1</option>
-                              <option value={2}>2</option>
-                              <option value={3}>3</option>
-                              <option value={4}>4</option>
-                            </select>
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Maximum Time (sec)</label>
-                            <input
-                              type="number"
-                              min={1}
-                              max={180}
-                              value={analysisMaxTimeSeconds}
-                              onChange={(event) => setAnalysisMaxTimeSeconds(Math.max(1, Number(event.target.value) || 1))}
-                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
-                            />
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Threads</label>
-                            <input
-                              type="number"
-                              min={1}
-                              max={1}
-                              value={analysisThreads}
-                              onChange={(event) => setAnalysisThreads(Math.max(1, Number(event.target.value) || 1))}
-                              disabled
-                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-muted)] cursor-not-allowed"
-                            />
-                          </div>
-
-                          <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[12px] text-[var(--text-muted)]">
-                            {analysisEngineChoice === "torch-4" || analysisEngineChoice === "torch-4-lite"
-                              ? torchLoading
-                                ? "Checking Torch runtime..."
-                                : torchStatus.ok
-                                  ? torchStatus.model_present
-                                    ? "Torch runtime detected. Until a Torch inference backend is wired, analysis still runs through Stockfish."
-                                    : "Torch runtime detected but model file is missing. Analysis still runs through Stockfish."
-                                  : "Torch runtime unavailable. Analysis runs through Stockfish."
-                              : "Stockfish engine is used for live analysis in this build."}
-                          </div>
+    
+                        <div className="space-y-1">
+                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Board Orientation</label>
+                          <select
+                            value={learnPreferences.boardOrientation}
+                            onChange={(event) => {
+                              const orientation = event.target.value as typeof learnPreferences.boardOrientation;
+                              updateLearnPreferences({ boardOrientation: orientation });
+                              if (orientation === "black") setIsBoardFlipped(true);
+                              if (orientation === "white") setIsBoardFlipped(false);
+                            }}
+                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                          >
+                            <option value="auto">Auto</option>
+                            <option value="white">White bottom</option>
+                            <option value="black">Black bottom</option>
+                          </select>
                         </div>
-                      )}
-                      {activeSettingsTab === "gameplay" && (
-                        <div className="px-2 py-2 space-y-4 text-[var(--text-primary)]">
-                          <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Move Method</label>
-                            <select
-                              value={learnPreferences.moveMethod}
-                              onChange={(event) => updateLearnPreferences({ moveMethod: event.target.value as typeof learnPreferences.moveMethod })}
-                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
-                            >
-                              <option value="drag">Drag only</option>
-                              <option value="click">Click only</option>
-                              <option value="both">Both</option>
-                            </select>
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Board Orientation</label>
-                            <select
-                              value={learnPreferences.boardOrientation}
-                              onChange={(event) => {
-                                const orientation = event.target.value as typeof learnPreferences.boardOrientation;
-                                updateLearnPreferences({ boardOrientation: orientation });
-                                if (orientation === "black") setIsBoardFlipped(true);
-                                if (orientation === "white") setIsBoardFlipped(false);
-                              }}
-                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
-                            >
-                              <option value="auto">Auto</option>
-                              <option value="white">White bottom</option>
-                              <option value="black">Black bottom</option>
-                            </select>
-                          </div>
-
-                          <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
-                            <span>Show legal moves</span>
-                            <input type="checkbox" checked={learnPreferences.showLegalMoves} onChange={(event) => updateLearnPreferences({ showLegalMoves: event.target.checked })} />
-                          </div>
-                          <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
-                            <span>Move confirmation</span>
-                            <input type="checkbox" checked={learnPreferences.moveConfirmation} onChange={(event) => updateLearnPreferences({ moveConfirmation: event.target.checked })} />
-                          </div>
-                          <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
-                            <span>Enable premove</span>
-                            <input type="checkbox" checked={learnPreferences.premoveEnabled} onChange={(event) => updateLearnPreferences({ premoveEnabled: event.target.checked })} />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Premove Mode</label>
-                            <select
-                              value={learnPreferences.premoveMode}
-                              onChange={(event) => updateLearnPreferences({ premoveMode: event.target.value as typeof learnPreferences.premoveMode })}
-                              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
-                            >
-                              <option value="single">Single premove</option>
-                              <option value="multiple">Multiple premoves</option>
-                            </select>
-                          </div>
-                          <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
-                            <span>Auto queen</span>
-                            <input type="checkbox" checked={learnPreferences.autoQueen} onChange={(event) => updateLearnPreferences({ autoQueen: event.target.checked })} />
-                          </div>
-                          <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
-                            <span>Show opening title</span>
-                            <input type="checkbox" checked={learnPreferences.showOpeningNames} onChange={(event) => updateLearnPreferences({ showOpeningNames: event.target.checked })} />
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Engine Depth</label>
-                            <input
-                              type="range"
-                              min={10}
-                              max={24}
-                              value={learnPreferences.engineDepth}
-                              onChange={(event) => {
-                                const depth = Number(event.target.value);
-                                updateLearnPreferences({ engineDepth: depth });
-                                setAnalysisDepth(depth);
-                              }}
-                              className="w-full"
-                            />
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Sound Volume</label>
-                            <input
-                              type="range"
-                              min={0}
-                              max={100}
-                              value={learnPreferences.masterVolume}
-                              onChange={(event) => updateLearnPreferences({ masterVolume: Number(event.target.value) })}
-                              className="w-full"
-                            />
-                          </div>
+    
+                        <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
+                          <span>Show legal moves</span>
+                          <input type="checkbox" checked={learnPreferences.showLegalMoves} onChange={(event) => updateLearnPreferences({ showLegalMoves: event.target.checked })} />
                         </div>
-                      )}
+                        <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
+                          <span>Move confirmation</span>
+                          <input type="checkbox" checked={learnPreferences.moveConfirmation} onChange={(event) => updateLearnPreferences({ moveConfirmation: event.target.checked })} />
+                        </div>
+                        <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
+                          <span>Enable premove</span>
+                          <input type="checkbox" checked={learnPreferences.premoveEnabled} onChange={(event) => updateLearnPreferences({ premoveEnabled: event.target.checked })} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Premove Mode</label>
+                          <select
+                            value={learnPreferences.premoveMode}
+                            onChange={(event) => updateLearnPreferences({ premoveMode: event.target.value as typeof learnPreferences.premoveMode })}
+                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                          >
+                            <option value="single">Single premove</option>
+                            <option value="multiple">Multiple premoves</option>
+                          </select>
+                        </div>
+                        <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
+                          <span>Auto queen</span>
+                          <input type="checkbox" checked={learnPreferences.autoQueen} onChange={(event) => updateLearnPreferences({ autoQueen: event.target.checked })} />
+                        </div>
+                        <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] flex items-center justify-between">
+                          <span>Show opening title</span>
+                          <input type="checkbox" checked={learnPreferences.showOpeningNames} onChange={(event) => updateLearnPreferences({ showOpeningNames: event.target.checked })} />
+                        </div>
+    
+                        <div className="space-y-1">
+                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Engine Depth</label>
+                          <input
+                            type="range"
+                            min={10}
+                            max={24}
+                            value={learnPreferences.engineDepth}
+                            onChange={(event) => {
+                              const depth = Number(event.target.value);
+                              updateLearnPreferences({ engineDepth: depth });
+                              setAnalysisDepth(depth);
+                            }}
+                            className="w-full"
+                          />
+                        </div>
+    
+                        <div className="space-y-1">
+                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Sound Volume</label>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={learnPreferences.masterVolume}
+                            onChange={(event) => updateLearnPreferences({ masterVolume: Number(event.target.value) })}
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Right Side: Preview */}
-                  <div className="w-full md:w-[45%] flex flex-col items-center justify-start rounded-xl p-0 relative shrink-0">
-                    <div className="w-full aspect-square relative shadow-2xl rounded-sm overflow-hidden border border-[var(--border)]">
-                      <BoardImage src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`} className="w-full h-full">
-                       <div className="w-full h-full grid grid-cols-3 grid-rows-3 relative">
-                         {Array.from({length: 9}).map((_, i) => {
-                           const row = Math.floor(i / 3);
-                           const col = i % 3;
-                           
-                           let piece = null;
-                           if (row === 0 && col === 0) piece = "bb";
-                           if (row === 0 && col === 1) piece = "bq";
-                           if (row === 0 && col === 2) piece = "bp";
-                           
-                           if (row === 2 && col === 0) piece = "wn";
-                           if (row === 2 && col === 1) piece = "wk";
-                           if (row === 2 && col === 2) piece = "wr";
-
-                           const isLightSquare = (row + col) % 2 === 0;
-
-                           return (
-                             <div key={i} className="flex items-center justify-center relative p-1 md:p-2">
-                               {col === 0 && (
-                                 <span className={`absolute top-1 left-1.5 text-[14px] font-bold ${isLightSquare ? "text-[#b07b46]" : "text-[#e6ca9a]"} select-none`}>
-                                   {8 - row}
-                                 </span>
-                               )}
-                               {piece && (
-                                 <PieceImage 
-                                   src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${piece}.png`} 
-                                   alt={piece}
-                                   className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] flex items-center justify-center"
-                                   skeletonClassName="w-[45%] h-[45%]"
-                                 />
-                               )}
-                             </div>
-                           );
-                         })}
-                       </div>
-                      </BoardImage>
+                  ),
+                },
+                {
+                  id: "engine",
+                  icon: <Gamepad2 className="w-[18px] h-[18px]" />,
+                  label: "Engine",
+                  title: "Engine",
+                  description: "Configure analysis engine options and line depth.",
+                  content: (
+                    <div className="flex-1 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
+                      <div className="px-2 py-2 space-y-4 text-[var(--text-primary)]">
+                        <div className="space-y-1">
+                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Strength</label>
+                          <select
+                            value={analysisStrength}
+                            onChange={(event) => setAnalysisStrength(event.target.value as AnalysisStrength)}
+                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                          >
+                            <option value="fast">Fast (~1 sec, 3270 Rating)</option>
+                            <option value="standard">Standard (~5 sec, 3430 Rating)</option>
+                            <option value="deep">Deep (~20 sec, 3500 Rating)</option>
+                            <option value="maximum">Maximum (~1 min 30 sec, 3560 Rating)</option>
+                          </select>
+                        </div>
+    
+                        <div className="space-y-1">
+                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Analysis Engine</label>
+                          <select
+                            value={analysisEngineChoice}
+                            onChange={(event) => setAnalysisEngineChoice(event.target.value as AnalysisEngineChoice)}
+                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                          >
+                            <option value="stockfish-18">Stockfish 18 (108MB download)</option>
+                            <option value="stockfish-18-lite">Stockfish 18 Lite (7MB download)</option>
+                            <option value="torch-4">Torch 4 (73MB download)</option>
+                            <option value="torch-4-lite">Torch 4 Lite (6MB download)</option>
+                            <option value="off">Engine Off</option>
+                          </select>
+                        </div>
+    
+                        <div className="space-y-1">
+                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Number of Lines</label>
+                          <select
+                            value={analysisMultiPv}
+                            onChange={(event) => setAnalysisMultiPv(Number(event.target.value))}
+                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                          >
+                            <option value={1}>1</option>
+                            <option value={2}>2</option>
+                            <option value={3}>3</option>
+                            <option value={4}>4</option>
+                          </select>
+                        </div>
+    
+                        <div className="space-y-1">
+                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Maximum Time (sec)</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={180}
+                            value={analysisMaxTimeSeconds}
+                            onChange={(event) => setAnalysisMaxTimeSeconds(Math.max(1, Number(event.target.value) || 1))}
+                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-primary)]"
+                          />
+                        </div>
+    
+                        <div className="space-y-1">
+                          <label className="text-[12px] uppercase tracking-wide text-[var(--text-muted)]">Threads</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={1}
+                            value={analysisThreads}
+                            onChange={(event) => setAnalysisThreads(Math.max(1, Number(event.target.value) || 1))}
+                            disabled
+                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 text-[14px] text-[var(--text-muted)] cursor-not-allowed"
+                          />
+                        </div>
+    
+                        <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[12px] text-[var(--text-muted)]">
+                          {analysisEngineChoice === "torch-4" || analysisEngineChoice === "torch-4-lite"
+                            ? torchLoading
+                              ? "Checking Torch runtime..."
+                              : torchStatus.ok
+                                ? torchStatus.model_present
+                                  ? "Torch runtime detected. Until a Torch inference backend is wired, analysis still runs through Stockfish."
+                                  : "Torch runtime detected but model file is missing. Analysis still runs through Stockfish."
+                                : "Torch runtime unavailable. Analysis runs through Stockfish."
+                            : "Stockfish engine is used for live analysis in this build."}
+                        </div>
+                      </div>
                     </div>
-                    
-                    {/* Sounds Toggle */}
-                    <div className="mt-8 w-full flex items-center justify-start gap-4">
-                      <label className="relative inline-flex items-center cursor-pointer group">
-                        <input 
-                          type="checkbox" 
-                          checked={soundEnabled} 
-                          onChange={(e) => {
-                            setSoundEnabled(e.target.checked);
-                            if (e.target.checked) new Audio("/sounds/move-self.mp3").play().catch(() => {});
-                          }} 
-                          className="sr-only peer" 
-                        />
-                        <div className="w-11 h-6 bg-[var(--skeleton)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-[var(--border)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--text-muted)] after:border-[var(--border)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--border-hover)] peer-checked:after:bg-[var(--surface)] group-hover:after:scale-[1.05]"></div>
-                        <span className="ml-3 text-[14px] text-[var(--text-secondary)] font-medium group-hover:text-[var(--text-primary)] transition-colors">Enable Sounds</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                  {/* Footer / Actions */}
-                  <div className="mt-auto bg-[var(--surface-alt)] px-8 py-5 flex items-center justify-end border-t border-[var(--border)] w-full shrink-0">
-                    <button 
-                      onClick={() => {
-                        savePreferences().catch(() => {});
-                      }}
-                      disabled={preferencesSaving || preferencesLoading}
-                      className="px-8 py-2.5 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] font-bold rounded-lg transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {preferencesSaving ? "Saving..." : "Save"}
-                    </button>
-                  </div>
-
-                </div>
-              </div>
-            </div>
+                  ),
+                },
+              ]}
+              footer={
+                <button 
+                  onClick={() => {
+                    savePreferences().catch(() => {});
+                  }}
+                  disabled={preferencesSaving || preferencesLoading}
+                  className="px-8 py-2.5 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] font-bold rounded-lg transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {preferencesSaving ? "Saving..." : "Save"}
+                </button>
+              }
+            />
           )}
 
           <div className="flex items-stretch w-full lg:w-auto h-auto lg:h-[85vh] max-h-[820px] lg:aspect-[1/0.95] max-w-[100%] lg:max-w-[85%] justify-center lg:justify-end">

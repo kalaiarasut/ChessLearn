@@ -71,9 +71,24 @@ const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"];
 
 function PuzzleSolveSkeleton() {
+  const renderSkeletonDescription = (className = "") => (
+    <div className={`rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-5 ${className}`}>
+      <div className="flex flex-wrap gap-2 mb-4">
+        <div className="h-[30px] w-[92px] rounded-full bg-[var(--skeleton)] animate-pulse" />
+        <div className="h-[30px] w-[118px] rounded-full bg-[var(--skeleton)] animate-pulse" />
+        <div className="h-[30px] w-[84px] rounded-full bg-[var(--skeleton)] animate-pulse" />
+      </div>
+      <div className="h-[17px] w-[230px] rounded bg-[var(--skeleton-soft)] animate-pulse" />
+    </div>
+  );
+
   return (
     <>
       <div className="flex flex-col items-center gap-4">
+        <div style={{ width: "min(85vw, 520px)" }} className="lg:hidden block">
+          {renderSkeletonDescription()}
+        </div>
+
         <div className="flex items-center gap-3 mb-2">
           <div className="w-5 h-5 rounded-full bg-[var(--skeleton)] animate-pulse" />
           <div className="h-4 w-36 rounded-full bg-[var(--skeleton)] animate-pulse" />
@@ -100,16 +115,8 @@ function PuzzleSolveSkeleton() {
 
         <div className="h-4 w-56 rounded-full bg-[var(--skeleton)] animate-pulse" />
       </div>
-
       <div className="w-full lg:w-[300px] flex flex-col gap-4">
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-5">
-          <div className="flex flex-wrap gap-2 mb-4">
-            <div className="h-[30px] w-[92px] rounded-full bg-[var(--skeleton)] animate-pulse" />
-            <div className="h-[30px] w-[118px] rounded-full bg-[var(--skeleton)] animate-pulse" />
-            <div className="h-[30px] w-[84px] rounded-full bg-[var(--skeleton)] animate-pulse" />
-          </div>
-          <div className="h-[17px] w-[230px] rounded bg-[var(--skeleton-soft)] animate-pulse" />
-        </div>
+        {renderSkeletonDescription("hidden lg:block")}
         <div className="h-[46px] rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] animate-pulse" />
         <div className="grid grid-cols-2 gap-3">
           {Array.from({ length: 5 }).map((_, index) => (
@@ -1221,6 +1228,29 @@ function SolverInner() {
     return null;
   };
 
+  const renderDescriptionBox = (className = "") => (
+    <div className={`rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-5 ${className}`}>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {puzzle?.themes.slice(0, 4).map((theme) => (
+          <span
+            key={theme}
+            className="text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-dimmed)] bg-[var(--surface)] border border-[var(--border)] rounded-full px-2.5 py-1 capitalize"
+          >
+            {theme.replace(/([A-Z])/g, " $1").trim()}
+          </span>
+        ))}
+      </div>
+      <p className="text-[13px] text-[var(--text-muted)] font-medium">
+        {playerSide === "w" ? "White" : "Black"} to move - find the best continuation.
+      </p>
+      {mode === "review" && reviewItem && (
+        <p className="mt-3 text-[12px] text-sky-400 font-semibold">
+          Replay item #{reviewItem.id} due {new Date(reviewItem.nextReviewAt).toLocaleString()}.
+        </p>
+      )}
+    </div>
+  );
+
   const shouldShowSkeleton = loading || !preferencesReady || Boolean(puzzle && game && !visualReady);
 
   return (
@@ -1264,6 +1294,10 @@ function SolverInner() {
         ) : (
           <>
             <div className="flex flex-col items-center gap-4">
+              <div style={{ width: "min(85vw, 520px)" }} className="lg:hidden block">
+                {renderDescriptionBox()}
+              </div>
+
               <div className="flex items-center gap-3 mb-2">
                 <ModeIcon className={`w-5 h-5 ${modeColor}`} />
                 <span className="text-[14px] font-bold text-[var(--text-primary)]">{modeTitle}</span>
@@ -1473,26 +1507,7 @@ function SolverInner() {
             </div>
 
             <div className="w-full lg:w-[300px] flex flex-col gap-4">
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-5">
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {puzzle.themes.slice(0, 4).map((theme) => (
-                    <span
-                      key={theme}
-                      className="text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-dimmed)] bg-[var(--surface)] border border-[var(--border)] rounded-full px-2.5 py-1 capitalize"
-                    >
-                      {theme.replace(/([A-Z])/g, " $1").trim()}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-[13px] text-[var(--text-muted)] font-medium">
-                  {playerSide === "w" ? "White" : "Black"} to move - find the best continuation.
-                </p>
-                {mode === "review" && reviewItem && (
-                  <p className="mt-3 text-[12px] text-sky-400 font-semibold">
-                    Replay item #{reviewItem.id} due {new Date(reviewItem.nextReviewAt).toLocaleString()}.
-                  </p>
-                )}
-              </div>
+              {renderDescriptionBox("hidden lg:block")}
 
               <button
                 onClick={() => setIsSettingsOpen(true)}
