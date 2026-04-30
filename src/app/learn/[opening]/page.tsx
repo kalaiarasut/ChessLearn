@@ -9,6 +9,7 @@ import { ArrowLeft, Settings, Play, Pause, ChevronLeft, ChevronRight, ChevronsLe
 import themeManifest from "@/data/themeManifest.json";
 import { useStockfishAnalysis } from "./use-stockfish-analysis";
 import { useTorchStatus } from "./use-torch-status";
+import OpeningLoading from "./loading";
 import { useTheme } from "@/lib/theme-context";
 import {
   DEFAULT_CLIENT_PREFERENCES,
@@ -1681,6 +1682,11 @@ export default function OpeningPage() {
     });
   }
 
+  const isEngineLoading = isEngineEnabled && !analysis.ready && !analysis.error;
+  if (openingLoading || preferencesLoading) {
+    return <OpeningLoading />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-[var(--bg)]">
       <header className="w-full px-4 sm:px-8 py-4 sm:py-5 flex items-center justify-between border-b border-[var(--border)]">
@@ -1697,8 +1703,8 @@ export default function OpeningPage() {
         </Link>
       </header>
 
-      <main className="flex-1 w-full flex flex-col lg:flex-row h-[calc(100vh-73px)]">
-        <div className="w-full lg:w-[35%] p-6 lg:p-5 bg-[var(--bg)] relative z-10 shrink-0 border-r border-[var(--border)]">
+      <main className="flex-1 w-full flex flex-col-reverse lg:flex-row h-auto lg:h-[calc(100vh-73px)]">
+        <div className="w-full lg:w-[35%] h-[550px] lg:h-full p-4 lg:p-5 bg-[var(--bg)] relative z-10 shrink-0 border-t lg:border-t-0 lg:border-r border-[var(--border)]">
           <div className="w-full h-full bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden flex flex-col">
             <div className="border-b border-[var(--border)] px-3 py-2 bg-[var(--surface-alt)]">
               <div className="text-[16px] font-serif font-[600] leading-tight text-[var(--text-primary)]">
@@ -2008,8 +2014,19 @@ export default function OpeningPage() {
                         Engine failed: {analysis.error}
                       </div>
                     ) : analysis.lines.length === 0 && (
-                      <div className="px-3 py-3 text-[var(--text-muted)] text-[14px] border-b border-[var(--border)]">
-                        {analysis.ready ? "Analyzing current position..." : "Starting engine..."}
+                      <div className="flex flex-col border-b border-[var(--border)]">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="min-h-[44px] px-2 py-2 border-b border-[var(--border)] flex items-start gap-2 last:border-0">
+                            <div className="w-[52px] h-6 rounded bg-[var(--skeleton)] animate-pulse"></div>
+                            <div className="flex-1 flex flex-wrap gap-2 pt-[2px]">
+                              <div className="w-8 h-4 rounded bg-[var(--skeleton-soft)] animate-pulse"></div>
+                              <div className="w-10 h-4 rounded bg-[var(--skeleton-soft)] animate-pulse"></div>
+                              <div className="w-6 h-4 rounded bg-[var(--skeleton-soft)] animate-pulse"></div>
+                              <div className="w-12 h-4 rounded bg-[var(--skeleton-soft)] animate-pulse"></div>
+                              <div className="w-8 h-4 rounded bg-[var(--skeleton-soft)] animate-pulse"></div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </>
@@ -2086,30 +2103,30 @@ export default function OpeningPage() {
           </div>
         </div>
 
-        <div className="w-full lg:w-[65%] flex-1 flex flex-row items-start justify-end bg-[var(--bg-alt)] p-8 lg:p-0 lg:pt-6 lg:pr-[70px] relative shadow-[-30px_0_50px_rgba(0,0,0,0.15)] border-l border-[var(--border)]">
-          <div className="absolute top-6 right-6 flex flex-col gap-3 z-50">
+        <div className="w-full lg:w-[65%] flex-1 flex flex-col lg:flex-row items-center lg:items-start justify-center lg:justify-end bg-[var(--bg-alt)] p-4 lg:p-0 lg:pt-6 lg:pr-[70px] relative shadow-none lg:shadow-[-30px_0_50px_rgba(0,0,0,0.15)] border-l-0 lg:border-l border-[var(--border)]">
+          <div className="w-full lg:w-auto flex justify-end lg:absolute lg:top-6 lg:right-6 flex-row lg:flex-col gap-1.5 lg:gap-3 z-50 mb-1 lg:mb-0">
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center"
+              className="p-1.5 lg:p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-sm lg:shadow-lg flex items-center justify-center"
               title="Settings"
             >
-              <Settings className="w-5 h-5" />
+              <Settings className="w-4 h-4 lg:w-5 lg:h-5" />
             </button>
             <button
               onClick={() => setIsBoardFlipped(!isBoardFlipped)}
-              className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center flex-col gap-[2px]"
+              className="p-1.5 lg:p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-sm lg:shadow-lg flex items-center justify-center flex-col gap-[1px] lg:gap-[2px]"
               title="Flip Board"
             >
-              <ArrowLeft className="w-[14px] h-[14px] -ml-1" />
-              <ArrowLeft className="w-[14px] h-[14px] -mr-1 rotate-180" />
+              <ArrowLeft className="w-[11px] h-[11px] lg:w-[14px] lg:h-[14px] -ml-1" />
+              <ArrowLeft className="w-[11px] h-[11px] lg:w-[14px] lg:h-[14px] -mr-1 rotate-180" />
             </button>
             <button
               onClick={toggleTheme}
               data-theme-toggle
-              className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center"
+              className="p-1.5 lg:p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-sm lg:shadow-lg flex items-center justify-center"
               title={isDark ? "Switch to light mode" : "Switch to dark mode"}
             >
-              {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
+              {isDark ? <Sun className="w-[15px] h-[15px] lg:w-[18px] lg:h-[18px]" /> : <Moon className="w-[15px] h-[15px] lg:w-[18px] lg:h-[18px]" />}
             </button>
           </div>
 
@@ -2530,9 +2547,9 @@ export default function OpeningPage() {
             </div>
           )}
 
-          <div className="flex items-stretch h-[85vh] max-h-[820px] aspect-[1/0.95] max-w-[85%] justify-end">
+          <div className="flex items-stretch w-full lg:w-auto h-auto lg:h-[85vh] max-h-[820px] lg:aspect-[1/0.95] max-w-[100%] lg:max-w-[85%] justify-center lg:justify-end">
             {showEvaluationBar && (
-              <div className="w-[25px] md:w-[30px] mr-[12px] md:mr-[24px] bg-[#333333] rounded overflow-hidden flex flex-col relative h-[100%] shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
+              <div className="w-[16px] md:w-[30px] mr-[8px] md:mr-[24px] bg-[#333333] rounded overflow-hidden flex flex-col relative shadow-[0_2px_10px_rgba(0,0,0,0.5)] shrink-0">
                 <div
                   className="w-full bg-[#202020] transition-[height] duration-300 relative"
                   style={{ height: `${100 - analysis.whiteWinChance}%` }}
@@ -2540,10 +2557,10 @@ export default function OpeningPage() {
                   <div className="absolute inset-0 bg-white/5 animate-pulse" />
                 </div>
                 <div
-                  className="w-full bg-white relative shadow-[0_-2px_10px_rgba(255,255,255,0.6)] flex flex-col justify-end pb-1.5 border-t border-[#666] transition-[height] duration-300"
+                  className="w-full bg-white relative shadow-[0_-2px_10px_rgba(255,255,255,0.6)] flex flex-col justify-end items-center pb-1.5 border-t border-[#666] transition-[height] duration-300"
                   style={{ height: `${analysis.whiteWinChance}%` }}
                 >
-                  <span className="text-center text-[11px] md:text-[13px] font-[700] text-black">
+                  <span className="text-[10.5px] md:text-[13px] font-[800] text-black [writing-mode:vertical-lr] lg:[writing-mode:horizontal-tb] rotate-180 lg:rotate-0 tracking-widest lg:tracking-normal">
                     {isEngineEnabled ? analysis.evaluationText : "OFF"}
                   </span>
                 </div>
@@ -2551,7 +2568,7 @@ export default function OpeningPage() {
             )}
 
             <div
-              className="h-full aspect-square relative overflow-hidden"
+              className="flex-1 lg:flex-none h-auto lg:h-full aspect-square relative overflow-hidden"
             >
               <BoardImage src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`} className="w-full h-full">
                 <div className="w-full h-full grid grid-cols-8 grid-rows-8 relative">
