@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import Image from "next/image";
 
 export type SettingsTabConfig = {
@@ -31,6 +31,17 @@ export function SettingsModalLayout({
   error?: string | null;
   contentBg?: string;
 }) {
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
   if (!open) return null;
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
 
@@ -71,7 +82,7 @@ export function SettingsModalLayout({
             {error && <p className="text-[var(--error-text)] text-[12px] mt-2">{error}</p>}
           </div>
 
-          <div className="flex-1 min-h-0 relative flex flex-col">
+          <div className="flex-1 min-h-0 relative overflow-y-auto overscroll-contain custom-scrollbar">
             {activeTab.content}
           </div>
 

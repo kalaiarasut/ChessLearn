@@ -2215,7 +2215,7 @@ export default function OpeningPage() {
                   title: "Gameplay",
                   description: "Configure interaction and move behavior for Learn mode.",
                   content: (
-                    <div className="flex-1 min-h-0 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
+                    <div className="px-5 md:px-8 pb-5 md:pb-8 pt-2">
                       <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                           <span className="text-[14px] text-[var(--text-primary)]">Move Method</span>
@@ -2317,7 +2317,7 @@ export default function OpeningPage() {
                   title: "Engine",
                   description: "Configure analysis engine options and line depth.",
                   content: (
-                    <div className="flex-1 min-h-0 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
+                    <div className="px-5 md:px-8 pb-5 md:pb-8 pt-2">
                       <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
                         <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                           <span className="text-[14px] text-[var(--text-primary)]">Strength</span>

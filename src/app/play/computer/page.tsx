@@ -3365,7 +3365,7 @@ export default function PlayComputerPage() {
                 title: "Gameplay",
                 description: "Configure rules and preferences for your games.",
                 content: (
-                  <div className="flex-1 min-h-0 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
+                  <div className="px-5 md:px-8 pb-5 md:pb-8 pt-2">
                     <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
                       <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                         <span className="text-[14px] text-[var(--text-primary)]">Move Method</span>
@@ -3425,7 +3425,7 @@ export default function PlayComputerPage() {
                 title: "Engine",
                 description: "Configure Stockfish strength and analysis parameters.",
                 content: (
-                  <div className="flex-1 min-h-0 px-5 md:px-8 pb-5 md:pb-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar pt-2">
+                  <div className="px-5 md:px-8 pb-5 md:pb-8 flex flex-col gap-6 pt-2">
                     {/* GAME REVIEW Section */}
                     <div>
                       <h3 className="text-[11px] font-bold tracking-widest text-[var(--text-muted)] uppercase mb-3 px-1">Game Review</h3>
@@ -3611,7 +3611,7 @@ export default function PlayComputerPage() {
                 title: "Interface",
                 description: "Change platform language, sounds, and UI interactions.",
                 content: (
-                  <div className="flex-1 min-h-0 px-5 md:px-8 pb-5 md:pb-8 overflow-y-auto custom-scrollbar pt-2">
+                  <div className="px-5 md:px-8 pb-5 md:pb-8 pt-2">
                     <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
                       <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
                         <span className="text-[14px] text-[var(--text-primary)]">Default Board Orientation</span>
