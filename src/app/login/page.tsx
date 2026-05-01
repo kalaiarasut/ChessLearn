@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useActionState, useMemo, useState } from "react";
+import { Suspense, useActionState, useMemo, useState } from "react";
 import { Mail, Lock, ArrowRight, Eye, EyeOff, ChevronLeft, Sun, Moon } from "lucide-react";
 import { login } from "@/app/actions/auth";
 import { useTheme } from "@/lib/theme-context";
 
-export default function LoginPage() {
+function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const searchParams = useSearchParams();
   const [state, formAction, pending] = useActionState(login, {});
@@ -164,5 +164,19 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-[var(--text-muted)]">
+          Loading login...
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
