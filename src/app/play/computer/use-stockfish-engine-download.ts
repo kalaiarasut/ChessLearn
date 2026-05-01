@@ -23,7 +23,7 @@ type EngineManifest = {
   totalBytes: number;
 };
 
-const ENGINE_READY_STORAGE_KEY_PREFIX = "chessify.bot.engine-ready.v1.";
+const ENGINE_READY_STORAGE_KEY_PREFIX = "ChessLearn.bot.engine-ready.v1.";
 const READY_BADGE_TIMEOUT_MS = 1800;
 
 const ENGINE_MANIFESTS: Record<DownloadableEngineVariant, EngineManifest> = {

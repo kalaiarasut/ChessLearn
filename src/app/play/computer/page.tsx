@@ -26,9 +26,9 @@ const ELOS = [1320, 1400, 1500, 1650, 1800, 2000, 2200, 2500, 2850, 3190];
 const ELO_MIN = STOCKFISH_ELO_LIMITS["stockfish-18"].min;
 const ELO_MAX = STOCKFISH_ELO_LIMITS["stockfish-18"].max;
 const FULL_ENGINE_WASM_PATH = "/engines/stockfish/stockfish-18-single.wasm";
-const BOT_ENGINE_VARIANT_STORAGE_KEY = "chessify.bot.engineVariant.v1";
-const ANALYSIS_ENGINE_VARIANT_STORAGE_KEY = "chessify.bot.analysisEngineVariant.v1";
-const REPLAY_ARCHIVE_STORAGE_KEY = "chessify.bot.replayArchive.v1";
+const BOT_ENGINE_VARIANT_STORAGE_KEY = "ChessLearn.bot.engineVariant.v1";
+const ANALYSIS_ENGINE_VARIANT_STORAGE_KEY = "ChessLearn.bot.analysisEngineVariant.v1";
+const REPLAY_ARCHIVE_STORAGE_KEY = "ChessLearn.bot.replayArchive.v1";
 const REPLAY_ARCHIVE_MAX_ITEMS = 60;
 const REPLAY_ARCHIVE_PAGE_SIZE = 6;
 const BEGINNER_ESTIMATED_ELOS = [400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300];
@@ -483,8 +483,8 @@ const buildReplayPgn = (entry: ReplayArchiveEntry) => {
     .trim();
 
   return [
-    `[Event "Chessify Replay"]`,
-    `[Site "Chessify"]`,
+    `[Event "ChessLearn Replay"]`,
+    `[Site "ChessLearn"]`,
     `[Date "${dateTag}"]`,
     `[White "${entry.whiteLabel}"]`,
     `[Black "${entry.blackLabel}"]`,
@@ -591,9 +591,9 @@ const PieceThumbnail = ({ src, alt }: { src: string; alt: string }) => {
 const getPieceIcon = (code: string | null, pieceTheme: string) => {
   if (!code) return null;
   return (
-    <PieceImage 
-      src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${code}.png`} 
-      alt={code} 
+    <PieceImage
+      src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${code}.png`}
+      alt={code}
     />
   );
 };
@@ -993,7 +993,7 @@ export default function PlayComputerPage() {
       return;
     }
 
-    ensureEngineReady(botEngineVariant).catch(() => {});
+    ensureEngineReady(botEngineVariant).catch(() => { });
   }, [botEngineVariant, engineVariantsResolved, ensureEngineReady]);
 
   useEffect(() => {
@@ -1045,7 +1045,7 @@ export default function PlayComputerPage() {
       return;
     }
 
-    ensureEngineReady(analysisEngineVariant).catch(() => {});
+    ensureEngineReady(analysisEngineVariant).catch(() => { });
   }, [analysisEnabled, analysisEngineVariant, engineVariantsResolved, ensureEngineReady]);
 
   const { ready: engineReady, bestMove } = useStockfishPlayer(
@@ -1103,12 +1103,12 @@ export default function PlayComputerPage() {
       },
       ...(analysisEnabled
         ? [
-            {
-              variant: analysisEngineVariant,
-              label: analysisEngineVariant === "stockfish-18" ? "Full" : "Lite",
-              status: analysisEngineDownloadStatus,
-            },
-          ]
+          {
+            variant: analysisEngineVariant,
+            label: analysisEngineVariant === "stockfish-18" ? "Full" : "Lite",
+            status: analysisEngineDownloadStatus,
+          },
+        ]
         : []),
     ];
 
@@ -1298,7 +1298,7 @@ export default function PlayComputerPage() {
       }
     };
 
-    loadBotOpenings().catch(() => {});
+    loadBotOpenings().catch(() => { });
 
     return () => {
       cancelled = true;
@@ -1364,7 +1364,7 @@ export default function PlayComputerPage() {
 
     audio.volume = Math.min(1, Math.max(0, botPreferences.masterVolume / 100));
     audio.currentTime = 0;
-    audio.play().catch(() => {});
+    audio.play().catch(() => { });
   };
   const queuePremove = useCallback((from: Square, to: Square) => {
     const piece = gameRef.current.get(from);
@@ -1490,7 +1490,7 @@ export default function PlayComputerPage() {
       const from = bestMove.slice(0, 2) as Square;
       const to = bestMove.slice(2, 4) as Square;
       const promotion = bestMove.length > 4 ? bestMove[4] : undefined;
-      
+
       commitMove(from, to, promotion);
     }
   }, [
@@ -1607,7 +1607,7 @@ export default function PlayComputerPage() {
       const newFen = nextPosition.fen();
       const nextHistory = [...history.slice(0, currentMoveIndex + 1), newFen];
       const nextSanHistory = [...sanHistory.slice(0, currentMoveIndex), move.san];
-      
+
       gameRef.current = nextPosition;
       setHistory(nextHistory);
       setSanHistory(nextSanHistory);
@@ -1629,9 +1629,9 @@ export default function PlayComputerPage() {
       } else if (serializedMove.isCapture) {
         soundToPlay = "capture";
       }
-      
+
       playSound(soundToPlay);
-      
+
       if (nextPosition.isGameOver()) {
         setGameState("game_over");
       }
@@ -1947,44 +1947,44 @@ export default function PlayComputerPage() {
   const sidePanelsByColor: Record<SideColor, { name: string; subtitle: string | null; icon: "bot" | "user"; clockSeconds: number }> = {
     w: isBotMatchMode
       ? {
-          name: "Bot 1",
-          subtitle: `ELO ${bot1Elo}`,
-          icon: "bot",
-          clockSeconds: whiteTimeSeconds,
-        }
+        name: "Bot 1",
+        subtitle: `ELO ${bot1Elo}`,
+        icon: "bot",
+        clockSeconds: whiteTimeSeconds,
+      }
       : playerSide === "w"
         ? {
-            name: viewerName,
-            subtitle: null,
-            icon: "user",
-            clockSeconds: whiteTimeSeconds,
-          }
+          name: viewerName,
+          subtitle: null,
+          icon: "user",
+          clockSeconds: whiteTimeSeconds,
+        }
         : {
-            name: botModelLabel,
-            subtitle: botStrengthSubtitle,
-            icon: "bot",
-            clockSeconds: whiteTimeSeconds,
-          },
+          name: botModelLabel,
+          subtitle: botStrengthSubtitle,
+          icon: "bot",
+          clockSeconds: whiteTimeSeconds,
+        },
     b: isBotMatchMode
       ? {
-          name: "Bot 2",
-          subtitle: `ELO ${bot2Elo}`,
-          icon: "bot",
-          clockSeconds: blackTimeSeconds,
-        }
+        name: "Bot 2",
+        subtitle: `ELO ${bot2Elo}`,
+        icon: "bot",
+        clockSeconds: blackTimeSeconds,
+      }
       : playerSide === "b"
         ? {
-            name: viewerName,
-            subtitle: null,
-            icon: "user",
-            clockSeconds: blackTimeSeconds,
-          }
+          name: viewerName,
+          subtitle: null,
+          icon: "user",
+          clockSeconds: blackTimeSeconds,
+        }
         : {
-            name: botModelLabel,
-            subtitle: botStrengthSubtitle,
-            icon: "bot",
-            clockSeconds: blackTimeSeconds,
-          },
+          name: botModelLabel,
+          subtitle: botStrengthSubtitle,
+          icon: "bot",
+          clockSeconds: blackTimeSeconds,
+        },
   };
   const topPanel = sidePanelsByColor[topSideColor];
   const bottomPanel = sidePanelsByColor[bottomSideColor];
@@ -2154,7 +2154,7 @@ export default function PlayComputerPage() {
 
   const exportSingleReplayPgn = (entry: ReplayArchiveEntry) => {
     const dateStamp = entry.createdAt.slice(0, 10) || new Date().toISOString().slice(0, 10);
-    downloadReplayPgnDocument([entry], `chessify-replay-${dateStamp}-${entry.id.slice(0, 6)}.pgn`);
+    downloadReplayPgnDocument([entry], `ChessLearn-replay-${dateStamp}-${entry.id.slice(0, 6)}.pgn`);
   };
 
   const exportReplayArchive = () => {
@@ -2162,7 +2162,7 @@ export default function PlayComputerPage() {
       return;
     }
 
-    downloadReplayPgnDocument(replayArchive, `chessify-replays-${new Date().toISOString().slice(0, 10)}.pgn`);
+    downloadReplayPgnDocument(replayArchive, `ChessLearn-replays-${new Date().toISOString().slice(0, 10)}.pgn`);
   };
 
   const deleteReplayEntry = (entryId: string) => {
@@ -2251,13 +2251,12 @@ export default function PlayComputerPage() {
         <div className="flex items-center gap-3">
           {engineStatusBadge ? (
             <div
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-medium shadow-sm transition-colors ${
-                engineStatusBadge.tone === "ready"
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-medium shadow-sm transition-colors ${engineStatusBadge.tone === "ready"
                   ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
                   : engineStatusBadge.tone === "error"
                     ? "border-[var(--error-border)] bg-[var(--error-bg)] text-[var(--error-text)]"
                     : "border-[var(--border-subtle)] bg-[var(--surface-alt)] text-[var(--text-secondary)]"
-              }`}
+                }`}
             >
               {engineStatusBadge.tone === "ready" ? (
                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
@@ -2321,31 +2320,28 @@ export default function PlayComputerPage() {
                   <div className="grid grid-cols-3 gap-2 mb-5">
                     <button
                       onClick={() => setStrengthMode("beginner")}
-                      className={`py-2.5 rounded-lg border font-bold text-[13px] transition-all ${
-                        strengthMode === "beginner"
+                      className={`py-2.5 rounded-lg border font-bold text-[13px] transition-all ${strengthMode === "beginner"
                           ? "bg-[var(--text-primary)] border-[var(--text-primary)] text-[var(--bg)] shadow-sm"
                           : "bg-[var(--surface-alt)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                      }`}
+                        }`}
                     >
                       Beginner
                     </button>
                     <button
                       onClick={() => setStrengthMode("skill")}
-                      className={`py-2.5 rounded-lg border font-bold text-[13px] transition-all ${
-                        strengthMode === "skill"
+                      className={`py-2.5 rounded-lg border font-bold text-[13px] transition-all ${strengthMode === "skill"
                           ? "bg-[var(--text-primary)] border-[var(--text-primary)] text-[var(--bg)] shadow-sm"
                           : "bg-[var(--surface-alt)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                      }`}
+                        }`}
                     >
                       Skill
                     </button>
                     <button
                       onClick={() => setStrengthMode("elo")}
-                      className={`py-2.5 rounded-lg border font-bold text-[13px] transition-all ${
-                        strengthMode === "elo"
+                      className={`py-2.5 rounded-lg border font-bold text-[13px] transition-all ${strengthMode === "elo"
                           ? "bg-[var(--text-primary)] border-[var(--text-primary)] text-[var(--bg)] shadow-sm"
                           : "bg-[var(--surface-alt)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                      }`}
+                        }`}
                     >
                       ELO
                     </button>
@@ -2367,11 +2363,10 @@ export default function PlayComputerPage() {
                           <button
                             key={diff.label}
                             onClick={() => setEloIndex(diff.val)}
-                            className={`flex flex-col items-center justify-center py-3 rounded-xl border transition-all gap-1.5 ${
-                              eloIndex === diff.val
+                            className={`flex flex-col items-center justify-center py-3 rounded-xl border transition-all gap-1.5 ${eloIndex === diff.val
                                 ? "bg-[var(--text-primary)] border-[var(--text-primary)] text-[var(--bg)] shadow-md"
                                 : "bg-[var(--surface-alt)] border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                            }`}
+                              }`}
                           >
                             {diff.icon}
                             <span className="text-[12px] font-bold">{diff.label}</span>
@@ -2388,10 +2383,11 @@ export default function PlayComputerPage() {
                           {elo}
                         </div>
                       </div>
-                  
+
                       {/* ELO Slider */}
                       <div className="w-full mt-8 mb-2 space-y-3 px-1 relative">
-                    <style dangerouslySetInnerHTML={{__html: `
+                        <style dangerouslySetInnerHTML={{
+                          __html: `
                       input[type=range].elo-slider {
                         -webkit-appearance: none;
                         appearance: none;
@@ -2440,52 +2436,50 @@ export default function PlayComputerPage() {
                         transform: scale(1.15);
                       }
                     `}} />
-                    
-                    <div className="relative w-full h-10 flex flex-col justify-center">
-                      {/* The custom visual track */}
-                      <div className="absolute left-0 right-0 h-[10px] bg-[var(--skeleton)] rounded-full border border-[var(--border-subtle)] shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] pointer-events-none overflow-hidden">
-                        <div 
-                          className="absolute top-0 left-0 h-full bg-gradient-to-r from-[var(--text-secondary)] to-[var(--text-primary)]"
-                          style={{ width: `${(eloIndex / (ELOS.length - 1)) * 100}%` }}
-                        />
-                      </div>
 
-                      {/* Scale Ticks */}
-                      {ELOS.map((val, idx) => {
-                        const leftPercent = (idx / (ELOS.length - 1)) * 100;
-                        const isPassed = idx <= eloIndex;
-                        const isMajorTick = val % 500 === 0;
-                        return (
-                          <div 
-                            key={val}
-                            className={`absolute top-1/2 rounded-full pointer-events-none transition-all duration-300 ${
-                              isMajorTick 
-                                ? 'w-[4px] h-[12px]' 
-                                : 'w-[2px] h-[6px]'
-                            } ${
-                              isPassed 
-                                ? (isMajorTick ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.9)]' : 'bg-white/50') 
-                                : (isMajorTick ? 'bg-[var(--text-secondary)] opacity-80' : 'bg-[var(--text-muted)] opacity-30')
-                            }`}
-                            style={{ left: `${leftPercent}%`, transform: 'translate(-50%, -50%)', zIndex: isPassed ? 10 : 0 }}
+                        <div className="relative w-full h-10 flex flex-col justify-center">
+                          {/* The custom visual track */}
+                          <div className="absolute left-0 right-0 h-[10px] bg-[var(--skeleton)] rounded-full border border-[var(--border-subtle)] shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] pointer-events-none overflow-hidden">
+                            <div
+                              className="absolute top-0 left-0 h-full bg-gradient-to-r from-[var(--text-secondary)] to-[var(--text-primary)]"
+                              style={{ width: `${(eloIndex / (ELOS.length - 1)) * 100}%` }}
+                            />
+                          </div>
+
+                          {/* Scale Ticks */}
+                          {ELOS.map((val, idx) => {
+                            const leftPercent = (idx / (ELOS.length - 1)) * 100;
+                            const isPassed = idx <= eloIndex;
+                            const isMajorTick = val % 500 === 0;
+                            return (
+                              <div
+                                key={val}
+                                className={`absolute top-1/2 rounded-full pointer-events-none transition-all duration-300 ${isMajorTick
+                                    ? 'w-[4px] h-[12px]'
+                                    : 'w-[2px] h-[6px]'
+                                  } ${isPassed
+                                    ? (isMajorTick ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.9)]' : 'bg-white/50')
+                                    : (isMajorTick ? 'bg-[var(--text-secondary)] opacity-80' : 'bg-[var(--text-muted)] opacity-30')
+                                  }`}
+                                style={{ left: `${leftPercent}%`, transform: 'translate(-50%, -50%)', zIndex: isPassed ? 10 : 0 }}
+                              />
+                            );
+                          })}
+
+                          <input
+                            type="range"
+                            min="0"
+                            max={ELOS.length - 1}
+                            step="1"
+                            value={eloIndex}
+                            onChange={(e) => setEloIndex(Number(e.target.value))}
+                            className="elo-slider absolute left-0 right-0 top-1/2 -translate-y-1/2 z-20 m-0 w-full"
                           />
-                        );
-                      })}
-
-                      <input
-                        type="range"
-                        min="0"
-                        max={ELOS.length - 1}
-                        step="1"
-                        value={eloIndex}
-                        onChange={(e) => setEloIndex(Number(e.target.value))}
-                        className="elo-slider absolute left-0 right-0 top-1/2 -translate-y-1/2 z-20 m-0 w-full"
-                      />
-                    </div>
-                    <div className="flex justify-between text-[13px] font-bold text-[var(--text-muted)]">
-                      <span className="flex flex-col items-start"><span className="text-[11px] uppercase tracking-widest opacity-70">Min</span>{ELO_MIN}</span>
-                      <span className="flex flex-col items-end"><span className="text-[11px] uppercase tracking-widest opacity-70">Max</span>{ELO_MAX}</span>
-                    </div>
+                        </div>
+                        <div className="flex justify-between text-[13px] font-bold text-[var(--text-muted)]">
+                          <span className="flex flex-col items-start"><span className="text-[11px] uppercase tracking-widest opacity-70">Min</span>{ELO_MIN}</span>
+                          <span className="flex flex-col items-end"><span className="text-[11px] uppercase tracking-widest opacity-70">Max</span>{ELO_MAX}</span>
+                        </div>
                       </div>
                     </>
                   )}
@@ -2558,15 +2552,14 @@ export default function PlayComputerPage() {
                   </label>
                   <div className="grid grid-cols-4 gap-3">
                     {[1, 3, 5, 10].map((mins) => (
-                       <button
-                         key={mins}
-                         onClick={() => setTimeLimit(mins)}
-                         className={`py-3 rounded-xl border font-bold text-[14px] transition-all transform hover:scale-[1.02] shadow-[0_2px_8px_rgba(0,0,0,0.04)] ${
-                           timeLimit === mins ? "bg-[var(--text-primary)] text-[var(--bg)] border-transparent" : "bg-[var(--surface-alt)] border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--border-hover)]"
-                         }`}
-                       >
-                         {mins} min
-                       </button>
+                      <button
+                        key={mins}
+                        onClick={() => setTimeLimit(mins)}
+                        className={`py-3 rounded-xl border font-bold text-[14px] transition-all transform hover:scale-[1.02] shadow-[0_2px_8px_rgba(0,0,0,0.04)] ${timeLimit === mins ? "bg-[var(--text-primary)] text-[var(--bg)] border-transparent" : "bg-[var(--surface-alt)] border-[var(--border)] text-[var(--text-primary)] hover:border-[var(--border-hover)]"
+                          }`}
+                      >
+                        {mins} min
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -2576,38 +2569,38 @@ export default function PlayComputerPage() {
                     Play As
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <button 
+                    <button
                       onClick={() => startGame("w")}
                       className="relative overflow-hidden py-4 px-2 rounded-2xl border border-[var(--border)] bg-gradient-to-b from-[var(--surface-alt)] to-[var(--surface)] hover:from-[var(--surface-hover)] hover:to-[var(--surface-alt)] text-[var(--text-primary)] transition-all flex flex-col items-center gap-3 group shadow-[0_4px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1"
                     >
                       <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl group-hover:bg-white/10 transition-colors" />
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-b from-white to-gray-200 border border-gray-300 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.1),_0_4px_8px_rgba(0,0,0,0.15)] group-hover:scale-110 transition-transform relative z-10"/>
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-b from-white to-gray-200 border border-gray-300 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.1),_0_4px_8px_rgba(0,0,0,0.15)] group-hover:scale-110 transition-transform relative z-10" />
                       <span className="text-[13px] font-bold tracking-wide relative z-10">White</span>
                     </button>
-                    <button 
+                    <button
                       onClick={() => startGame("random")}
                       className="relative overflow-hidden py-4 px-2 rounded-2xl border border-[var(--border)] bg-gradient-to-b from-[var(--surface-alt)] to-[var(--surface)] hover:from-[var(--surface-hover)] hover:to-[var(--surface-alt)] text-[var(--text-primary)] transition-all flex flex-col items-center gap-3 group shadow-[0_4px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1"
                     >
                       <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl group-hover:bg-white/10 transition-colors" />
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-white via-gray-400 to-[#111] border border-gray-500 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2),_0_4px_8px_rgba(0,0,0,0.2)] group-hover:scale-110 transition-transform relative z-10 overflow-hidden">
-                         <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent skew-x-[-20deg] group-hover:translate-x-[150%] transition-transform duration-700" />
+                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent skew-x-[-20deg] group-hover:translate-x-[150%] transition-transform duration-700" />
                       </div>
                       <span className="text-[13px] font-bold tracking-wide relative z-10">Random</span>
                     </button>
-                    <button 
+                    <button
                       onClick={() => startGame("b")}
                       className="relative overflow-hidden py-4 px-2 rounded-2xl border border-[var(--border)] bg-gradient-to-b from-[var(--surface-alt)] to-[var(--surface)] hover:from-[var(--surface-hover)] hover:to-[var(--surface-alt)] text-[var(--text-primary)] transition-all flex flex-col items-center gap-3 group shadow-[0_4px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1"
                     >
                       <div className="absolute top-0 right-0 w-16 h-16 bg-black/5 rounded-full blur-xl group-hover:bg-black/10 transition-colors" />
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-b from-[#333] to-[#0a0a0a] border border-[#000] shadow-[inset_0_-2px_4px_rgba(255,255,255,0.1),_0_4px_8px_rgba(0,0,0,0.3)] group-hover:scale-110 transition-transform relative z-10"/>
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-b from-[#333] to-[#0a0a0a] border border-[#000] shadow-[inset_0_-2px_4px_rgba(255,255,255,0.1),_0_4px_8px_rgba(0,0,0,0.3)] group-hover:scale-110 transition-transform relative z-10" />
                       <span className="text-[13px] font-bold tracking-wide relative z-10">Black</span>
                     </button>
-                    <button 
+                    <button
                       onClick={() => setBotMatchConfigOpen((open) => !open)}
                       className="relative overflow-hidden py-4 px-2 rounded-2xl border border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--bg)] hover:opacity-90 transition-all flex flex-col items-center gap-3 group shadow-md hover:shadow-lg hover:-translate-y-1"
                     >
                       <div className="absolute top-0 right-0 w-16 h-16 bg-[var(--bg)] opacity-10 rounded-full blur-xl transition-colors duration-500" />
-                      <Bot className="w-8 h-8 group-hover:scale-110 transition-transform filter drop-shadow-[0_0_8px_rgba(16,185,129,0.5)] relative z-10"/>
+                      <Bot className="w-8 h-8 group-hover:scale-110 transition-transform filter drop-shadow-[0_0_8px_rgba(16,185,129,0.5)] relative z-10" />
                       <span className="text-[13px] font-bold tracking-wide relative z-10">Bot Match</span>
                     </button>
                   </div>
@@ -2893,14 +2886,14 @@ export default function PlayComputerPage() {
                 </div>
               </>
             )}
-            
+
           </div>
         </div>
 
         {/* Right Side: The Board */}
         <div className="w-full lg:w-[65%] flex-1 flex flex-row items-center lg:items-start justify-center lg:justify-end bg-[var(--bg-alt)] p-2 sm:p-4 lg:p-0 lg:pr-[70px] relative shadow-[-30px_0_50px_rgba(0,0,0,0.15)] border-l border-[var(--border)]">
           <div className="flex flex-col items-center justify-start h-[75vh] max-h-[720px] max-w-[100%] px-1 sm:px-0 sm:max-w-[95%] lg:max-w-[70%] lg:min-w-[500px] w-full relative shrink-0 lg:ml-auto lg:mr-8 lg:mt-4">
-            
+
             <div className="w-full lg:w-auto flex justify-end lg:absolute lg:-top-2 lg:-right-[52px] flex-row lg:flex-col gap-2 sm:gap-3 z-50 mb-2 lg:mb-0 px-1 lg:px-0 items-center">
               <button
                 onClick={() => setIsSettingsOpen(true)}
@@ -2961,7 +2954,7 @@ export default function PlayComputerPage() {
                 </div>
               </div>
             )}
-            
+
             <div className="w-full flex items-stretch gap-1 md:gap-3">
               {gameState !== "setup" && showEvaluationBar ? (
                 <div className="w-[16px] md:w-[30px] shrink-0 bg-[#333333] rounded overflow-hidden flex flex-col relative shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
@@ -2988,225 +2981,221 @@ export default function PlayComputerPage() {
               <div
                 className={`flex-1 aspect-square relative shadow-2xl ${!engineReady && gameState === "setup" ? "opacity-90 grayscale-[0.3]" : ""}`}
               >
-              <BoardImage src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`} className="w-full h-full overflow-hidden rounded-sm">
-                <Confetti ref={confettiRef} className="pointer-events-none absolute inset-0 z-[95] h-full w-full" />
-                {suggestionStart && suggestionEnd && (
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none z-[15]" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <defs>
-                      <marker id="analysis-arrow-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-                        <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(16,185,129,0.95)" />
-                      </marker>
-                    </defs>
-                    <line
-                      x1={suggestionStart.x}
-                      y1={suggestionStart.y}
-                      x2={suggestionEnd.x}
-                      y2={suggestionEnd.y}
-                      stroke="rgba(16,185,129,0.95)"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      markerEnd="url(#analysis-arrow-head)"
-                    />
-                    <circle cx={suggestionStart.x} cy={suggestionStart.y} r="1.8" fill="rgba(16,185,129,0.85)" />
-                  </svg>
-                )}
-                {rightClickArrows.length > 0 && (
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none z-[16]" viewBox="0 0 100 100" preserveAspectRatio="none" opacity="0.85">
-                    <defs>
-                      <marker id="right-click-arrow-head" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="3.4" markerHeight="3.4" orient="auto-start-reverse">
-                        <path d="M 0 0 L 10 5 L 0 10 z" fill="rgb(255, 170, 0)" />
-                      </marker>
-                    </defs>
-                    {rightClickArrows.map((arrow, idx) => {
-                      const getCoords = (sq: Square) => {
-                        const col = FILES.indexOf(sq[0] as typeof FILES[number]);
-                        const row = 8 - parseInt(sq[1]);
-                        const visCol = isBoardFlipped ? 7 - col : col;
-                        const visRow = isBoardFlipped ? 7 - row : row;
-                        return {
-                          x: (visCol + 0.5) * 12.5,
-                          y: (visRow + 0.5) * 12.5
+                <BoardImage src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`} className="w-full h-full overflow-hidden rounded-sm">
+                  <Confetti ref={confettiRef} className="pointer-events-none absolute inset-0 z-[95] h-full w-full" />
+                  {suggestionStart && suggestionEnd && (
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none z-[15]" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      <defs>
+                        <marker id="analysis-arrow-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+                          <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(16,185,129,0.95)" />
+                        </marker>
+                      </defs>
+                      <line
+                        x1={suggestionStart.x}
+                        y1={suggestionStart.y}
+                        x2={suggestionEnd.x}
+                        y2={suggestionEnd.y}
+                        stroke="rgba(16,185,129,0.95)"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        markerEnd="url(#analysis-arrow-head)"
+                      />
+                      <circle cx={suggestionStart.x} cy={suggestionStart.y} r="1.8" fill="rgba(16,185,129,0.85)" />
+                    </svg>
+                  )}
+                  {rightClickArrows.length > 0 && (
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none z-[16]" viewBox="0 0 100 100" preserveAspectRatio="none" opacity="0.85">
+                      <defs>
+                        <marker id="right-click-arrow-head" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="3.4" markerHeight="3.4" orient="auto-start-reverse">
+                          <path d="M 0 0 L 10 5 L 0 10 z" fill="rgb(255, 170, 0)" />
+                        </marker>
+                      </defs>
+                      {rightClickArrows.map((arrow, idx) => {
+                        const getCoords = (sq: Square) => {
+                          const col = FILES.indexOf(sq[0] as typeof FILES[number]);
+                          const row = 8 - parseInt(sq[1]);
+                          const visCol = isBoardFlipped ? 7 - col : col;
+                          const visRow = isBoardFlipped ? 7 - row : row;
+                          return {
+                            x: (visCol + 0.5) * 12.5,
+                            y: (visRow + 0.5) * 12.5
+                          };
                         };
-                      };
-                      const start = getCoords(arrow.start);
-                      const end = getCoords(arrow.end);
+                        const start = getCoords(arrow.start);
+                        const end = getCoords(arrow.end);
 
-                      const dx = end.x - start.x;
-                      const dy = end.y - start.y;
-                      const isKnightMove = Math.abs(dx) > 0 && Math.abs(dy) > 0 && Math.abs(dx) !== Math.abs(dy);
+                        const dx = end.x - start.x;
+                        const dy = end.y - start.y;
+                        const isKnightMove = Math.abs(dx) > 0 && Math.abs(dy) > 0 && Math.abs(dx) !== Math.abs(dy);
 
-                      if (isKnightMove) {
-                        const useXFirst = Math.abs(dx) > Math.abs(dy);
-                        const corner = useXFirst ? { x: end.x, y: start.y } : { x: start.x, y: end.y };
-                        
+                        if (isKnightMove) {
+                          const useXFirst = Math.abs(dx) > Math.abs(dy);
+                          const corner = useXFirst ? { x: end.x, y: start.y } : { x: start.x, y: end.y };
+
+                          return (
+                            <g key={idx}>
+                              <path
+                                d={`M ${start.x} ${start.y} L ${corner.x} ${corner.y} L ${end.x} ${end.y}`}
+                                stroke="rgb(255, 170, 0)"
+                                strokeWidth="1.8"
+                                fill="none"
+                                strokeLinecap="butt"
+                                strokeLinejoin="miter"
+                                markerEnd="url(#right-click-arrow-head)"
+                              />
+                            </g>
+                          );
+                        }
+
                         return (
                           <g key={idx}>
-                            <path
-                              d={`M ${start.x} ${start.y} L ${corner.x} ${corner.y} L ${end.x} ${end.y}`}
+                            <line
+                              x1={start.x} y1={start.y}
+                              x2={end.x} y2={end.y}
                               stroke="rgb(255, 170, 0)"
                               strokeWidth="1.8"
-                              fill="none"
                               strokeLinecap="butt"
-                              strokeLinejoin="miter"
                               markerEnd="url(#right-click-arrow-head)"
                             />
                           </g>
                         );
-                      }
+                      })}
+                    </svg>
+                  )}
+                  <div className="w-full h-full grid grid-cols-8 grid-rows-8 relative" onContextMenu={(e) => e.preventDefault()}>
+                    {(isBoardFlipped
+                      ? [...boardState].reverse().map(r => [...r].reverse())
+                      : boardState
+                    ).map((row, visRowIndex) =>
+                      row.map((piece, visColIndex) => {
+                        const logicalRow = isBoardFlipped ? 7 - visRowIndex : visRowIndex;
+                        const logicalCol = isBoardFlipped ? 7 - visColIndex : visColIndex;
+                        const square = toSquare(logicalRow, logicalCol);
+                        const squarePiece = gameRef.current.get(square);
+                        const isLightSquare = (logicalRow + logicalCol) % 2 === 0;
+                        const isSelectedSquare = selectedSquare === square;
+                        const isLegalTarget = botPreferences.showLegalMoves && legalTargets.includes(square);
+                        const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square;
+                        const isDraggedSquare = draggedSquare === square;
+                        const isKingInCheck = gameRef.current.isCheck() && squarePiece?.type === 'k' && squarePiece?.color === gameRef.current.turn();
+                        const queuedPremoveFromIndex = queuedPremoves.findIndex((move) => move.from === square);
+                        const queuedPremoveToIndex = queuedPremoves.findIndex((move) => move.to === square);
+                        const isQueuedPremoveFrom = queuedPremoveFromIndex >= 0;
+                        const isQueuedPremoveTo = queuedPremoveToIndex >= 0;
 
-                      return (
-                        <g key={idx}>
-                          <line
-                            x1={start.x} y1={start.y}
-                            x2={end.x} y2={end.y}
-                            stroke="rgb(255, 170, 0)"
-                            strokeWidth="1.8"
-                            strokeLinecap="butt"
-                            markerEnd="url(#right-click-arrow-head)"
-                          />
-                        </g>
-                      );
-                    })}
-                  </svg>
-                )}
-                <div className="w-full h-full grid grid-cols-8 grid-rows-8 relative" onContextMenu={(e) => e.preventDefault()}>
-                  {(isBoardFlipped
-                    ? [...boardState].reverse().map(r => [...r].reverse())
-                    : boardState
-                  ).map((row, visRowIndex) =>
-                  row.map((piece, visColIndex) => {
-                    const logicalRow = isBoardFlipped ? 7 - visRowIndex : visRowIndex;
-                    const logicalCol = isBoardFlipped ? 7 - visColIndex : visColIndex;
-                    const square = toSquare(logicalRow, logicalCol);
-                    const squarePiece = gameRef.current.get(square);
-                    const isLightSquare = (logicalRow + logicalCol) % 2 === 0;
-                    const isSelectedSquare = selectedSquare === square;
-                    const isLegalTarget = botPreferences.showLegalMoves && legalTargets.includes(square);
-                    const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square;
-                    const isDraggedSquare = draggedSquare === square;
-                    const isKingInCheck = gameRef.current.isCheck() && squarePiece?.type === 'k' && squarePiece?.color === gameRef.current.turn();
-                    const queuedPremoveFromIndex = queuedPremoves.findIndex((move) => move.from === square);
-                    const queuedPremoveToIndex = queuedPremoves.findIndex((move) => move.to === square);
-                    const isQueuedPremoveFrom = queuedPremoveFromIndex >= 0;
-                    const isQueuedPremoveTo = queuedPremoveToIndex >= 0;
-
-                    return (
-                      <div
-                        key={square}
-                        onClick={() => handleSquareClick(square)}
-                        onMouseDown={(e) => handleRightClickDown(e, square)}
-                        onMouseUp={(e) => handleRightClickUp(e, square)}
-                        onContextMenu={(e) => e.preventDefault()}
-                        onDragOver={(event) => {
-                          if (!draggedSquare || isPremoveTurn) return;
-                          event.preventDefault();
-                          if (dragOverSquare !== square) setDragOverSquare(square);
-                        }}
-                        onDragLeave={() => {
-                          if (dragOverSquare === square) setDragOverSquare(null);
-                        }}
-                        onDrop={(event) => {
-                          handleDrop(event, square);
-                          setDragOverSquare(null);
-                        }}
-                        className={`relative flex items-center justify-center ${gameState === "playing" && (!shouldLockBoard || isPremoveTurn) ? "cursor-pointer" : ""}`}
-                      >
-                        {dragOverSquare === square && (
-                          <div className="absolute inset-0 ring-[3px] ring-white bg-white/20 z-20 pointer-events-none shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
-                        )}
-                        {rightClickHighlights.has(square) && (
-                          <div className="absolute inset-0 bg-red-500/50 z-[4]" />
-                        )}
-                        {isLastMoveSquare && (
-                          <div className="absolute inset-[4%] rounded-[4px] bg-amber-300/20" />
-                        )}
-                        {isSelectedSquare && (
-                          <div className="absolute inset-[6%] rounded-[4px] ring-[3px] ring-sky-300/90 bg-sky-400/10 z-[6]" />
-                        )}
-                        {isQueuedPremoveFrom && (
-                          <div className="absolute inset-[8%] rounded-[4px] border-[3px] border-sky-300/90 bg-sky-400/12 z-[6]" />
-                        )}
-                        {isQueuedPremoveTo && (
-                          <div className="absolute inset-[14%] rounded-full border-[4px] border-sky-200/90 bg-sky-400/18 z-[6]" />
-                        )}
-                        {isKingInCheck && (
-                          <div className="absolute inset-0 bg-red-500/40 animate-pulse shadow-[inset_0_0_20px_rgba(239,68,68,0.7)] z-[5]" />
-                        )}
-                        {isLegalTarget && (
+                        return (
                           <div
-                            className={
-                              squarePiece
-                                ? "absolute inset-[10%] rounded-full border-[6px] border-black/20"
-                                : "absolute h-[25%] w-[25%] rounded-full bg-black/20"
-                            }
-                          />
-                        )}
+                            key={square}
+                            onClick={() => handleSquareClick(square)}
+                            onMouseDown={(e) => handleRightClickDown(e, square)}
+                            onMouseUp={(e) => handleRightClickUp(e, square)}
+                            onContextMenu={(e) => e.preventDefault()}
+                            onDragOver={(event) => {
+                              if (!draggedSquare || isPremoveTurn) return;
+                              event.preventDefault();
+                              if (dragOverSquare !== square) setDragOverSquare(square);
+                            }}
+                            onDragLeave={() => {
+                              if (dragOverSquare === square) setDragOverSquare(null);
+                            }}
+                            onDrop={(event) => {
+                              handleDrop(event, square);
+                              setDragOverSquare(null);
+                            }}
+                            className={`relative flex items-center justify-center ${gameState === "playing" && (!shouldLockBoard || isPremoveTurn) ? "cursor-pointer" : ""}`}
+                          >
+                            {dragOverSquare === square && (
+                              <div className="absolute inset-0 ring-[3px] ring-white bg-white/20 z-20 pointer-events-none shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
+                            )}
+                            {rightClickHighlights.has(square) && (
+                              <div className="absolute inset-0 bg-red-500/50 z-[4]" />
+                            )}
+                            {isLastMoveSquare && (
+                              <div className="absolute inset-[4%] rounded-[4px] bg-amber-300/20" />
+                            )}
+                            {isSelectedSquare && (
+                              <div className="absolute inset-[6%] rounded-[4px] ring-[3px] ring-sky-300/90 bg-sky-400/10 z-[6]" />
+                            )}
+                            {isQueuedPremoveFrom && (
+                              <div className="absolute inset-[8%] rounded-[4px] border-[3px] border-sky-300/90 bg-sky-400/12 z-[6]" />
+                            )}
+                            {isQueuedPremoveTo && (
+                              <div className="absolute inset-[14%] rounded-full border-[4px] border-sky-200/90 bg-sky-400/18 z-[6]" />
+                            )}
+                            {isKingInCheck && (
+                              <div className="absolute inset-0 bg-red-500/40 animate-pulse shadow-[inset_0_0_20px_rgba(239,68,68,0.7)] z-[5]" />
+                            )}
+                            {isLegalTarget && (
+                              <div
+                                className={
+                                  squarePiece
+                                    ? "absolute inset-[10%] rounded-full border-[6px] border-black/20"
+                                    : "absolute h-[25%] w-[25%] rounded-full bg-black/20"
+                                }
+                              />
+                            )}
 
-                        {visColIndex === 0 && (
-                          <span className={`absolute top-0.5 left-1 text-[13px] font-[700] ${isLightSquare ? "text-[#b07b46]" : "text-[#e6ca9a]"} select-none`}>
-                            {8 - logicalRow}
-                          </span>
-                        )}
-                        {visRowIndex === 7 && (
-                          <span className={`absolute bottom-0 right-1 text-[13px] font-[700] ${isLightSquare ? "text-[#b07b46]" : "text-[#e6ca9a]"} select-none`}>
-                            {FILES[logicalCol]}
-                          </span>
-                        )}
+                            {visColIndex === 0 && (
+                              <span className={`absolute top-0.5 left-1 text-[13px] font-[700] ${isLightSquare ? "text-[#b07b46]" : "text-[#e6ca9a]"} select-none`}>
+                                {8 - logicalRow}
+                              </span>
+                            )}
+                            {visRowIndex === 7 && (
+                              <span className={`absolute bottom-0 right-1 text-[13px] font-[700] ${isLightSquare ? "text-[#b07b46]" : "text-[#e6ca9a]"} select-none`}>
+                                {FILES[logicalCol]}
+                              </span>
+                            )}
 
-                        <div
-                          draggable={Boolean(
-                            botPreferences.moveMethod !== "click" &&
-                            (botPreferences.moveMethod === "drag" || !isPremoveTurn) &&
-                            squarePiece &&
-                            squarePiece.color === (isPremoveTurn ? playerSide : gameRef.current.turn()),
-                          )}
-                          onDragStart={(event) => handleDragStart(event, square)}
-                          onDragEnd={() => setDraggedSquare(null)}
-                          className={`relative z-10 h-full w-full p-[2.75%] ${isDraggedSquare ? "opacity-30" : "opacity-100"}`}
-                        >
-                          {getPieceIcon(piece, pieceTheme)}
-                        </div>
-                        {isQueuedPremoveFrom && botPreferences.premoveMode === "multiple" && (
-                          <span className="absolute right-1 top-1 z-[7] flex h-5 w-5 items-center justify-center rounded-full bg-sky-300 text-[11px] font-black text-slate-900 shadow-md">
-                            {queuedPremoveFromIndex + 1}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-                </div>
-                  
+                            <div
+                              draggable={Boolean(
+                                botPreferences.moveMethod !== "click" &&
+                                (botPreferences.moveMethod === "drag" || !isPremoveTurn) &&
+                                squarePiece &&
+                                squarePiece.color === (isPremoveTurn ? playerSide : gameRef.current.turn()),
+                              )}
+                              onDragStart={(event) => handleDragStart(event, square)}
+                              onDragEnd={() => setDraggedSquare(null)}
+                              className={`relative z-10 h-full w-full p-[2.75%] ${isDraggedSquare ? "opacity-30" : "opacity-100"}`}
+                            >
+                              {getPieceIcon(piece, pieceTheme)}
+                            </div>
+                            {isQueuedPremoveFrom && botPreferences.premoveMode === "multiple" && (
+                              <span className="absolute right-1 top-1 z-[7] flex h-5 w-5 items-center justify-center rounded-full bg-sky-300 text-[11px] font-black text-slate-900 shadow-md">
+                                {queuedPremoveFromIndex + 1}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
                   {/* Game Over Overlay */}
                   {shouldShowBoardOverlay && (
                     <div className="pointer-events-none absolute inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-[2px] rounded-[3px] transition-opacity duration-500">
                       <div className="bg-[var(--surface)]/96 border border-[var(--border)] shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-6 md:p-8 rounded-2xl flex flex-col items-center max-w-[85%] w-[340px] text-center transition-all duration-700 relative overflow-hidden">
                         <div
-                          className={`w-16 h-16 rounded-full bg-[var(--surface-hover)] border border-[var(--border-subtle)] flex items-center justify-center mb-4 text-[#eab308] shadow-inner relative z-10 transition-all duration-700 ${
-                            showGameOverOverview ? "translate-y-0 opacity-100 scale-100" : "translate-y-4 opacity-0 scale-90"
-                          }`}
+                          className={`w-16 h-16 rounded-full bg-[var(--surface-hover)] border border-[var(--border-subtle)] flex items-center justify-center mb-4 text-[#eab308] shadow-inner relative z-10 transition-all duration-700 ${showGameOverOverview ? "translate-y-0 opacity-100 scale-100" : "translate-y-4 opacity-0 scale-90"
+                            }`}
                         >
                           <Crown className="w-8 h-8 drop-shadow-md" strokeWidth={2.5} />
                         </div>
                         <h2
-                          className={`text-2xl font-black text-[var(--text-primary)] tracking-wide mb-1 relative z-10 transition-all duration-700 ${
-                            showGameOverOverview ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
-                          }`}
+                          className={`text-2xl font-black text-[var(--text-primary)] tracking-wide mb-1 relative z-10 transition-all duration-700 ${showGameOverOverview ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+                            }`}
                         >
                           {gameOverHeadline}
                         </h2>
                         <p
-                          className={`text-[14px] text-[var(--text-secondary)] font-medium mb-8 relative z-10 transition-all duration-700 ${
-                            showGameOverOverview ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
-                          }`}
+                          className={`text-[14px] text-[var(--text-secondary)] font-medium mb-8 relative z-10 transition-all duration-700 ${showGameOverOverview ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+                            }`}
                         >
                           {gameOverReasonLabel}
                         </p>
 
                         <div
-                          className={`flex flex-col gap-3 w-full relative z-10 transition-all duration-700 ${
-                            showGameOverActions ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
-                          }`}
+                          className={`flex flex-col gap-3 w-full relative z-10 transition-all duration-700 ${showGameOverActions ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
+                            }`}
                         >
                           <button
                             onClick={() => startGame(playerColor)}
@@ -3317,41 +3306,41 @@ export default function PlayComputerPage() {
                     boardPreviewNode={
                       <div className="w-full aspect-square relative shadow-xl rounded-sm overflow-hidden border border-[var(--border)]">
                         <BoardImage src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`} className="w-full h-full">
-                         <div className="w-full h-full grid grid-cols-3 grid-rows-3 relative">
-                           {Array.from({length: 9}).map((_, i) => {
-                             const row = Math.floor(i / 3);
-                             const col = i % 3;
-                             
-                             let piece = null;
-                             if (row === 0 && col === 0) piece = "bb";
-                             if (row === 0 && col === 1) piece = "bq";
-                             if (row === 0 && col === 2) piece = "bp";
-                             
-                             if (row === 2 && col === 0) piece = "wn";
-                             if (row === 2 && col === 1) piece = "wk";
-                             if (row === 2 && col === 2) piece = "wr";
+                          <div className="w-full h-full grid grid-cols-3 grid-rows-3 relative">
+                            {Array.from({ length: 9 }).map((_, i) => {
+                              const row = Math.floor(i / 3);
+                              const col = i % 3;
 
-                             const isLightSquare = (row + col) % 2 === 0;
+                              let piece = null;
+                              if (row === 0 && col === 0) piece = "bb";
+                              if (row === 0 && col === 1) piece = "bq";
+                              if (row === 0 && col === 2) piece = "bp";
 
-                             return (
-                               <div key={i} className="flex items-center justify-center relative p-1 md:p-2">
-                                 {col === 0 && (
-                                   <span className={`absolute top-1 left-1.5 text-[14px] font-bold ${isLightSquare ? "text-[#b07b46]" : "text-[#e6ca9a]"} select-none`}>
-                                     {8 - row}
-                                   </span>
-                                 )}
-                                 {piece && (
-                                   <PieceImage 
-                                     src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${piece}.png`} 
-                                     alt={piece}
-                                     className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] flex items-center justify-center"
-                                     skeletonClassName="w-[45%] h-[45%]"
-                                   />
-                                 )}
-                               </div>
-                             );
-                           })}
-                         </div>
+                              if (row === 2 && col === 0) piece = "wn";
+                              if (row === 2 && col === 1) piece = "wk";
+                              if (row === 2 && col === 2) piece = "wr";
+
+                              const isLightSquare = (row + col) % 2 === 0;
+
+                              return (
+                                <div key={i} className="flex items-center justify-center relative p-1 md:p-2">
+                                  {col === 0 && (
+                                    <span className={`absolute top-1 left-1.5 text-[14px] font-bold ${isLightSquare ? "text-[#b07b46]" : "text-[#e6ca9a]"} select-none`}>
+                                      {8 - row}
+                                    </span>
+                                  )}
+                                  {piece && (
+                                    <PieceImage
+                                      src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${piece}.png`}
+                                      alt={piece}
+                                      className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] flex items-center justify-center"
+                                      skeletonClassName="w-[45%] h-[45%]"
+                                    />
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </BoardImage>
                       </div>
                     }
@@ -3644,8 +3633,8 @@ export default function PlayComputerPage() {
               },
             ]}
             footer={
-              <button 
-                onClick={() => savePreferences().catch(() => {})}
+              <button
+                onClick={() => savePreferences().catch(() => { })}
                 disabled={preferencesSaving || preferencesLoading}
                 className="px-8 py-2.5 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] font-bold rounded-lg transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
               >
@@ -3662,222 +3651,221 @@ export default function PlayComputerPage() {
         <section className="w-full bg-[var(--bg-alt)] border-t border-[var(--border)] py-16 px-6 lg:px-12 flex flex-col items-center justify-center shrink-0">
           <div className="max-w-6xl w-full flex flex-col gap-10">
 
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-            <div className="flex items-center gap-5">
-              <div className="w-14 h-14 rounded-2xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center shadow-sm">
-                <Monitor className="w-6 h-6 text-[var(--text-primary)]" />
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+              <div className="flex items-center gap-5">
+                <div className="w-14 h-14 rounded-2xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center shadow-sm">
+                  <Monitor className="w-6 h-6 text-[var(--text-primary)]" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-[28px] font-serif font-medium text-[var(--text-primary)] tracking-tight leading-none">Game Replay Archive</h2>
+                  <span className="text-[15px] font-medium text-[var(--text-muted)]">
+                    {replayArchive.length > 0
+                      ? `${replayArchive.length} saved ${replayArchive.length === 1 ? "game" : "games"} ready for review`
+                      : "Your completed games will appear here automatically"}
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-col gap-1">
-                <h2 className="text-[28px] font-serif font-medium text-[var(--text-primary)] tracking-tight leading-none">Game Replay Archive</h2>
-                <span className="text-[15px] font-medium text-[var(--text-muted)]">
-                  {replayArchive.length > 0
-                    ? `${replayArchive.length} saved ${replayArchive.length === 1 ? "game" : "games"} ready for review`
-                    : "Your completed games will appear here automatically"}
-                </span>
+
+              <div className="flex gap-3 flex-wrap">
+                <div className="inline-flex items-center gap-2 rounded-xl bg-[var(--surface)] border border-[var(--border)] p-1 shadow-sm">
+                  {replayFilters.map((filterOption) => (
+                    <button
+                      key={filterOption.value}
+                      onClick={() => setReplayFilter(filterOption.value)}
+                      className={`px-3 py-1.5 rounded-lg text-[13px] font-bold transition-colors ${replayFilter === filterOption.value
+                          ? "bg-[var(--text-primary)] text-[var(--bg)]"
+                          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                        }`}
+                    >
+                      {filterOption.label}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={clearReplayArchive}
+                  disabled={replayArchive.length === 0}
+                  className="px-5 py-2.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl text-[14px] font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Clear Archive
+                </button>
+
+                <button
+                  onClick={exportReplayArchive}
+                  disabled={replayArchive.length === 0}
+                  className="px-5 py-2.5 bg-[var(--text-primary)] hover:bg-[var(--text-primary)]/90 text-[var(--bg)] border border-transparent rounded-xl text-[14px] font-bold transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Export PGN
+                </button>
               </div>
             </div>
 
-            <div className="flex gap-3 flex-wrap">
-              <div className="inline-flex items-center gap-2 rounded-xl bg-[var(--surface)] border border-[var(--border)] p-1 shadow-sm">
-                {replayFilters.map((filterOption) => (
-                  <button
-                    key={filterOption.value}
-                    onClick={() => setReplayFilter(filterOption.value)}
-                    className={`px-3 py-1.5 rounded-lg text-[13px] font-bold transition-colors ${
-                      replayFilter === filterOption.value
-                        ? "bg-[var(--text-primary)] text-[var(--bg)]"
-                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                    }`}
-                  >
-                    {filterOption.label}
-                  </button>
-                ))}
-              </div>
+            {visibleReplayArchive.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {visibleReplayArchive.map((replay) => {
+                  let replayBoard: Array<Array<string | null>>;
+                  try {
+                    replayBoard = new Chess(replay.finalFen).board().map((row) => row.map((piece) => getPieceCode(piece)));
+                  } catch {
+                    replayBoard = Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => null));
+                  }
 
-              <button
-                onClick={clearReplayArchive}
-                disabled={replayArchive.length === 0}
-                className="px-5 py-2.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl text-[14px] font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Clear Archive
-              </button>
+                  const replayTone = getReplayResultTone(replay.outcome);
 
-              <button
-                onClick={exportReplayArchive}
-                disabled={replayArchive.length === 0}
-                className="px-5 py-2.5 bg-[var(--text-primary)] hover:bg-[var(--text-primary)]/90 text-[var(--bg)] border border-transparent rounded-xl text-[14px] font-bold transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Export PGN
-              </button>
-            </div>
-          </div>
-
-          {visibleReplayArchive.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {visibleReplayArchive.map((replay) => {
-                let replayBoard: Array<Array<string | null>>;
-                try {
-                  replayBoard = new Chess(replay.finalFen).board().map((row) => row.map((piece) => getPieceCode(piece)));
-                } catch {
-                  replayBoard = Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => null));
-                }
-
-                const replayTone = getReplayResultTone(replay.outcome);
-
-                return (
-                  <article
-                    key={replay.id}
-                    className="flex flex-col bg-[var(--surface)] rounded-2xl border border-[var(--border)] overflow-hidden hover:border-[var(--border-hover)] hover:shadow-xl transition-all duration-300 group shadow-sm cursor-pointer"
-                    onClick={() => openReplayGame(replay, true)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        openReplayGame(replay, true);
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div className="h-[220px] w-full relative overflow-hidden flex items-center justify-center">
-                      <img
-                        src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`}
-                        alt="Replay board"
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 grid grid-cols-8 grid-rows-8 z-[5]">
-                        {replayBoard.map((row, rowIndex) =>
-                          row.map((pieceCode, colIndex) => (
-                            <div key={`${replay.id}-${rowIndex}-${colIndex}`} className="flex items-center justify-center p-[6%]">
-                              {pieceCode ? (
-                                <img
-                                  src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${pieceCode}.png`}
-                                  alt={pieceCode}
-                                  className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)]"
-                                />
-                              ) : null}
-                            </div>
-                          )),
-                        )}
-                      </div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10" />
-
-                      <button
-                        onClick={(event) => {
-                          event.stopPropagation();
+                  return (
+                    <article
+                      key={replay.id}
+                      className="flex flex-col bg-[var(--surface)] rounded-2xl border border-[var(--border)] overflow-hidden hover:border-[var(--border-hover)] hover:shadow-xl transition-all duration-300 group shadow-sm cursor-pointer"
+                      onClick={() => openReplayGame(replay, true)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
                           openReplayGame(replay, true);
-                        }}
-                        className="absolute z-20 w-14 h-14 bg-white/20 backdrop-blur-md border border-white/30 rounded-full flex items-center justify-center shadow-2xl opacity-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300 text-white"
-                        aria-label="Open replay"
-                      >
-                        <Play className="w-6 h-6 ml-1" fill="currentColor" />
-                      </button>
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <div className="h-[220px] w-full relative overflow-hidden flex items-center justify-center">
+                        <img
+                          src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`}
+                          alt="Replay board"
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 grid grid-cols-8 grid-rows-8 z-[5]">
+                          {replayBoard.map((row, rowIndex) =>
+                            row.map((pieceCode, colIndex) => (
+                              <div key={`${replay.id}-${rowIndex}-${colIndex}`} className="flex items-center justify-center p-[6%]">
+                                {pieceCode ? (
+                                  <img
+                                    src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${pieceCode}.png`}
+                                    alt={pieceCode}
+                                    className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)]"
+                                  />
+                                ) : null}
+                              </div>
+                            )),
+                          )}
+                        </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10" />
 
-                      <div className="absolute bottom-3 left-3 z-20 flex gap-2">
-                        <span className="px-2 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded uppercase tracking-widest text-[9px] font-black text-white shadow-sm">
-                          {replay.timeControlMinutes} Min
-                        </span>
-                        <span className={`px-2 py-1 backdrop-blur-md border rounded uppercase tracking-widest text-[9px] font-black shadow-sm ${replayTone.badgeClassName}`}>
-                          {replay.outcomeLabel}
-                        </span>
-                      </div>
-                    </div>
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openReplayGame(replay, true);
+                          }}
+                          className="absolute z-20 w-14 h-14 bg-white/20 backdrop-blur-md border border-white/30 rounded-full flex items-center justify-center shadow-2xl opacity-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300 text-white"
+                          aria-label="Open replay"
+                        >
+                          <Play className="w-6 h-6 ml-1" fill="currentColor" />
+                        </button>
 
-                    <div className="p-5 flex flex-col gap-4 bg-[var(--surface)]">
-                      <div className="flex justify-between items-start gap-3">
-                        <div className="flex flex-col gap-1.5">
-                          <span className="text-[12px] font-bold text-[var(--text-muted)] tracking-wider uppercase">
-                            {replay.opponentLabel}
+                        <div className="absolute bottom-3 left-3 z-20 flex gap-2">
+                          <span className="px-2 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded uppercase tracking-widest text-[9px] font-black text-white shadow-sm">
+                            {replay.timeControlMinutes} Min
                           </span>
-                          <span className="text-[17px] font-bold text-[var(--text-primary)] leading-tight">
-                            {replay.title} • {replay.moveCount} moves
+                          <span className={`px-2 py-1 backdrop-blur-md border rounded uppercase tracking-widest text-[9px] font-black shadow-sm ${replayTone.badgeClassName}`}>
+                            {replay.outcomeLabel}
                           </span>
                         </div>
-                        <span className="text-[13px] text-[var(--text-secondary)] font-medium whitespace-nowrap">
-                          {formatReplayDateLabel(replay.createdAt)}
-                        </span>
                       </div>
 
-                      <div className="flex items-center gap-4 text-[14px] text-[var(--text-primary)] bg-[var(--bg)] px-3.5 py-2.5 rounded-xl border border-[var(--border-subtle)]">
-                        <div className="flex items-center gap-2">
-                          <Crosshair className={`w-4 h-4 ${replayTone.iconClassName}`} />
-                          <span className="font-bold">{replay.reason}</span>
-                        </div>
-                        <div className="w-[1px] h-4 bg-[var(--border)]" />
-                        <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
-                          <span className={`w-2.5 h-2.5 rounded-full border-[2px] bg-transparent ${replayTone.dotClassName}`} />
-                          <span className="font-medium text-[13px] truncate max-w-[120px]">
-                            {replay.sanMoves.slice(-3).join(" ") || "No moves"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="w-full flex flex-col gap-3 pt-3 border-t border-[var(--border-subtle)]">
-                        <div className="flex -space-x-2">
-                          <div className="relative min-w-8 h-8 px-2 rounded-full bg-[#eee] border-2 border-[var(--surface)] flex items-center justify-center shadow-sm z-10">
-                            <span className="text-[11px] font-black text-[#333]">{replay.whiteLabel.slice(0, 1).toUpperCase()}</span>
+                      <div className="p-5 flex flex-col gap-4 bg-[var(--surface)]">
+                        <div className="flex justify-between items-start gap-3">
+                          <div className="flex flex-col gap-1.5">
+                            <span className="text-[12px] font-bold text-[var(--text-muted)] tracking-wider uppercase">
+                              {replay.opponentLabel}
+                            </span>
+                            <span className="text-[17px] font-bold text-[var(--text-primary)] leading-tight">
+                              {replay.title} • {replay.moveCount} moves
+                            </span>
                           </div>
-                          <div className="relative min-w-8 h-8 px-2 rounded-full bg-[#333] border-2 border-[var(--surface)] flex items-center justify-center shadow-sm z-0">
-                            <span className="text-[11px] font-black text-[#eee]">{replay.blackLabel.slice(0, 1).toUpperCase()}</span>
+                          <span className="text-[13px] text-[var(--text-secondary)] font-medium whitespace-nowrap">
+                            {formatReplayDateLabel(replay.createdAt)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-[14px] text-[var(--text-primary)] bg-[var(--bg)] px-3.5 py-2.5 rounded-xl border border-[var(--border-subtle)]">
+                          <div className="flex items-center gap-2">
+                            <Crosshair className={`w-4 h-4 ${replayTone.iconClassName}`} />
+                            <span className="font-bold">{replay.reason}</span>
+                          </div>
+                          <div className="w-[1px] h-4 bg-[var(--border)]" />
+                          <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
+                            <span className={`w-2.5 h-2.5 rounded-full border-[2px] bg-transparent ${replayTone.dotClassName}`} />
+                            <span className="font-medium text-[13px] truncate max-w-[120px]">
+                              {replay.sanMoves.slice(-3).join(" ") || "No moves"}
+                            </span>
                           </div>
                         </div>
 
-                        <div className="w-full flex items-center justify-between gap-2">
-                          <button
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              exportSingleReplayPgn(replay);
-                            }}
-                            className="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] text-[12px] font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors"
-                          >
-                            Export
-                          </button>
+                        <div className="w-full flex flex-col gap-3 pt-3 border-t border-[var(--border-subtle)]">
+                          <div className="flex -space-x-2">
+                            <div className="relative min-w-8 h-8 px-2 rounded-full bg-[#eee] border-2 border-[var(--surface)] flex items-center justify-center shadow-sm z-10">
+                              <span className="text-[11px] font-black text-[#333]">{replay.whiteLabel.slice(0, 1).toUpperCase()}</span>
+                            </div>
+                            <div className="relative min-w-8 h-8 px-2 rounded-full bg-[#333] border-2 border-[var(--surface)] flex items-center justify-center shadow-sm z-0">
+                              <span className="text-[11px] font-black text-[#eee]">{replay.blackLabel.slice(0, 1).toUpperCase()}</span>
+                            </div>
+                          </div>
 
-                          <button
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              deleteReplayEntry(replay.id);
-                            }}
-                            className="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] text-[12px] font-bold text-[var(--text-secondary)] hover:text-[var(--error-text)] hover:bg-[var(--surface-hover)] transition-colors"
-                          >
-                            Delete
-                          </button>
+                          <div className="w-full flex items-center justify-between gap-2">
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                exportSingleReplayPgn(replay);
+                              }}
+                              className="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] text-[12px] font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors"
+                            >
+                              Export
+                            </button>
 
-                          <button
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openReplayGame(replay, true);
-                            }}
-                            className="text-[14px] font-bold text-[var(--text-primary)] group-hover:text-[var(--cta-bg)] transition-colors flex items-center gap-1"
-                          >
-                            Watch Replay <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                          </button>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                deleteReplayEntry(replay.id);
+                              }}
+                              className="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] text-[12px] font-bold text-[var(--text-secondary)] hover:text-[var(--error-text)] hover:bg-[var(--surface-hover)] transition-colors"
+                            >
+                              Delete
+                            </button>
+
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openReplayGame(replay, true);
+                              }}
+                              className="text-[14px] font-bold text-[var(--text-primary)] group-hover:text-[var(--cta-bg)] transition-colors flex items-center gap-1"
+                            >
+                              Watch Replay <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="w-full rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)]/70 px-6 py-16 flex flex-col items-center gap-3 text-center">
-              <Bot className="w-8 h-8 text-[var(--text-muted)]" />
-              <h3 className="text-[20px] font-semibold text-[var(--text-primary)]">No replay games yet</h3>
-              <p className="text-[14px] text-[var(--text-secondary)] max-w-[560px]">
-                Finish a game against the bot and it will be saved here automatically with move history, final board position, and PGN export support.
-              </p>
-            </div>
-          )}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="w-full rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)]/70 px-6 py-16 flex flex-col items-center gap-3 text-center">
+                <Bot className="w-8 h-8 text-[var(--text-muted)]" />
+                <h3 className="text-[20px] font-semibold text-[var(--text-primary)]">No replay games yet</h3>
+                <p className="text-[14px] text-[var(--text-secondary)] max-w-[560px]">
+                  Finish a game against the bot and it will be saved here automatically with move history, final board position, and PGN export support.
+                </p>
+              </div>
+            )}
 
-          {hasMoreReplayItems ? (
-            <div className="w-full flex justify-center mt-2">
-              <button
-                onClick={() => setVisibleReplayCount((previous) => previous + REPLAY_ARCHIVE_PAGE_SIZE)}
-                className="px-6 py-3 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--border-hover)] hover:bg-[var(--surface-hover)] text-[14px] font-bold text-[var(--text-primary)] shadow-sm transition-all flex items-center gap-2 group"
-              >
-                Load More <ChevronDown className="w-4 h-4 text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors" />
-              </button>
-            </div>
-          ) : null}
+            {hasMoreReplayItems ? (
+              <div className="w-full flex justify-center mt-2">
+                <button
+                  onClick={() => setVisibleReplayCount((previous) => previous + REPLAY_ARCHIVE_PAGE_SIZE)}
+                  className="px-6 py-3 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--border-hover)] hover:bg-[var(--surface-hover)] text-[14px] font-bold text-[var(--text-primary)] shadow-sm transition-all flex items-center gap-2 group"
+                >
+                  Load More <ChevronDown className="w-4 h-4 text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors" />
+                </button>
+              </div>
+            ) : null}
 
           </div>
         </section>

@@ -81,7 +81,7 @@ export type ClientPreferences = {
   puzzle: PuzzleClientPreferences;
 };
 
-export const CLIENT_PREFERENCES_STORAGE_KEY = "chessify-client-preferences";
+export const CLIENT_PREFERENCES_STORAGE_KEY = "ChessLearn-client-preferences";
 
 export const DEFAULT_CLIENT_PREFERENCES: ClientPreferences = {
   learn: {

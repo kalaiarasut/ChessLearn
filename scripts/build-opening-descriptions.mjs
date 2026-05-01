@@ -252,7 +252,7 @@ const fetchJson = async (url) => {
 
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "ChessifyOpeningDescriptions/1.0 (https://localhost)",
+      "User-Agent": "ChessLearnOpeningDescriptions/1.0 (https://localhost)",
       "Accept": "application/json",
     },
     signal: controller.signal,

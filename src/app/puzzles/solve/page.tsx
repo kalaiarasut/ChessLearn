@@ -46,7 +46,7 @@ const PIECE_ASSETS = themeManifest.pieceAssets as Record<string, string>;
 const BOARD_ASSETS = themeManifest.boardAssets as Record<string, string>;
 const AVAILABLE_BOARD_THEMES = themeManifest.boardThemes as string[];
 const AVAILABLE_PIECE_THEMES = themeManifest.pieceThemes as string[];
-const PUZZLE_APPEARANCE_STORAGE_KEY = "chessify-puzzle-appearance";
+const PUZZLE_APPEARANCE_STORAGE_KEY = "ChessLearn-puzzle-appearance";
 
 type PuzzleData = {
   id: string;
@@ -269,7 +269,7 @@ function SolverInner() {
     nextAudioIndexRef.current[name] = (currentIndex + 1) % pool.length;
     audio.volume = Math.min(1, Math.max(0, masterVolume / 100));
     audio.currentTime = 0;
-    audio.play().catch(() => {});
+    audio.play().catch(() => { });
   };
 
   const getMoveSound = (gameAfterMove: Chess, moveResultValue: { captured?: string; flags: string; promotion?: string }) => {
@@ -297,7 +297,7 @@ function SolverInner() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ boardTheme, pieceTheme, soundEnabled }),
         });
-      } catch {}
+      } catch { }
 
       setIsSettingsOpen(false);
     } catch (error) {
@@ -1353,11 +1353,10 @@ function SolverInner() {
 
                 {moveResult && (
                   <div
-                    className={`absolute inset-0 z-30 rounded-xl pointer-events-none transition-opacity duration-200 ${
-                      moveResult === "correct"
+                    className={`absolute inset-0 z-30 rounded-xl pointer-events-none transition-opacity duration-200 ${moveResult === "correct"
                         ? "bg-emerald-500/10 border-2 border-emerald-500/40"
                         : "bg-red-500/10 border-2 border-red-500/40"
-                    }`}
+                      }`}
                   />
                 )}
 
@@ -1655,7 +1654,7 @@ function SolverInner() {
               )}
 
               {solutionState !== "hidden" && puzzle && (
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-[13px] font-bold text-[var(--text-primary)]">Solution Replay</p>

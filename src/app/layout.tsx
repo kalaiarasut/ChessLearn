@@ -35,7 +35,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                const t = localStorage.getItem('chessify-theme');
+                const t = localStorage.getItem('ChessLearn-theme');
                 if (t === 'light') {
                   document.documentElement.classList.remove('dark');
                   document.documentElement.classList.add('light');

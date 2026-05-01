@@ -402,7 +402,7 @@ export default function PuzzlesClientPage({
           <Link href="/play/computer" className="hover:text-[var(--text-primary)] transition-colors">
             Play Bot
           </Link>
-          <a href="#" className="hover:text-[var(--text-primary)] transition-colors">News</a>
+          <Link href="/whats-new" className="hover:text-[var(--text-primary)] transition-colors">What&apos;s New</Link>
           <a href="#" className="hover:text-[var(--text-primary)] transition-colors">Social</a>
           <div className="flex items-center space-x-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
             <span>More</span>

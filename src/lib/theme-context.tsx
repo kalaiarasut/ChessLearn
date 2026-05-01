@@ -13,7 +13,7 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "dark",
-  toggleTheme: () => {},
+  toggleTheme: () => { },
   isDark: true,
 });
 
@@ -23,7 +23,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Read persisted theme on mount
   useEffect(() => {
-    const stored = localStorage.getItem("chessify-theme") as Theme | null;
+    const stored = localStorage.getItem("ChessLearn-theme") as Theme | null;
     if (stored === "light" || stored === "dark") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTheme(stored);
@@ -37,7 +37,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     root.classList.remove("dark", "light");
     root.classList.add(theme);
-    localStorage.setItem("chessify-theme", theme);
+    localStorage.setItem("ChessLearn-theme", theme);
   }, [theme, mounted]);
 
   const toggleTheme = useCallback(() => {
@@ -56,7 +56,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         // Also immediately apply the class so CSS variables change NOW
         document.documentElement.classList.remove("dark", "light");
         document.documentElement.classList.add(nextTheme);
-        localStorage.setItem("chessify-theme", nextTheme);
+        localStorage.setItem("ChessLearn-theme", nextTheme);
       });
 
       transition.ready.then(() => {

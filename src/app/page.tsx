@@ -51,7 +51,7 @@ export default function Home() {
           <Link href="/puzzles" className="hover:text-[var(--text-primary)] transition-colors">Puzzles</Link>
           <Link href="/learn" className="hover:text-[var(--text-primary)] transition-colors">Learn</Link>
           <Link href="/play/computer" className="hover:text-[var(--text-primary)] transition-colors">Play Bot</Link>
-          <a href="#" className="hover:text-[var(--text-primary)] transition-colors">News</a>
+          <Link href="/whats-new" className="hover:text-[var(--text-primary)] transition-colors">What&apos;s New</Link>
           <a href="#" className="hover:text-[var(--text-primary)] transition-colors">Social</a>
           <div className="flex items-center space-x-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
             <span>More</span>
@@ -88,7 +88,7 @@ export default function Home() {
             <Link href="/puzzles" onClick={() => setIsMobileMenuOpen(false)}>Puzzles</Link>
             <Link href="/learn" onClick={() => setIsMobileMenuOpen(false)}>Learn</Link>
             <Link href="/play/computer" onClick={() => setIsMobileMenuOpen(false)}>Play Bot</Link>
-            <a href="#" onClick={() => setIsMobileMenuOpen(false)}>News</a>
+            <Link href="/whats-new" onClick={() => setIsMobileMenuOpen(false)}>What&apos;s New</Link>
             <a href="#" onClick={() => setIsMobileMenuOpen(false)}>Social</a>
           </nav>
           <div className="mt-auto pb-10 pt-6 flex items-center space-x-6">

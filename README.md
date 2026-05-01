@@ -1,6 +1,6 @@
-# Chessify
+# ChessLearn
 
-Chessify is a Next.js chess web app with:
+ChessLearn is a Next.js chess web app with:
 - Animated landing experience
 - Learn-openings flow backed by a compiled openings catalog
 - Play-vs-bot board with Stockfish integration

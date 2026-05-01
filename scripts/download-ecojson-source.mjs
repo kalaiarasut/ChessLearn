@@ -26,7 +26,7 @@ const run = async () => {
     const url = `https://raw.githubusercontent.com/JeffML/eco.json/master/${fileName}`;
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "Chessify Opening Importer",
+        "User-Agent": "ChessLearn Opening Importer",
       },
     });
 

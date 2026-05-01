@@ -10,7 +10,7 @@ import {
   type PuzzleProgressSnapshot,
 } from "@/lib/puzzle-progress";
 
-const PUZZLE_IMPORT_MARKER_PREFIX = "chessify-puzzle-import:v1:";
+const PUZZLE_IMPORT_MARKER_PREFIX = "ChessLearn-puzzle-import:v1:";
 const READY_BADGE_TIMEOUT_MS = 1800;
 
 export type PuzzleSyncStatus = {

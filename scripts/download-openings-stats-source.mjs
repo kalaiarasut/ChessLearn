@@ -34,7 +34,7 @@ const run = async () => {
   for (const source of SOURCES) {
     const response = await fetch(source.url, {
       headers: {
-        "User-Agent": "Chessify Opening Importer",
+        "User-Agent": "ChessLearn Opening Importer",
       },
     });
 
