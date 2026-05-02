@@ -179,7 +179,7 @@ export default function WhatsNewPage() {
           <Link href="/learn" className="hover:text-[var(--text-primary)] transition-colors">Learn</Link>
           <Link href="/play/computer" className="hover:text-[var(--text-primary)] transition-colors">Play Bot</Link>
           <Link href="/whats-new" className="text-[var(--text-primary)] transition-colors">What&apos;s New</Link>
-          <a href="#" className="hover:text-[var(--text-primary)] transition-colors">Social</a>
+          <Link href="/leaderboard" className="hover:text-[var(--text-primary)] transition-colors">Leaderboard</Link>
           <div className="flex items-center space-x-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
             <span>More</span>
             <ChevronDown className="w-4 h-4 ml-[2px]" strokeWidth={2.5} />
@@ -215,7 +215,7 @@ export default function WhatsNewPage() {
             <Link href="/learn" onClick={() => setIsMobileMenuOpen(false)}>Learn</Link>
             <Link href="/play/computer" onClick={() => setIsMobileMenuOpen(false)}>Play Bot</Link>
             <Link href="/whats-new" onClick={() => setIsMobileMenuOpen(false)}>What&apos;s New</Link>
-            <a href="#" onClick={() => setIsMobileMenuOpen(false)}>Social</a>
+            <Link href="/leaderboard" className="hover:text-[var(--text-primary)] transition-colors">Leaderboard</Link>
           </nav>
           <div className="mt-auto pb-10 pt-6 flex items-center space-x-6">
             <AuthMenu />

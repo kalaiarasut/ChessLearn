@@ -403,7 +403,7 @@ export default function PuzzlesClientPage({
             Play Bot
           </Link>
           <Link href="/whats-new" className="hover:text-[var(--text-primary)] transition-colors">What&apos;s New</Link>
-          <a href="#" className="hover:text-[var(--text-primary)] transition-colors">Social</a>
+          <Link href="/leaderboard" className="hover:text-[var(--text-primary)] transition-colors">Leaderboard</Link>
           <div className="flex items-center space-x-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
             <span>More</span>
             <ChevronDown className="w-4 h-4 ml-[2px]" strokeWidth={2.5} />

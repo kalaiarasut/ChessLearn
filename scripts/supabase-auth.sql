@@ -375,3 +375,129 @@ drop trigger if exists user_learn_progress_set_updated_at on public.user_learn_p
 create trigger user_learn_progress_set_updated_at
 before update on public.user_learn_progress
 for each row execute procedure public.touch_user_learn_progress_updated_at();
+
+-- Public aggregate reads used by the site leaderboard and homepage counters.
+-- These return only display names and aggregate progress, not raw attempts or private payloads.
+create or replace function public.get_public_leaderboard(
+  board_type text default 'puzzle',
+  result_limit integer default 20
+)
+returns table (
+  user_id uuid,
+  username text,
+  score integer,
+  stat_text text,
+  last_activity_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  with normalized_limit as (
+    select least(50, greatest(3, coalesce(result_limit, 20))) as limit_value
+  ),
+  opening_scores as (
+    select
+      user_learn_progress.user_id,
+      coalesce(sum(
+        case
+          when variation.value ->> 'completions' ~ '^[0-9]+$'
+            then (variation.value ->> 'completions')::integer
+          else 0
+        end
+      ), 0)::integer as completed_variations,
+      coalesce(sum(
+        case
+          when variation.value ->> 'attempts' ~ '^[0-9]+$'
+            then (variation.value ->> 'attempts')::integer
+          else 0
+        end
+      ), 0)::integer as total_attempts,
+      max(nullif(opening.value ->> 'lastPracticedAt', '')::timestamptz) as last_practiced_at
+    from public.user_learn_progress
+    cross join lateral jsonb_each(
+      case
+        when jsonb_typeof(user_learn_progress.payload -> 'openingProgressBySlug') = 'object'
+          then user_learn_progress.payload -> 'openingProgressBySlug'
+        else '{}'::jsonb
+      end
+    ) as opening(slug, value)
+    cross join lateral jsonb_each(
+      case
+        when jsonb_typeof(opening.value -> 'variations') = 'object'
+          then opening.value -> 'variations'
+        else '{}'::jsonb
+      end
+    ) as variation(id, value)
+    group by user_learn_progress.user_id
+  ),
+  ranked as (
+    select
+      profiles.id as user_id,
+      profiles.username,
+      case
+        when board_type = 'opening' then coalesce(opening_scores.completed_variations, 0)
+        when board_type = 'activity' then greatest(
+          coalesce(user_puzzle_summary.current_streak, 0),
+          coalesce(user_puzzle_summary.best_streak_score, 0)
+        )
+        else coalesce(user_puzzle_summary.current_rating, 0)
+      end::integer as score,
+      case
+        when board_type = 'opening' then concat(
+          coalesce(opening_scores.completed_variations, 0),
+          ' mastered'
+        )
+        when board_type = 'activity' then concat(
+          coalesce(user_puzzle_summary.current_streak, 0),
+          ' current streak'
+        )
+        else concat(coalesce(user_puzzle_summary.puzzles_solved, 0), ' solved')
+      end as stat_text,
+      greatest(
+        user_puzzle_summary.last_activity_at,
+        opening_scores.last_practiced_at
+      ) as last_activity_at
+    from public.profiles
+    left join public.user_puzzle_summary
+      on user_puzzle_summary.user_id = profiles.id
+    left join opening_scores
+      on opening_scores.user_id = profiles.id
+  )
+  select
+    ranked.user_id,
+    ranked.username,
+    ranked.score,
+    ranked.stat_text,
+    ranked.last_activity_at
+  from ranked
+  where ranked.score > 0
+  order by ranked.score desc, ranked.last_activity_at desc nulls last, ranked.username asc
+  limit (select limit_value from normalized_limit);
+$$;
+
+grant execute on function public.get_public_leaderboard(text, integer) to anon, authenticated;
+
+create or replace function public.get_public_site_stats()
+returns table (
+  puzzles_today bigint,
+  active_players bigint
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    (
+      select count(*)
+      from public.user_puzzle_attempts
+      where attempted_at >= (date_trunc('day', now() at time zone 'utc') at time zone 'utc')
+    ) as puzzles_today,
+    (
+      select count(*)
+      from public.user_puzzle_summary
+      where last_activity_at >= now() - interval '15 minutes'
+    ) as active_players;
+$$;
+
+grant execute on function public.get_public_site_stats() to anon, authenticated;
