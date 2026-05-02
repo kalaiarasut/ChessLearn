@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Square } from "chess.js";
-import { ArrowLeft, Settings, Play, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Monitor, User, Gamepad2, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, MoreHorizontal, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Settings, Play, Pause, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Monitor, User, Gamepad2, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, MoreHorizontal, ChevronDown, ChevronUp, LoaderCircle, CheckCircle2, AlertCircle } from "lucide-react";
 import { SettingsModalLayout, BoardPiecesSettingsTab } from "@/components/settings-layout";
 import themeManifest from "@/data/themeManifest.json";
 import { useStockfishAnalysis } from "./use-stockfish-analysis";
@@ -16,9 +16,11 @@ import {
   DEFAULT_CLIENT_PREFERENCES,
   loadClientPreferences,
   saveClientPreferences,
+  type LearnClientPreferences,
   type OpeningVariationSortMode,
   type LearnOpeningProgress,
 } from "@/lib/client-preferences";
+import { useLearnProgressSync } from "@/lib/use-learn-progress-sync";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 const DEFAULT_FEN = new Chess().fen();
@@ -462,6 +464,7 @@ export default function OpeningPage() {
   const [expandedEngineLineIds, setExpandedEngineLineIds] = useState<Record<number, boolean>>({});
   const [hoverPreview, setHoverPreview] = useState<{ fen: string; left: number; top: number } | null>(null);
   const [clientPreferences, setClientPreferences] = useState(DEFAULT_CLIENT_PREFERENCES);
+  const [clientPreferencesLoaded, setClientPreferencesLoaded] = useState(false);
   const [openingData, setOpeningData] = useState<OpeningApiPayload | null>(null);
   const [openingLoading, setOpeningLoading] = useState(true);
   const [openingError, setOpeningError] = useState<string | null>(null);
@@ -502,6 +505,20 @@ export default function OpeningPage() {
       return nextPreferences;
     });
   }, [openingProgressSlug]);
+
+  const handleSyncedLearnPreferences = useCallback((learn: LearnClientPreferences) => {
+    setClientPreferences((previous) => ({
+      ...previous,
+      learn,
+    }));
+    setVariationSortMode(learn.openingVariationSortMode);
+  }, []);
+
+  const { syncStatus: learnSyncStatus } = useLearnProgressSync(
+    learnPreferences,
+    clientPreferencesLoaded,
+    handleSyncedLearnPreferences,
+  );
 
   const updateLearnPreferences = (updates: Partial<typeof learnPreferences>) => {
     setClientPreferences((previous) => ({
@@ -964,6 +981,7 @@ export default function OpeningPage() {
     setAnalysisDepth(loaded.learn.engineDepth);
     setIsBoardFlipped(loaded.learn.boardOrientation === "black");
     setVariationSortMode(loaded.learn.openingVariationSortMode);
+    setClientPreferencesLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -1702,6 +1720,31 @@ export default function OpeningPage() {
           <span className="hidden sm:inline">Back to Learn</span>
           <span className="sm:hidden">Back</span>
         </Link>
+        {learnSyncStatus.badgeState !== "hidden" ? (
+          <div
+            className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-medium shadow-sm transition-colors ${learnSyncStatus.badgeState === "ready"
+                ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : learnSyncStatus.badgeState === "error"
+                  ? "border-[var(--error-border)] bg-[var(--error-bg)] text-[var(--error-text)]"
+                  : "border-[var(--border-subtle)] bg-[var(--surface-alt)] text-[var(--text-secondary)]"
+              }`}
+            title={learnSyncStatus.error ?? undefined}
+          >
+            {learnSyncStatus.badgeState === "ready" ? (
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+            ) : learnSyncStatus.badgeState === "error" ? (
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            ) : (
+              <LoaderCircle className="w-3.5 h-3.5 shrink-0 animate-spin" />
+            )}
+            <span className="leading-none">
+              {learnSyncStatus.text}{" "}
+              {learnSyncStatus.badgeState === "syncing" || learnSyncStatus.badgeState === "ready"
+                ? `${learnSyncStatus.progressPercent}%`
+                : ""}
+            </span>
+          </div>
+        ) : null}
       </header>
 
       <main className="flex-1 w-full flex flex-col-reverse lg:flex-row h-auto lg:h-[calc(100vh-73px)]">
@@ -2489,10 +2532,10 @@ export default function OpeningPage() {
                           <div className="absolute inset-[4%] rounded-[4px] bg-amber-300/20" />
                         )}
                         {isQueuedPremoveFrom && (
-                          <div className="absolute inset-[8%] rounded-[4px] border-[3px] border-sky-300/90 bg-sky-400/12 z-[6]" />
+                          <div className="absolute inset-[8%] rounded-[4px] border-[3px] border-red-400/95 bg-red-500/22 z-[6] shadow-[inset_0_0_18px_rgba(239,68,68,0.45)]" />
                         )}
                         {isQueuedPremoveTo && (
-                          <div className="absolute inset-[14%] rounded-full border-[4px] border-sky-200/90 bg-sky-400/18 z-[6]" />
+                          <div className="absolute inset-[14%] rounded-full border-[4px] border-red-300/95 bg-red-500/24 z-[6]" />
                         )}
 
                         {isKingInCheck && (
@@ -2503,8 +2546,8 @@ export default function OpeningPage() {
                           <div
                             className={
                               squarePiece
-                                ? "absolute inset-[10%] rounded-full border-[6px] border-black/20"
-                                : "absolute h-[25%] w-[25%] rounded-full bg-black/20"
+                                ? "absolute inset-[10%] rounded-full border-[6px] border-white/40"
+                                : "absolute h-[25%] w-[25%] rounded-full bg-white/45 shadow-[0_0_10px_rgba(255,255,255,0.35)]"
                             }
                           />
                         )}
@@ -2538,7 +2581,7 @@ export default function OpeningPage() {
                           {getPieceIcon(piece, pieceTheme)}
                         </div>
                         {isQueuedPremoveFrom && learnPreferences.premoveMode === "multiple" && (
-                          <span className="absolute right-1 top-1 z-[7] flex h-5 w-5 items-center justify-center rounded-full bg-sky-300 text-[11px] font-black text-slate-900 shadow-md">
+                          <span className="absolute right-1 top-1 z-[7] flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[11px] font-black text-white shadow-md">
                             {queuedPremoveFromIndex + 1}
                           </span>
                         )}

@@ -293,3 +293,85 @@ drop trigger if exists user_daily_puzzle_status_set_updated_at on public.user_da
 create trigger user_daily_puzzle_status_set_updated_at
 before update on public.user_daily_puzzle_status
 for each row execute procedure public.touch_user_daily_puzzle_status_updated_at();
+
+-- Bot game replay archive synced after login
+create table if not exists public.user_bot_replays (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  replay_id text not null,
+  created_at timestamptz not null,
+  payload jsonb not null,
+  synced_at timestamptz not null default now(),
+  unique (user_id, replay_id)
+);
+
+create index if not exists user_bot_replays_user_created_idx
+on public.user_bot_replays (user_id, created_at desc);
+
+alter table public.user_bot_replays enable row level security;
+
+drop policy if exists "Users can read own bot replays" on public.user_bot_replays;
+create policy "Users can read own bot replays"
+on public.user_bot_replays
+for select
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own bot replays" on public.user_bot_replays;
+create policy "Users can insert own bot replays"
+on public.user_bot_replays
+for insert
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own bot replays" on public.user_bot_replays;
+create policy "Users can update own bot replays"
+on public.user_bot_replays
+for update
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own bot replays" on public.user_bot_replays;
+create policy "Users can delete own bot replays"
+on public.user_bot_replays
+for delete
+using (auth.uid() = user_id);
+
+-- Opening trainer progress synced after login
+create table if not exists public.user_learn_progress (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  payload jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_learn_progress enable row level security;
+
+drop policy if exists "Users can read own learn progress" on public.user_learn_progress;
+create policy "Users can read own learn progress"
+on public.user_learn_progress
+for select
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own learn progress" on public.user_learn_progress;
+create policy "Users can insert own learn progress"
+on public.user_learn_progress
+for insert
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own learn progress" on public.user_learn_progress;
+create policy "Users can update own learn progress"
+on public.user_learn_progress
+for update
+using (auth.uid() = user_id);
+
+create or replace function public.touch_user_learn_progress_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists user_learn_progress_set_updated_at on public.user_learn_progress;
+create trigger user_learn_progress_set_updated_at
+before update on public.user_learn_progress
+for each row execute procedure public.touch_user_learn_progress_updated_at();

@@ -31,6 +31,7 @@ const ANALYSIS_ENGINE_VARIANT_STORAGE_KEY = "ChessLearn.bot.analysisEngineVarian
 const REPLAY_ARCHIVE_STORAGE_KEY = "ChessLearn.bot.replayArchive.v1";
 const REPLAY_ARCHIVE_MAX_ITEMS = 60;
 const REPLAY_ARCHIVE_PAGE_SIZE = 6;
+const REPLAY_SYNC_READY_BADGE_TIMEOUT_MS = 1800;
 const BEGINNER_ESTIMATED_ELOS = [400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300];
 const BEGINNER_ELO_MIN = BEGINNER_ESTIMATED_ELOS[0];
 const BEGINNER_ELO_MAX = BEGINNER_ESTIMATED_ELOS[BEGINNER_ESTIMATED_ELOS.length - 1];
@@ -389,7 +390,21 @@ type ReplayArchiveEntry = {
   blackLabel: string;
 };
 
+type BotReplaySyncStatus = {
+  badgeState: "hidden" | "syncing" | "ready" | "error";
+  progressPercent: number;
+  text: string | null;
+  error: string | null;
+};
+
 const createReplaySessionId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+const DEFAULT_BOT_REPLAY_SYNC_STATUS: BotReplaySyncStatus = {
+  badgeState: "hidden",
+  progressPercent: 0,
+  text: null,
+  error: null,
+};
 
 const getReplayResultTone = (outcome: ReplayOutcome) => {
   if (outcome === "win") {
@@ -564,6 +579,21 @@ const safeParseReplayArchive = (serializedArchive: string | null): ReplayArchive
   }
 };
 
+const mergeReplayArchives = (localEntries: ReplayArchiveEntry[], serverEntries: ReplayArchiveEntry[]) => {
+  const byId = new Map<string, ReplayArchiveEntry>();
+
+  for (const entry of [...serverEntries, ...localEntries]) {
+    const existing = byId.get(entry.id);
+    if (!existing || new Date(entry.createdAt).getTime() >= new Date(existing.createdAt).getTime()) {
+      byId.set(entry.id, entry);
+    }
+  }
+
+  return [...byId.values()]
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .slice(0, REPLAY_ARCHIVE_MAX_ITEMS);
+};
+
 const buildReplayPgn = (entry: ReplayArchiveEntry) => {
   const date = new Date(entry.createdAt);
   const year = date.getFullYear();
@@ -657,6 +687,58 @@ const parseFenBoardPlacement = (fen: string): Record<Square, PieceCode> | null =
   }
 
   return pieces as Record<Square, PieceCode>;
+};
+
+const getReplayLastMoveSquares = (fenHistory: string[], finalFen: string) => {
+  const previousFen = fenHistory.length > 1 ? fenHistory[fenHistory.length - 2] : null;
+  if (!previousFen) {
+    return { from: null as Square | null, to: null as Square | null };
+  }
+
+  const previousPieces = parseFenBoardPlacement(previousFen);
+  const finalPieces = parseFenBoardPlacement(finalFen);
+  if (!previousPieces || !finalPieces) {
+    return { from: null as Square | null, to: null as Square | null };
+  }
+
+  const mover = previousFen.trim().split(/\s+/)[1] === "b" ? "b" : "w";
+  const removedSquares: Square[] = [];
+  const addedSquares: Square[] = [];
+
+  for (let rowIndex = 0; rowIndex < 8; rowIndex += 1) {
+    for (let colIndex = 0; colIndex < 8; colIndex += 1) {
+      const square = toSquare(rowIndex, colIndex);
+      const previousPiece = previousPieces[square];
+      const finalPiece = finalPieces[square];
+
+      if (previousPiece === finalPiece) {
+        continue;
+      }
+
+      if (previousPiece) {
+        removedSquares.push(square);
+      }
+      if (finalPiece) {
+        addedSquares.push(square);
+      }
+    }
+  }
+
+  const moverRemovedSquares = removedSquares.filter((square) => previousPieces[square]?.[0] === mover);
+  const moverAddedSquares = addedSquares.filter((square) => finalPieces[square]?.[0] === mover);
+  const from =
+    moverRemovedSquares.find((square) => previousPieces[square]?.[1] === "k") ??
+    moverRemovedSquares[0] ??
+    removedSquares[0] ??
+    null;
+  const movedPieceType = from ? previousPieces[from]?.[1] : null;
+  const to =
+    (movedPieceType ? moverAddedSquares.find((square) => finalPieces[square]?.[1] === movedPieceType) : null) ??
+    moverAddedSquares[0] ??
+    addedSquares[0] ??
+    null;
+
+  return { from, to };
 };
 
 const boardPiecesToFen = (pieces: Partial<Record<Square, PieceCode>>) => {
@@ -1086,6 +1168,9 @@ export default function PlayComputerPage() {
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [activeInitialFen, setActiveInitialFen] = useState(DEFAULT_FEN);
   const [replayArchive, setReplayArchive] = useState<ReplayArchiveEntry[]>([]);
+  const [botReplaySyncStatus, setBotReplaySyncStatus] = useState<BotReplaySyncStatus>(DEFAULT_BOT_REPLAY_SYNC_STATUS);
+  const [botReplaySyncUserId, setBotReplaySyncUserId] = useState<string | null>(null);
+  const [replayArchiveLoaded, setReplayArchiveLoaded] = useState(false);
   const [replayFilter, setReplayFilter] = useState<ReplayFilter>("all");
   const [visibleReplayCount, setVisibleReplayCount] = useState(REPLAY_ARCHIVE_PAGE_SIZE);
   const [isBoardViewInverted, setIsBoardViewInverted] = useState(false);
@@ -1096,6 +1181,10 @@ export default function PlayComputerPage() {
   const [rightClickArrows, setRightClickArrows] = useState<{ start: Square; end: Square }[]>([]);
   const [rightClickStartSquare, setRightClickStartSquare] = useState<Square | null>(null);
   const archivedGameIdsRef = useRef<Set<string>>(new Set());
+  const replayArchiveLoadedRef = useRef(false);
+  const botReplayServerHydratedRef = useRef(false);
+  const botReplaySyncTimerRef = useRef<number | null>(null);
+  const lastBotReplaySyncPayloadRef = useRef("");
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -1605,6 +1694,8 @@ export default function PlayComputerPage() {
     const parsedArchive = safeParseReplayArchive(storedArchive);
     setReplayArchive(parsedArchive);
     archivedGameIdsRef.current = new Set(parsedArchive.map((entry) => entry.id));
+    replayArchiveLoadedRef.current = true;
+    setReplayArchiveLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -1614,6 +1705,195 @@ export default function PlayComputerPage() {
 
     window.localStorage.setItem(REPLAY_ARCHIVE_STORAGE_KEY, JSON.stringify(replayArchive));
   }, [replayArchive]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (cancelled) {
+        return;
+      }
+
+      const userId = session?.user?.id ?? null;
+      setBotReplaySyncUserId(userId);
+      if (!userId) {
+        botReplayServerHydratedRef.current = false;
+        lastBotReplaySyncPayloadRef.current = "";
+        setBotReplaySyncStatus(DEFAULT_BOT_REPLAY_SYNC_STATUS);
+      }
+    };
+
+    void resolveSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const userId = session?.user?.id ?? null;
+      setBotReplaySyncUserId(userId);
+      botReplayServerHydratedRef.current = false;
+      lastBotReplaySyncPayloadRef.current = "";
+      if (!userId) {
+        setBotReplaySyncStatus(DEFAULT_BOT_REPLAY_SYNC_STATUS);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!botReplaySyncUserId || !replayArchiveLoaded || botReplayServerHydratedRef.current) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const hydrateAndUpload = async () => {
+      try {
+        setBotReplaySyncStatus({
+          badgeState: "syncing",
+          progressPercent: 30,
+          text: "Syncing replays...",
+          error: null,
+        });
+
+        const response = await fetch("/api/bot-replays", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`Replay sync failed with ${response.status}`);
+        }
+
+        const data = (await response.json()) as { entries?: unknown };
+        const serverEntries = safeParseReplayArchive(JSON.stringify(data.entries ?? []));
+        const mergedArchive = mergeReplayArchives(replayArchive, serverEntries);
+
+        if (cancelled) {
+          return;
+        }
+
+        setBotReplaySyncStatus({
+          badgeState: "syncing",
+          progressPercent: 90,
+          text: "Syncing replays...",
+          error: null,
+        });
+
+        const payload = JSON.stringify(mergedArchive);
+        const saveResponse = await fetch("/api/bot-replays", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entries: mergedArchive }),
+        });
+        if (!saveResponse.ok) {
+          throw new Error(`Replay save failed with ${saveResponse.status}`);
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        botReplayServerHydratedRef.current = true;
+        lastBotReplaySyncPayloadRef.current = payload;
+        archivedGameIdsRef.current = new Set(mergedArchive.map((entry) => entry.id));
+        setReplayArchive(mergedArchive);
+        setBotReplaySyncStatus({
+          badgeState: "ready",
+          progressPercent: 100,
+          text: "Replays synced",
+          error: null,
+        });
+        window.setTimeout(() => {
+          setBotReplaySyncStatus((current) =>
+            current.badgeState === "ready" ? DEFAULT_BOT_REPLAY_SYNC_STATUS : current,
+          );
+        }, REPLAY_SYNC_READY_BADGE_TIMEOUT_MS);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        setBotReplaySyncStatus({
+          badgeState: "error",
+          progressPercent: 0,
+          text: "Replay sync failed",
+          error: error instanceof Error ? error.message : "Replay sync failed.",
+        });
+      }
+    };
+
+    void hydrateAndUpload();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [botReplaySyncUserId, replayArchive, replayArchiveLoaded]);
+
+  useEffect(() => {
+    if (!botReplaySyncUserId || !replayArchiveLoaded || !botReplayServerHydratedRef.current) {
+      return;
+    }
+
+    const payload = JSON.stringify(replayArchive);
+    if (payload === lastBotReplaySyncPayloadRef.current) {
+      return;
+    }
+
+    if (botReplaySyncTimerRef.current !== null) {
+      window.clearTimeout(botReplaySyncTimerRef.current);
+    }
+
+    setBotReplaySyncStatus({
+      badgeState: "syncing",
+      progressPercent: 90,
+      text: "Syncing replays...",
+      error: null,
+    });
+
+    botReplaySyncTimerRef.current = window.setTimeout(async () => {
+      try {
+        const response = await fetch("/api/bot-replays", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entries: replayArchive }),
+        });
+        if (!response.ok) {
+          throw new Error(`Replay save failed with ${response.status}`);
+        }
+
+        lastBotReplaySyncPayloadRef.current = payload;
+        setBotReplaySyncStatus({
+          badgeState: "ready",
+          progressPercent: 100,
+          text: "Replays synced",
+          error: null,
+        });
+        window.setTimeout(() => {
+          setBotReplaySyncStatus((current) =>
+            current.badgeState === "ready" ? DEFAULT_BOT_REPLAY_SYNC_STATUS : current,
+          );
+        }, REPLAY_SYNC_READY_BADGE_TIMEOUT_MS);
+      } catch (error) {
+        setBotReplaySyncStatus({
+          badgeState: "error",
+          progressPercent: 0,
+          text: "Replay sync failed",
+          error: error instanceof Error ? error.message : "Replay sync failed.",
+        });
+      }
+    }, 450);
+
+    return () => {
+      if (botReplaySyncTimerRef.current !== null) {
+        window.clearTimeout(botReplaySyncTimerRef.current);
+        botReplaySyncTimerRef.current = null;
+      }
+    };
+  }, [botReplaySyncUserId, replayArchive, replayArchiveLoaded]);
 
   useEffect(() => {
     setVisibleReplayCount(REPLAY_ARCHIVE_PAGE_SIZE);
@@ -2112,7 +2392,7 @@ export default function PlayComputerPage() {
   });
 
   const handleSquareClick = (square: Square) => {
-    if (botPreferences.moveMethod === "drag") return;
+    if (botPreferences.moveMethod === "drag" && !isPremoveTurn) return;
     if (gameState !== "playing" || isReviewing) return;
 
     const game = gameRef.current;
@@ -2856,7 +3136,7 @@ export default function PlayComputerPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col overflow-x-hidden overflow-y-scroll bg-[var(--bg)]">
+    <div className="min-h-screen flex flex-col overflow-x-hidden bg-[var(--bg)]">
       <header className="w-full px-4 py-3 md:px-8 md:py-5 flex items-center justify-between border-b border-[var(--border)]">
         <Link href="/" className="text-[22px] font-serif font-[800] text-[var(--text-primary)]">
           CHESS
@@ -2881,13 +3161,49 @@ export default function PlayComputerPage() {
               <span className="leading-none">{engineStatusBadge.text}</span>
             </div>
           ) : null}
-          <Link
-            href="/"
-            className="inline-flex items-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-[14px] font-medium group"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2 transform group-hover:-translate-x-1 transition-transform" />
-            Back to Play
-          </Link>
+          {botReplaySyncStatus.badgeState !== "hidden" ? (
+            <div
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-medium shadow-sm transition-colors ${botReplaySyncStatus.badgeState === "ready"
+                  ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                  : botReplaySyncStatus.badgeState === "error"
+                    ? "border-[var(--error-border)] bg-[var(--error-bg)] text-[var(--error-text)]"
+                    : "border-[var(--border-subtle)] bg-[var(--surface-alt)] text-[var(--text-secondary)]"
+                }`}
+              title={botReplaySyncStatus.error ?? undefined}
+            >
+              {botReplaySyncStatus.badgeState === "ready" ? (
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              ) : botReplaySyncStatus.badgeState === "error" ? (
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              ) : (
+                <LoaderCircle className="w-3.5 h-3.5 shrink-0 animate-spin" />
+              )}
+              <span className="leading-none">
+                {botReplaySyncStatus.text}{" "}
+                {botReplaySyncStatus.badgeState === "syncing" || botReplaySyncStatus.badgeState === "ready"
+                  ? `${botReplaySyncStatus.progressPercent}%`
+                  : ""}
+              </span>
+            </div>
+          ) : null}
+          {gameState === "setup" ? (
+            <Link
+              href="/"
+              className="inline-flex items-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-[14px] font-medium group"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2 transform group-hover:-translate-x-1 transition-transform" />
+              Back to Play
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={stopGame}
+              className="inline-flex items-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-[14px] font-medium group"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2 transform group-hover:-translate-x-1 transition-transform" />
+              Back to Play
+            </button>
+          )}
         </div>
       </header>
 
@@ -3766,7 +4082,6 @@ export default function PlayComputerPage() {
                             }}
                             onDragOver={(event) => {
                               if (!draggedSquare && !customPaletteDragPiece) return;
-                              if (!isCustomBoardEditing && isPremoveTurn) return;
                               event.preventDefault();
                               if (dragOverSquare !== square) setDragOverSquare(square);
                             }}
@@ -3793,13 +4108,13 @@ export default function PlayComputerPage() {
                               <div className="absolute inset-[4%] rounded-[4px] bg-amber-300/20" />
                             )}
                             {isSelectedSquare && (
-                              <div className="absolute inset-[6%] rounded-[4px] ring-[3px] ring-sky-300/90 bg-sky-400/10 z-[6]" />
+                              <div className="absolute inset-[6%] rounded-[4px] ring-[3px] ring-white/95 bg-white/12 z-[6] shadow-[0_0_14px_rgba(255,255,255,0.45)]" />
                             )}
                             {isQueuedPremoveFrom && (
-                              <div className="absolute inset-[8%] rounded-[4px] border-[3px] border-sky-300/90 bg-sky-400/12 z-[6]" />
+                              <div className="absolute inset-[8%] rounded-[4px] border-[3px] border-red-400/95 bg-red-500/22 z-[6] shadow-[inset_0_0_18px_rgba(239,68,68,0.45)]" />
                             )}
                             {isQueuedPremoveTo && (
-                              <div className="absolute inset-[14%] rounded-full border-[4px] border-sky-200/90 bg-sky-400/18 z-[6]" />
+                              <div className="absolute inset-[14%] rounded-full border-[4px] border-red-300/95 bg-red-500/24 z-[6]" />
                             )}
                             {isKingInCheck && (
                               <div className="absolute inset-0 bg-red-500/40 animate-pulse shadow-[inset_0_0_20px_rgba(239,68,68,0.7)] z-[5]" />
@@ -3808,8 +4123,8 @@ export default function PlayComputerPage() {
                               <div
                                 className={
                                   squarePiece
-                                    ? "absolute inset-[10%] rounded-full border-[6px] border-black/20"
-                                    : "absolute h-[25%] w-[25%] rounded-full bg-black/20"
+                                    ? "absolute inset-[10%] rounded-full border-[6px] border-white/40"
+                                    : "absolute h-[25%] w-[25%] rounded-full bg-white/45 shadow-[0_0_10px_rgba(255,255,255,0.35)]"
                                 }
                               />
                             )}
@@ -3830,7 +4145,6 @@ export default function PlayComputerPage() {
                                 isCustomBoardEditing
                                   ? squarePiece
                                   : botPreferences.moveMethod !== "click" &&
-                                  (botPreferences.moveMethod === "drag" || !isPremoveTurn) &&
                                   squarePiece &&
                                   squarePiece.color === (isPremoveTurn ? playerSide : displayGame.turn()),
                               )}
@@ -3847,7 +4161,7 @@ export default function PlayComputerPage() {
                               {getPieceIcon(piece, pieceTheme)}
                             </div>
                             {isQueuedPremoveFrom && botPreferences.premoveMode === "multiple" && (
-                              <span className="absolute right-1 top-1 z-[7] flex h-5 w-5 items-center justify-center rounded-full bg-sky-300 text-[11px] font-black text-slate-900 shadow-md">
+                              <span className="absolute right-1 top-1 z-[7] flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[11px] font-black text-white shadow-md">
                                 {queuedPremoveFromIndex + 1}
                               </span>
                             )}
@@ -4470,6 +4784,8 @@ export default function PlayComputerPage() {
                   }
 
                   const replayTone = getReplayResultTone(replay.outcome);
+                  const lastMoveSquares = getReplayLastMoveSquares(replay.fenHistory, replay.finalFen);
+                  const lastMoveLabel = replay.sanMoves.length > 0 ? replay.sanMoves[replay.sanMoves.length - 1] : "Start";
 
                   return (
                     <article
@@ -4485,28 +4801,48 @@ export default function PlayComputerPage() {
                       role="button"
                       tabIndex={0}
                     >
-                      <div className="h-[220px] w-full relative overflow-hidden flex items-center justify-center">
-                        <img
-                          src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`}
-                          alt="Replay board"
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 grid grid-cols-8 grid-rows-8 z-[5]">
-                          {replayBoard.map((row, rowIndex) =>
-                            row.map((pieceCode, colIndex) => (
-                              <div key={`${replay.id}-${rowIndex}-${colIndex}`} className="flex items-center justify-center p-[6%]">
-                                {pieceCode ? (
-                                  <img
-                                    src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${pieceCode}.png`}
-                                    alt={pieceCode}
-                                    className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)]"
-                                  />
-                                ) : null}
-                              </div>
-                            )),
-                          )}
+                      <div className="h-[286px] sm:h-[304px] w-full relative overflow-hidden bg-[var(--surface-alt)]">
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_24%_22%,rgba(255,255,255,0.22),transparent_34%),linear-gradient(135deg,rgba(0,0,0,0.18),rgba(0,0,0,0.04)_44%,rgba(0,0,0,0.24))]" />
+                        <div className="absolute inset-x-0 top-3 sm:top-4 flex justify-center px-3">
+                          <div className="relative w-[236px] sm:w-[248px] max-w-full aspect-square overflow-hidden rounded-xl border border-white/20 shadow-2xl bg-black/20">
+                            <img
+                              src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`}
+                              alt="Replay board"
+                              className="absolute inset-0 w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 grid grid-cols-8 grid-rows-8 z-[5]">
+                              {replayBoard.map((row, rowIndex) =>
+                                row.map((pieceCode, colIndex) => {
+                                  const square = toSquare(rowIndex, colIndex);
+                                  const isLastMoveFrom = lastMoveSquares.from === square;
+                                  const isLastMoveTo = lastMoveSquares.to === square;
+
+                                  return (
+                                    <div
+                                      key={`${replay.id}-${rowIndex}-${colIndex}`}
+                                      className="relative flex items-center justify-center"
+                                    >
+                                      {isLastMoveFrom ? (
+                                        <span className="absolute inset-0 bg-amber-300/30" />
+                                      ) : null}
+                                      {isLastMoveTo ? (
+                                        <span className="absolute inset-[7%] rounded-sm bg-emerald-300/35 ring-2 ring-emerald-100/80" />
+                                      ) : null}
+                                      {pieceCode ? (
+                                        <img
+                                          src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${pieceCode}.png`}
+                                          alt={pieceCode}
+                                          className="relative z-10 w-[94%] h-[94%] object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)]"
+                                        />
+                                      ) : null}
+                                    </div>
+                                  );
+                                }),
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-black/20 z-10 pointer-events-none" />
 
                         <button
                           onClick={(event) => {
@@ -4519,7 +4855,13 @@ export default function PlayComputerPage() {
                           <Play className="w-6 h-6 ml-1" fill="currentColor" />
                         </button>
 
-                        <div className="absolute bottom-3 left-3 z-20 flex gap-2">
+                        <div className="absolute top-3 right-3 z-20 flex flex-col items-end gap-2 sm:top-4 sm:right-4">
+                          <span className="max-w-[150px] px-2.5 py-1 bg-white/90 backdrop-blur-md border border-black/10 rounded-md text-[10px] font-black text-black shadow-sm truncate">
+                            Last {lastMoveLabel}
+                          </span>
+                        </div>
+
+                        <div className="absolute bottom-3 left-3 z-20 flex gap-2 sm:bottom-4 sm:left-4">
                           <span className="px-2 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded uppercase tracking-widest text-[9px] font-black text-white shadow-sm">
                             {replay.timeControlMinutes} Min
                           </span>

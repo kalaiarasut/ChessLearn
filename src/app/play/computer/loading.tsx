@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export default function PlayComputerLoading() {
   return (
-    <div className="min-h-screen flex flex-col overflow-x-hidden overflow-y-scroll bg-[var(--bg)] animate-pulse">
+    <div className="min-h-screen flex flex-col overflow-x-hidden bg-[var(--bg)] animate-pulse">
       {/* Header */}
       <header className="w-full px-4 py-3 md:px-8 md:py-5 flex items-center justify-between border-b border-[var(--border)]">
         <Link href="/" className="text-[22px] font-serif font-[800] text-[var(--text-primary)]">
@@ -11,10 +11,10 @@ export default function PlayComputerLoading() {
         </Link>
         <div className="flex items-center gap-3">
           <div className="w-[120px] h-[30px] rounded-full border border-[var(--border-subtle)] bg-[var(--surface-alt)]" />
-          <div className="inline-flex items-center text-[var(--text-secondary)] text-[14px] font-medium">
+          <Link href="/" className="inline-flex items-center text-[var(--text-secondary)] text-[14px] font-medium">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Play
-          </div>
+          </Link>
         </div>
       </header>
 

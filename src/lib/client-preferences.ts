@@ -214,7 +214,7 @@ function clampNumber(value: number | undefined, min: number, max: number, fallba
   return Math.min(max, Math.max(min, Math.round(value)));
 }
 
-function normalizeOpeningProgressBySlug(value: unknown): Record<string, LearnOpeningProgress> {
+export function normalizeOpeningProgressBySlug(value: unknown): Record<string, LearnOpeningProgress> {
   if (!value || typeof value !== "object") {
     return {};
   }

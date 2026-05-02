@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ArrowLeft, Sun, Moon, Search, Menu, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronDown, ArrowLeft, Sun, Moon, Search, Menu, X, LoaderCircle, CheckCircle2, AlertCircle } from "lucide-react";
 import { useTheme } from "@/lib/theme-context";
 import { AuthMenu } from "@/components/auth-menu";
-import { loadClientPreferences, saveClientPreferences, type LearnOpeningProgress, type LearnSortMode } from "@/lib/client-preferences";
+import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreferences, type LearnClientPreferences, type LearnOpeningProgress, type LearnSortMode } from "@/lib/client-preferences";
+import { useLearnProgressSync } from "@/lib/use-learn-progress-sync";
 import openingDescriptions from "@/data/openingDescriptions.json";
 
 type OpeningCard = {
@@ -380,15 +381,35 @@ export default function LearnPage() {
   const { toggleTheme, isDark } = useTheme();
   const [openingCards, setOpeningCards] = useState<OpeningCard[]>(fallbackOpenings);
   const [openingProgressBySlug, setOpeningProgressBySlug] = useState<Record<string, LearnOpeningProgress>>({});
+  const [learnPreferences, setLearnPreferences] = useState<LearnClientPreferences>(DEFAULT_CLIENT_PREFERENCES.learn);
+  const [learnPreferencesLoaded, setLearnPreferencesLoaded] = useState(false);
   const [sortMode, setSortMode] = useState<LearnSortMode>("recommended");
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    const loaded = loadClientPreferences();
-    setOpeningProgressBySlug(loaded.learn.openingProgressBySlug);
-    setSortMode(loaded.learn.learnSortMode);
+    const timer = window.setTimeout(() => {
+      const loaded = loadClientPreferences();
+      setLearnPreferences(loaded.learn);
+      setOpeningProgressBySlug(loaded.learn.openingProgressBySlug);
+      setSortMode(loaded.learn.learnSortMode);
+      setLearnPreferencesLoaded(true);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, []);
+
+  const handleSyncedLearnPreferences = useCallback((learn: LearnClientPreferences) => {
+    setLearnPreferences(learn);
+    setOpeningProgressBySlug(learn.openingProgressBySlug);
+    setSortMode(learn.learnSortMode);
+  }, []);
+
+  const { syncStatus: learnSyncStatus } = useLearnProgressSync(
+    learnPreferences,
+    learnPreferencesLoaded,
+    handleSyncedLearnPreferences,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -421,13 +442,15 @@ export default function LearnPage() {
     setSortMode(nextSortMode);
 
     const loaded = loadClientPreferences();
-    saveClientPreferences({
+    const nextPreferences = {
       ...loaded,
       learn: {
         ...loaded.learn,
         learnSortMode: nextSortMode,
       },
-    });
+    };
+    setLearnPreferences(nextPreferences.learn);
+    saveClientPreferences(nextPreferences);
   };
 
   const openingsWithProgress = useMemo(
@@ -565,6 +588,31 @@ export default function LearnPage() {
 
         {/* Auth Buttons + Theme Toggle */}
         <div className="flex items-center space-x-5 text-[14px] font-medium">
+          {learnSyncStatus.badgeState !== "hidden" ? (
+            <div
+              className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-medium shadow-sm transition-colors ${learnSyncStatus.badgeState === "ready"
+                  ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                  : learnSyncStatus.badgeState === "error"
+                    ? "border-[var(--error-border)] bg-[var(--error-bg)] text-[var(--error-text)]"
+                    : "border-[var(--border-subtle)] bg-[var(--surface-alt)] text-[var(--text-secondary)]"
+                }`}
+              title={learnSyncStatus.error ?? undefined}
+            >
+              {learnSyncStatus.badgeState === "ready" ? (
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              ) : learnSyncStatus.badgeState === "error" ? (
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              ) : (
+                <LoaderCircle className="w-3.5 h-3.5 shrink-0 animate-spin" />
+              )}
+              <span className="leading-none">
+                {learnSyncStatus.text}{" "}
+                {learnSyncStatus.badgeState === "syncing" || learnSyncStatus.badgeState === "ready"
+                  ? `${learnSyncStatus.progressPercent}%`
+                  : ""}
+              </span>
+            </div>
+          ) : null}
           <button
             onClick={toggleTheme}
             data-theme-toggle
@@ -736,7 +784,7 @@ export default function LearnPage() {
           <div className="mt-10 rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-8 text-center">
             <p className="text-[var(--text-primary)] text-lg font-semibold">No openings found</p>
             <p className="mt-2 text-[var(--text-muted)] text-sm">
-              Try another search term like "Sicilian", "Queen", or "e4 c5".
+              Try another search term like &quot;Sicilian&quot;, &quot;Queen&quot;, or &quot;e4 c5&quot;.
             </p>
           </div>
         ) : null}
