@@ -238,9 +238,9 @@ const PUZZLE_MODES = [
   {
     id: "storm",
     title: "Puzzle Storm",
-    subtitle: "3 Minutes Â· 3 Lives",
+    subtitle: "3 Minutes - 3 Lives",
     description:
-      "Race against the clock to solve as many puzzles as possible in 3 minutes. Three wrong answers and it's over. Sharpen your pattern recognition.",
+      "Race the clock with three lives. Correct solves keep the run moving; wrong moves burn a life and the final score saves to your progress.",
     icon: Zap,
     gradient: "from-amber-500/20 to-orange-500/20",
     borderGlow: "hover:shadow-amber-500/10",
@@ -252,7 +252,7 @@ const PUZZLE_MODES = [
     title: "Puzzle Streak",
     subtitle: "Zero Mistakes Allowed",
     description:
-      "How far can you go without a single mistake? Puzzles start easy and get progressively harder. One wrong move ends the streak.",
+      "Build the longest perfect run you can. Puzzles ramp upward by rating, and one wrong move ends the streak.",
     icon: Flame,
     gradient: "from-rose-500/20 to-pink-500/20",
     borderGlow: "hover:shadow-rose-500/10",
@@ -559,7 +559,7 @@ export default function PuzzlesClientPage({
                       </p>
 
                       <div className="mt-6 flex items-center gap-2 text-[13px] font-bold text-[var(--text-primary)] opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 duration-300">
-                        Start Training
+                        {mode.id === "storm" ? "Start Storm" : mode.id === "streak" ? "Start Streak" : "Start Training"}
                         <ArrowRight className="w-3.5 h-3.5" />
                       </div>
                     </div>

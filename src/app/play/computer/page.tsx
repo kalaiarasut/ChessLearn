@@ -4,7 +4,7 @@ import type { DragEvent, MouseEvent } from "react";
 import Link from "next/link";
 import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { Chess, type Square } from "chess.js";
-import { ArrowLeft, Settings, Play, Pause, Bot, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, ChevronUp, MoreHorizontal, Monitor, User, Gamepad2, MessageSquare, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, Crosshair, Crown, Info, LoaderCircle, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Settings, Play, Pause, Bot, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, ChevronUp, MoreHorizontal, Monitor, User, Gamepad2, MessageSquare, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, Crosshair, Crown, Info, LoaderCircle, CheckCircle2, AlertCircle, MousePointer2, Eraser, Trash2 } from "lucide-react";
 import themeManifest from "@/data/themeManifest.json";
 import { useTheme } from "@/lib/theme-context";
 import { STOCKFISH_ELO_LIMITS, useStockfishPlayer, type PlayerEngineVariant, type PlayerStrengthMode, type PlayerTimeMode } from "./use-stockfish-player";
@@ -54,12 +54,16 @@ const STARTING_PIECE_COUNTS = {
   k: 1,
 } as const;
 const CAPTURE_DISPLAY_ORDER = ["q", "r", "b", "n", "p"] as const;
+const CUSTOM_EDITOR_PIECES = ["wk", "wq", "wr", "wb", "wn", "wp", "bk", "bq", "br", "bb", "bn", "bp"] as const;
 
 type MaterialPieceType = Exclude<keyof typeof MATERIAL_VALUES, "k">;
 type SideColor = "w" | "b";
 type StrengthMode = PlayerStrengthMode | "beginner";
 type EngineVariant = PlayerEngineVariant;
 type TimeMode = PlayerTimeMode;
+type StartingLayoutId = "standard" | "no-castling" | "chess960" | "shuffle" | "double-fischer" | "transcendental" | "custom";
+type PieceCode = `${SideColor}${keyof typeof MATERIAL_VALUES}`;
+type CustomEditorPiece = PieceCode | "erase" | null;
 
 type NavigatorConnection = {
   effectiveType?: string;
@@ -88,6 +92,13 @@ type BotOpeningChoice = {
   bookMovesBySide: Record<SideColor, string[]>;
 };
 
+type StartingLayoutPreset = {
+  id: StartingLayoutId;
+  label: string;
+  description: string;
+  getFen: () => string;
+};
+
 const BOT_OPENING_ENGINE_CHOICE: BotOpeningChoice = {
   id: BOT_OPENING_ENGINE_ID,
   label: "Engine Choice",
@@ -104,11 +115,6 @@ const normalizeSearchText = (value: string) =>
     .replace(/[^a-z0-9\s]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-
-const toSearchTokens = (query: string) =>
-  normalizeSearchText(query)
-    .split(" ")
-    .filter(Boolean);
 
 const parseUciMove = (uci: string) => {
   if (!UCI_MOVE_PATTERN.test(uci)) {
@@ -192,27 +198,6 @@ const resolveLegalBookMove = (game: Chess, uci: string) => {
   return isLegal ? parsedMove : null;
 };
 
-const filterOpeningChoices = (
-  choices: BotOpeningChoice[],
-  query: string,
-  selectedId: string,
-  maxItems = 120,
-) => {
-  const tokens = toSearchTokens(query);
-  const filtered = tokens.length === 0
-    ? [...choices]
-    : choices.filter((choice) => tokens.every((token) => choice.searchText.includes(token)));
-
-  const selected = choices.find((choice) => choice.id === selectedId);
-  const visible = filtered.slice(0, maxItems);
-
-  if (selected && !visible.some((choice) => choice.id === selected.id)) {
-    return [selected, ...visible.slice(0, Math.max(0, maxItems - 1))];
-  }
-
-  return visible;
-};
-
 const toBeginnerEngineProfile = (estimatedElo: number) => {
   const clamped = Math.max(BEGINNER_ELO_MIN, Math.min(BEGINNER_ELO_MAX, Math.round(estimatedElo)));
   const span = BEGINNER_ELO_MAX - BEGINNER_ELO_MIN;
@@ -222,6 +207,121 @@ const toBeginnerEngineProfile = (estimatedElo: number) => {
     skillLevel: Math.max(0, Math.min(7, Math.round(ratio * 7))),
     fixedMoveTimeMs: Math.max(50, Math.min(250, Math.round(50 + ratio * 200))),
   };
+};
+
+const shuffleArray = <T,>(values: T[]) => {
+  const shuffled = [...values];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+
+  return shuffled;
+};
+
+const generateChess960BackRank = () => {
+  const rank = Array<string>(8).fill("");
+  const lightSquares = [1, 3, 5, 7];
+  const darkSquares = [0, 2, 4, 6];
+  const lightBishopSquare = lightSquares[Math.floor(Math.random() * lightSquares.length)];
+  const darkBishopSquare = darkSquares[Math.floor(Math.random() * darkSquares.length)];
+
+  rank[lightBishopSquare] = "B";
+  rank[darkBishopSquare] = "B";
+
+  const emptySquares = () => rank.map((piece, index) => (piece ? -1 : index)).filter((index) => index >= 0);
+  const queenSquare = shuffleArray(emptySquares())[0];
+  rank[queenSquare] = "Q";
+
+  for (const knightSquare of shuffleArray(emptySquares()).slice(0, 2)) {
+    rank[knightSquare] = "N";
+  }
+
+  const remaining = emptySquares().sort((a, b) => a - b);
+  rank[remaining[0]] = "R";
+  rank[remaining[1]] = "K";
+  rank[remaining[2]] = "R";
+
+  return rank.join("");
+};
+
+const generateShuffleBackRank = () =>
+  shuffleArray(["R", "N", "B", "Q", "K", "B", "N", "R"]).join("");
+
+const toMirroredBackRankFen = (whiteBackRank: string) => {
+  const blackBackRank = whiteBackRank.toLowerCase();
+  return `${blackBackRank}/pppppppp/8/8/8/8/PPPPPPPP/${whiteBackRank} w - - 0 1`;
+};
+
+const toDoubleFischerFen = () => {
+  const whiteBackRank = generateChess960BackRank();
+  const blackBackRank = generateChess960BackRank().toLowerCase();
+  return `${blackBackRank}/pppppppp/8/8/8/8/PPPPPPPP/${whiteBackRank} w - - 0 1`;
+};
+
+const toTranscendentalFen = () => {
+  const whiteBackRank = generateShuffleBackRank();
+  const blackBackRank = generateShuffleBackRank().toLowerCase();
+  return `${blackBackRank}/pppppppp/8/8/8/8/PPPPPPPP/${whiteBackRank} w - - 0 1`;
+};
+
+const STARTING_LAYOUT_PRESETS: StartingLayoutPreset[] = [
+  {
+    id: "standard",
+    label: "Standard",
+    description: "Classic chess starting position.",
+    getFen: () => DEFAULT_FEN,
+  },
+  {
+    id: "no-castling",
+    label: "No-castling chess",
+    description: "Classic setup with castling rights removed.",
+    getFen: () => "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1",
+  },
+  {
+    id: "chess960",
+    label: "Chess960 shuffle",
+    description: "Random mirrored back ranks with bishops split and king between rooks.",
+    getFen: () => toMirroredBackRankFen(generateChess960BackRank()),
+  },
+  {
+    id: "shuffle",
+    label: "Shuffle chess",
+    description: "Mirrored random back ranks with standard pieces and no castling.",
+    getFen: () => toMirroredBackRankFen(generateShuffleBackRank()),
+  },
+  {
+    id: "double-fischer",
+    label: "Double Fischer random",
+    description: "Independent Chess960-style back ranks for both sides.",
+    getFen: () => toDoubleFischerFen(),
+  },
+  {
+    id: "transcendental",
+    label: "Transcendental chess",
+    description: "Independent fully shuffled back ranks with no castling.",
+    getFen: () => toTranscendentalFen(),
+  },
+  {
+    id: "custom",
+    label: "Custom FEN",
+    description: "Use your own piece setup.",
+    getFen: () => DEFAULT_FEN,
+  },
+];
+
+const validateStartingFen = (value: string) => {
+  try {
+    const game = new Chess(value);
+    return { valid: true as const, fen: game.fen(), error: null };
+  } catch (error) {
+    return {
+      valid: false as const,
+      fen: null,
+      error: error instanceof Error ? error.message : "Invalid FEN.",
+    };
+  }
 };
 
 const isEngineVariant = (value: unknown): value is EngineVariant =>
@@ -508,7 +608,163 @@ const getPieceCode = (
   if (!piece) {
     return null;
   }
-  return `${piece.color}${piece.type}`;
+  return `${piece.color}${piece.type}` as PieceCode;
+};
+
+const getPieceFromCode = (code: PieceCode | null) => {
+  if (!code) {
+    return null;
+  }
+
+  return {
+    color: code[0] as SideColor,
+    type: code[1] as keyof typeof MATERIAL_VALUES,
+  };
+};
+
+const parseFenBoardPlacement = (fen: string): Record<Square, PieceCode> | null => {
+  const placement = fen.trim().split(/\s+/)[0];
+  const ranks = placement?.split("/") ?? [];
+
+  if (ranks.length !== 8) {
+    return null;
+  }
+
+  const pieces: Record<string, PieceCode> = {};
+
+  for (let rankIndex = 0; rankIndex < ranks.length; rankIndex += 1) {
+    let fileIndex = 0;
+
+    for (const token of ranks[rankIndex]) {
+      if (/^[1-8]$/.test(token)) {
+        fileIndex += Number(token);
+        continue;
+      }
+
+      const pieceType = token.toLowerCase();
+      if (!["p", "n", "b", "r", "q", "k"].includes(pieceType) || fileIndex > 7) {
+        return null;
+      }
+
+      const square = `${FILES[fileIndex]}${8 - rankIndex}` as Square;
+      pieces[square] = `${token === pieceType ? "b" : "w"}${pieceType}` as PieceCode;
+      fileIndex += 1;
+    }
+
+    if (fileIndex !== 8) {
+      return null;
+    }
+  }
+
+  return pieces as Record<Square, PieceCode>;
+};
+
+const boardPiecesToFen = (pieces: Partial<Record<Square, PieceCode>>) => {
+  const ranks: string[] = [];
+
+  for (let rowIndex = 0; rowIndex < 8; rowIndex += 1) {
+    let emptyCount = 0;
+    let rank = "";
+
+    for (let colIndex = 0; colIndex < 8; colIndex += 1) {
+      const square = toSquare(rowIndex, colIndex);
+      const piece = pieces[square];
+
+      if (!piece) {
+        emptyCount += 1;
+        continue;
+      }
+
+      if (emptyCount > 0) {
+        rank += String(emptyCount);
+        emptyCount = 0;
+      }
+
+      rank += piece[0] === "w" ? piece[1].toUpperCase() : piece[1];
+    }
+
+    if (emptyCount > 0) {
+      rank += String(emptyCount);
+    }
+
+    ranks.push(rank);
+  }
+
+  return `${ranks.join("/")} w - - 0 1`;
+};
+
+const boardPiecesToState = (pieces: Partial<Record<Square, PieceCode>>) =>
+  Array.from({ length: 8 }, (_, rowIndex) =>
+    Array.from({ length: 8 }, (_, colIndex) => pieces[toSquare(rowIndex, colIndex)] ?? null),
+  );
+
+const validateCustomBoardPiecesForEngine = (pieces: Partial<Record<Square, PieceCode>>) => {
+  const counts: Record<SideColor, Record<keyof typeof MATERIAL_VALUES, number>> = {
+    w: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
+    b: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
+  };
+
+  for (const piece of Object.values(pieces)) {
+    if (!piece) {
+      continue;
+    }
+
+    const color = piece[0] as SideColor;
+    const type = piece[1] as keyof typeof MATERIAL_VALUES;
+    counts[color][type] += 1;
+  }
+
+  for (const color of ["w", "b"] as const) {
+    const label = color === "w" ? "White" : "Black";
+    const totalPieces = Object.values(counts[color]).reduce((total, count) => total + count, 0);
+
+    if (counts[color].k !== 1) {
+      return {
+        valid: false as const,
+        error: `${label} must have exactly one king.`,
+      };
+    }
+
+    if (totalPieces > 16) {
+      return {
+        valid: false as const,
+        error: `${label} has ${totalPieces} pieces. Remove ${totalPieces - 16} piece${totalPieces - 16 === 1 ? "" : "s"} so the engine can move.`,
+      };
+    }
+
+    if (counts[color].p > 8) {
+      return {
+        valid: false as const,
+        error: `${label} has ${counts[color].p} pawns. Use 8 or fewer pawns.`,
+      };
+    }
+  }
+
+  return { valid: true as const, error: null };
+};
+
+const getCustomBoardStartFen = (pieces: Partial<Record<Square, PieceCode>>) => {
+  const engineValidation = validateCustomBoardPiecesForEngine(pieces);
+  if (!engineValidation.valid) {
+    return {
+      valid: false as const,
+      fen: null,
+      error: `Custom board cannot start yet: ${engineValidation.error}`,
+    };
+  }
+
+  const rawFen = boardPiecesToFen(pieces);
+  const validation = validateStartingFen(rawFen);
+
+  if (validation.valid) {
+    return validation;
+  }
+
+  return {
+    valid: false as const,
+    fen: null,
+    error: `Custom board cannot start yet: ${validation.error}`,
+  };
 };
 
 const PieceImage = ({ src, alt, className }: { src: string; alt: string; className?: string; skeletonClassName?: string }) => {
@@ -798,12 +1054,22 @@ export default function PlayComputerPage() {
   const [botOpeningChoices, setBotOpeningChoices] = useState<BotOpeningChoice[]>([BOT_OPENING_ENGINE_CHOICE]);
   const [botOpeningsLoading, setBotOpeningsLoading] = useState(false);
   const [botOpeningsError, setBotOpeningsError] = useState<string | null>(null);
-  const [bot1OpeningQuery, setBot1OpeningQuery] = useState("");
-  const [bot2OpeningQuery, setBot2OpeningQuery] = useState("");
   const [bot1OpeningId, setBot1OpeningId] = useState<string>(BOT_OPENING_ENGINE_ID);
   const [bot2OpeningId, setBot2OpeningId] = useState<string>(BOT_OPENING_ENGINE_ID);
   const [bot1OpeningMoveIndex, setBot1OpeningMoveIndex] = useState(0);
   const [bot2OpeningMoveIndex, setBot2OpeningMoveIndex] = useState(0);
+  const [customBot2Enabled, setCustomBot2Enabled] = useState(false);
+  const [customBotSoloActive, setCustomBotSoloActive] = useState(false);
+  const [customBot1Side, setCustomBot1Side] = useState<SideColor>("w");
+  const [startingLayoutId, setStartingLayoutId] = useState<StartingLayoutId>("standard");
+  const [setupPreviewFen, setSetupPreviewFen] = useState(DEFAULT_FEN);
+  const [customStartingFen, setCustomStartingFen] = useState(DEFAULT_FEN);
+  const [customStartingFenError, setCustomStartingFenError] = useState<string | null>(null);
+  const [isCustomFenEditorOpen, setIsCustomFenEditorOpen] = useState(false);
+  const [customBoardPieces, setCustomBoardPieces] = useState<Partial<Record<Square, PieceCode>>>(() => parseFenBoardPlacement(DEFAULT_FEN) ?? {});
+  const [customEditorPiece, setCustomEditorPiece] = useState<CustomEditorPiece>("wp");
+  const [customEditorPickedSquare, setCustomEditorPickedSquare] = useState<Square | null>(null);
+  const [customPaletteDragPiece, setCustomPaletteDragPiece] = useState<PieceCode | null>(null);
   const [botMatchConfigOpen, setBotMatchConfigOpen] = useState(false);
   const [viewerName, setViewerName] = useState("Guest User");
   const [hoverPreview, setHoverPreview] = useState<{ fen: string; left: number; top: number } | null>(null);
@@ -818,6 +1084,7 @@ export default function PlayComputerPage() {
   const [warnedWhiteLowTime, setWarnedWhiteLowTime] = useState(false);
   const [warnedBlackLowTime, setWarnedBlackLowTime] = useState(false);
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
+  const [activeInitialFen, setActiveInitialFen] = useState(DEFAULT_FEN);
   const [replayArchive, setReplayArchive] = useState<ReplayArchiveEntry[]>([]);
   const [replayFilter, setReplayFilter] = useState<ReplayFilter>("all");
   const [visibleReplayCount, setVisibleReplayCount] = useState(REPLAY_ARCHIVE_PAGE_SIZE);
@@ -888,6 +1155,7 @@ export default function PlayComputerPage() {
 
   const gameRef = useRef(new Chess(fen));
   const confettiRef = useRef<ConfettiRef>(null);
+  const customEditorDockRef = useRef<HTMLDivElement | null>(null);
   const audioPoolRef = useRef<Record<string, HTMLAudioElement[]>>({});
   const nextAudioIndexRef = useRef<Record<string, number>>({});
   const previousGameStateRef = useRef(gameState);
@@ -895,6 +1163,8 @@ export default function PlayComputerPage() {
   const isBotMatchMode = playerColor === "bot-vs-bot";
   const playerSide: SideColor = isBotMatchMode ? "w" : playerColor;
   const botSide: SideColor = playerSide === "w" ? "b" : "w";
+  const bot1Side: SideColor = isBotMatchMode ? customBot1Side : botSide;
+  const bot2Side: SideColor = bot1Side === "w" ? "b" : "w";
   const botOpeningChoiceById = useMemo(() => {
     const map = new Map<string, BotOpeningChoice>();
     for (const choice of botOpeningChoices) {
@@ -910,36 +1180,43 @@ export default function PlayComputerPage() {
       return [];
     }
 
-    return selected.bookMovesBySide[botSide] ?? [];
-  }, [botOpeningChoiceById, bot1OpeningId, botSide]);
+    return selected.bookMovesBySide[bot1Side] ?? [];
+  }, [botOpeningChoiceById, bot1OpeningId, bot1Side]);
   const bot2OpeningBookMoves = useMemo(() => {
     const selected = botOpeningChoiceById.get(bot2OpeningId);
     if (!selected) {
       return [];
     }
 
-    return selected.bookMovesBySide[playerSide] ?? [];
-  }, [botOpeningChoiceById, bot2OpeningId, playerSide]);
-  const bot1VisibleOpeningChoices = useMemo(
-    () => filterOpeningChoices(botOpeningChoices, bot1OpeningQuery, bot1OpeningId),
-    [botOpeningChoices, bot1OpeningQuery, bot1OpeningId],
+    return selected.bookMovesBySide[bot2Side] ?? [];
+  }, [botOpeningChoiceById, bot2OpeningId, bot2Side]);
+  const selectedStartingLayout = STARTING_LAYOUT_PRESETS.find((preset) => preset.id === startingLayoutId) ?? STARTING_LAYOUT_PRESETS[0];
+  const customStartingFenValidation = useMemo(
+    () => validateStartingFen(customStartingFen),
+    [customStartingFen],
   );
-  const bot2VisibleOpeningChoices = useMemo(
-    () => filterOpeningChoices(botOpeningChoices, bot2OpeningQuery, bot2OpeningId),
-    [botOpeningChoices, bot2OpeningQuery, bot2OpeningId],
+  const customBoardStartValidation = useMemo(
+    () => parseFenBoardPlacement(customStartingFen)
+      ? getCustomBoardStartFen(customBoardPieces)
+      : validateStartingFen(customStartingFen),
+    [customBoardPieces, customStartingFen],
   );
   const beginnerEngineProfile = useMemo(
     () => toBeginnerEngineProfile(beginnerEstimatedElo),
     [beginnerEstimatedElo],
   );
-  const activeStrengthMode: StrengthMode = isBotMatchMode ? "elo" : strengthMode;
+  const activeStrengthMode: StrengthMode = isBotMatchMode || customBotSoloActive ? "elo" : strengthMode;
   const engineStrengthMode: PlayerStrengthMode = activeStrengthMode === "elo" ? "elo" : "skill";
   const activeSkillLevel = isBotMatchMode
     ? 20
     : activeStrengthMode === "beginner"
       ? beginnerEngineProfile.skillLevel
       : skillLevel;
-  const activeEngineElo = isBotMatchMode ? (gameRef.current.turn() === botSide ? bot1Elo : bot2Elo) : elo;
+  const activeEngineElo = isBotMatchMode
+    ? (gameRef.current.turn() === bot1Side ? bot1Elo : bot2Elo)
+    : customBotSoloActive
+      ? bot1Elo
+      : elo;
   const activeTimeMode: TimeMode = !isBotMatchMode && activeStrengthMode === "beginner" ? "fixed" : botTimeMode;
   const activeFixedMoveTimeMs = !isBotMatchMode && activeStrengthMode === "beginner"
     ? beginnerEngineProfile.fixedMoveTimeMs
@@ -954,7 +1231,9 @@ export default function PlayComputerPage() {
     ? false
     : botPreferences.boardOrientation === "black"
       ? true
-      : botSide === "w";
+      : isBotMatchMode
+        ? bot1Side === "b"
+        : botSide === "w";
   const isBoardFlipped = isBoardViewInverted ? !baseIsBoardFlipped : baseIsBoardFlipped;
   const analysisEnabled =
     gameState !== "setup" &&
@@ -1450,7 +1729,7 @@ export default function PlayComputerPage() {
       return;
     }
 
-    const isBot1Turn = isBotMatchMode ? gameRef.current.turn() === botSide : true;
+    const isBot1Turn = isBotMatchMode ? gameRef.current.turn() === bot1Side : true;
     const openingBookMoves = isBotMatchMode
       ? (isBot1Turn ? bot1OpeningBookMoves : bot2OpeningBookMoves)
       : bot1OpeningBookMoves;
@@ -1486,6 +1765,13 @@ export default function PlayComputerPage() {
       }
     }
 
+    if (bestMove === "(none)") {
+      setTimeoutStatus("Engine stopped. Draw by unsupported custom position.");
+      setGameState("game_over");
+      playSound("game-end");
+      return;
+    }
+
     if (bestMove && isBestMoveLegal) {
       const from = bestMove.slice(0, 2) as Square;
       const to = bestMove.slice(2, 4) as Square;
@@ -1498,19 +1784,104 @@ export default function PlayComputerPage() {
     isBotTurn,
     gameState,
     isBotMatchMode,
-    botSide,
+    bot1Side,
     bot1OpeningBookMoves,
     bot2OpeningBookMoves,
     bot1OpeningMoveIndex,
     bot2OpeningMoveIndex,
     isBestMoveLegal,
+    playSound,
   ]);
 
-  const startGame = (color: "w" | "b" | "random" | "bot-vs-bot") => {
+  const applyCustomBoardPieces = (nextPieces: Partial<Record<Square, PieceCode>>) => {
+    const nextFen = boardPiecesToFen(nextPieces);
+    setCustomBoardPieces(nextPieces);
+    setCustomStartingFen(nextFen);
+    setCustomStartingFenError(null);
+    setCustomEditorPickedSquare(null);
+
+    if (validateStartingFen(nextFen).valid) {
+      setSetupPreviewFen(nextFen);
+    }
+  };
+
+  const resetCustomBoardToDefault = () => {
+    const defaultPieces = parseFenBoardPlacement(DEFAULT_FEN) ?? {};
+    applyCustomBoardPieces(defaultPieces);
+    setSetupPreviewFen(DEFAULT_FEN);
+  };
+
+  const clearCustomBoard = () => {
+    applyCustomBoardPieces({});
+  };
+
+  const handleCustomFenInputChange = (value: string) => {
+    setCustomStartingFen(value);
+    setCustomStartingFenError(null);
+
+    const parsedPieces = parseFenBoardPlacement(value);
+    if (parsedPieces) {
+      setCustomBoardPieces(parsedPieces);
+      if (validateStartingFen(value).valid) {
+        setSetupPreviewFen(new Chess(value).fen());
+      }
+    }
+  };
+
+  const applyStartingLayout = (nextLayout: StartingLayoutId) => {
+    setStartingLayoutId(nextLayout);
+    setCustomStartingFenError(null);
+    setCustomEditorPickedSquare(null);
+
+    const preset = STARTING_LAYOUT_PRESETS.find((candidate) => candidate.id === nextLayout) ?? STARTING_LAYOUT_PRESETS[0];
+
+    if (nextLayout === "custom") {
+      setIsCustomFenEditorOpen(true);
+      const parsedPieces = parseFenBoardPlacement(customStartingFen);
+      if (parsedPieces) {
+        setCustomBoardPieces(parsedPieces);
+      }
+      if (customStartingFenValidation.valid && customStartingFenValidation.fen) {
+        setSetupPreviewFen(customStartingFenValidation.fen);
+      }
+      return;
+    }
+
+    const nextFen = preset.getFen();
+    setIsCustomFenEditorOpen(false);
+    setSetupPreviewFen(nextFen);
+  };
+
+  const resolveSelectedStartingFen = () => {
+    if (startingLayoutId === "custom") {
+      const validation = parseFenBoardPlacement(customStartingFen)
+        ? getCustomBoardStartFen(customBoardPieces)
+        : validateStartingFen(customStartingFen);
+      if (!validation.valid) {
+        setCustomStartingFenError(validation.error);
+        setIsCustomFenEditorOpen(true);
+        return null;
+      }
+
+      setCustomStartingFenError(null);
+      return validation.fen;
+    }
+
+    setCustomStartingFenError(null);
+    const validation = validateStartingFen(setupPreviewFen);
+    return validation.valid ? validation.fen : selectedStartingLayout.getFen();
+  };
+
+  const startGame = (
+    color: "w" | "b" | "random" | "bot-vs-bot",
+    options?: { initialFen?: string; customBotSolo?: boolean },
+  ) => {
     const finalColor = color === "random" ? (Math.random() > 0.5 ? "w" : "b") : color;
-    const seededGame = new Chess();
+    const seededGame = new Chess(options?.initialFen ?? DEFAULT_FEN);
     const initialFen = seededGame.fen();
 
+    setActiveInitialFen(initialFen);
+    setCustomBotSoloActive(options?.customBotSolo === true);
     setShowGameOverOverlay(false);
     setShowGameOverOverview(false);
     setShowGameOverActions(false);
@@ -1540,6 +1911,48 @@ export default function PlayComputerPage() {
     setBotMatchConfigOpen(false);
     setGameState("playing");
     playSound("game-start");
+  };
+
+  const toggleCustomBotSetup = () => {
+    if (botMatchConfigOpen) {
+      setBotMatchConfigOpen(false);
+      setStartingLayoutId("standard");
+      setSetupPreviewFen(DEFAULT_FEN);
+      setIsCustomFenEditorOpen(false);
+      setCustomStartingFenError(null);
+      setCustomEditorPickedSquare(null);
+      return;
+    }
+
+    setBotMatchConfigOpen(true);
+  };
+
+  const startConfiguredGame = (color: "w" | "b" | "random") => {
+    if (!botMatchConfigOpen) {
+      startGame(color);
+      return;
+    }
+
+    const initialFen = resolveSelectedStartingFen();
+    if (!initialFen) {
+      return;
+    }
+
+    if (customBot2Enabled) {
+      const bot1SelectedSide = color === "random" ? (Math.random() > 0.5 ? "w" : "b") : color;
+      setCustomBot1Side(bot1SelectedSide);
+      startGame("bot-vs-bot", {
+        initialFen,
+        customBotSolo: false,
+      });
+      return;
+    }
+
+    setCustomBot1Side(color === "b" ? "w" : "b");
+    startGame(color, {
+      initialFen,
+      customBotSolo: true,
+    });
   };
 
   const stopGame = () => {
@@ -1693,7 +2106,10 @@ export default function PlayComputerPage() {
     setIsPlayingHistory(false);
     setPositionFromHistory(0);
   };
-  const restartCurrentGame = () => startGame(playerColor);
+  const restartCurrentGame = () => startGame(playerColor, {
+    initialFen: activeInitialFen,
+    customBotSolo: customBotSoloActive,
+  });
 
   const handleSquareClick = (square: Square) => {
     if (botPreferences.moveMethod === "drag") return;
@@ -1850,11 +2266,175 @@ export default function PlayComputerPage() {
     }
   };
 
+  const handleCustomBoardSquareClick = (square: Square) => {
+    if (gameState !== "setup" || startingLayoutId !== "custom" || !isCustomFenEditorOpen) {
+      return;
+    }
+
+    const squarePiece = customBoardPieces[square] ?? null;
+
+    if (customEditorPiece === "erase") {
+      if (!squarePiece) {
+        return;
+      }
+
+      const nextPieces = { ...customBoardPieces };
+      delete nextPieces[square];
+      applyCustomBoardPieces(nextPieces);
+      return;
+    }
+
+    if (customEditorPiece) {
+      applyCustomBoardPieces({ ...customBoardPieces, [square]: customEditorPiece });
+      return;
+    }
+
+    if (customEditorPickedSquare) {
+      if (customEditorPickedSquare === square) {
+        setCustomEditorPickedSquare(null);
+        return;
+      }
+
+      const pickedPiece = customBoardPieces[customEditorPickedSquare];
+      if (!pickedPiece) {
+        setCustomEditorPickedSquare(null);
+        return;
+      }
+
+      const nextPieces = { ...customBoardPieces, [square]: pickedPiece };
+      delete nextPieces[customEditorPickedSquare];
+      applyCustomBoardPieces(nextPieces);
+      return;
+    }
+
+    if (squarePiece) {
+      setCustomEditorPickedSquare(square);
+    }
+  };
+
+  const handleCustomBoardRightClick = (event: React.MouseEvent, square: Square) => {
+    event.preventDefault();
+    if (gameState !== "setup" || startingLayoutId !== "custom" || !isCustomFenEditorOpen) {
+      return;
+    }
+
+    if (!customBoardPieces[square]) {
+      return;
+    }
+
+    const nextPieces = { ...customBoardPieces };
+    delete nextPieces[square];
+    applyCustomBoardPieces(nextPieces);
+  };
+
+  const handleCustomBoardDragStart = (event: DragEvent<HTMLDivElement>, square: Square) => {
+    if (gameState !== "setup" || startingLayoutId !== "custom" || !isCustomFenEditorOpen || !customBoardPieces[square]) {
+      event.preventDefault();
+      return;
+    }
+
+    const pieceImg = event.currentTarget.querySelector("img");
+    if (pieceImg) {
+      const size = pieceImg.getBoundingClientRect();
+      event.dataTransfer.setDragImage(pieceImg, size.width / 2, size.height / 2);
+    }
+
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", square);
+    setCustomPaletteDragPiece(null);
+    setDraggedSquare(square);
+    setCustomEditorPickedSquare(null);
+  };
+
+  const handleCustomPaletteDragStart = (event: DragEvent<HTMLButtonElement>, pieceCode: PieceCode) => {
+    const pieceImg = event.currentTarget.querySelector("img");
+    if (pieceImg) {
+      const size = pieceImg.getBoundingClientRect();
+      event.dataTransfer.setDragImage(pieceImg, size.width / 2, size.height / 2);
+    }
+
+    event.dataTransfer.effectAllowed = "copy";
+    event.dataTransfer.setData("application/x-chessify-piece", pieceCode);
+    event.dataTransfer.setData("text/plain", pieceCode);
+    setCustomPaletteDragPiece(pieceCode);
+    setDraggedSquare(null);
+    setCustomEditorPickedSquare(null);
+  };
+
+  const handleCustomBoardDrop = (event: DragEvent<HTMLDivElement>, square: Square) => {
+    event.preventDefault();
+    if (gameState !== "setup" || startingLayoutId !== "custom" || !isCustomFenEditorOpen) {
+      return;
+    }
+
+    const palettePiece = customPaletteDragPiece ?? event.dataTransfer.getData("application/x-chessify-piece") as PieceCode | "";
+    if (palettePiece && CUSTOM_EDITOR_PIECES.includes(palettePiece as typeof CUSTOM_EDITOR_PIECES[number])) {
+      applyCustomBoardPieces({ ...customBoardPieces, [square]: palettePiece as PieceCode });
+      setCustomPaletteDragPiece(null);
+      setDraggedSquare(null);
+      setDragOverSquare(null);
+      return;
+    }
+
+    if (!draggedSquare) {
+      return;
+    }
+
+    const draggedPiece = customBoardPieces[draggedSquare];
+    if (!draggedPiece) {
+      setDraggedSquare(null);
+      return;
+    }
+
+    const nextPieces = { ...customBoardPieces, [square]: draggedPiece };
+    delete nextPieces[draggedSquare];
+    applyCustomBoardPieces(nextPieces);
+    setDraggedSquare(null);
+    setCustomPaletteDragPiece(null);
+    setDragOverSquare(null);
+  };
+
   const game = gameRef.current;
-  const boardState = game.board().map((row) => row.map((piece) => getPieceCode(piece)));
+  const setupPreviewGame = useMemo(() => {
+    try {
+      return new Chess(setupPreviewFen);
+    } catch {
+      return new Chess(DEFAULT_FEN);
+    }
+  }, [setupPreviewFen]);
+  const isCustomBoardEditing = gameState === "setup" && botMatchConfigOpen && startingLayoutId === "custom" && isCustomFenEditorOpen;
+  const displayGame = gameState === "setup" ? setupPreviewGame : game;
+  const boardState = isCustomBoardEditing
+    ? boardPiecesToState(customBoardPieces)
+    : displayGame.board().map((row) => row.map((piece) => getPieceCode(piece)));
   const legalTargets = selectedSquare && gameState === "playing" && !shouldLockBoard && !isPremoveTurn
     ? game.moves({ square: selectedSquare, verbose: true }).map((move) => move.to)
     : [];
+
+  useEffect(() => {
+    if (!isCustomBoardEditing) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      const dock = customEditorDockRef.current;
+      if (!dock) {
+        return;
+      }
+
+      const rect = dock.getBoundingClientRect();
+      const bottomOverflow = rect.bottom - window.innerHeight + 16;
+      const topOverflow = 16 - rect.top;
+
+      if (bottomOverflow > 0) {
+        window.scrollBy({ top: bottomOverflow, behavior: "smooth" });
+      } else if (topOverflow > 0) {
+        window.scrollBy({ top: -topOverflow, behavior: "smooth" });
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [isCustomBoardEditing]);
 
   useEffect(() => {
     if (!isPlayingHistory) {
@@ -1944,14 +2524,26 @@ export default function PlayComputerPage() {
   const topCapturedPieceCodes = toCapturedPieceCodes(topSideColor, capturedByTopTypes);
   const bottomCapturedPieceCodes = toCapturedPieceCodes(bottomSideColor, capturedByBottomTypes);
   const botModelLabel = botEngineVariant === "stockfish-18" ? "Stockfish-18" : "Stockfish-18-Lite";
+  const soloBotPanel = {
+    name: "Bot 1",
+    subtitle: `ELO ${bot1Elo}`,
+    icon: "bot" as const,
+  };
   const sidePanelsByColor: Record<SideColor, { name: string; subtitle: string | null; icon: "bot" | "user"; clockSeconds: number }> = {
     w: isBotMatchMode
-      ? {
-        name: "Bot 1",
-        subtitle: `ELO ${bot1Elo}`,
-        icon: "bot",
-        clockSeconds: whiteTimeSeconds,
-      }
+      ? bot1Side === "w"
+        ? {
+          name: "Bot 1",
+          subtitle: `ELO ${bot1Elo}`,
+          icon: "bot",
+          clockSeconds: whiteTimeSeconds,
+        }
+        : {
+          name: "Bot 2",
+          subtitle: `ELO ${bot2Elo}`,
+          icon: "bot",
+          clockSeconds: whiteTimeSeconds,
+        }
       : playerSide === "w"
         ? {
           name: viewerName,
@@ -1959,19 +2551,31 @@ export default function PlayComputerPage() {
           icon: "user",
           clockSeconds: whiteTimeSeconds,
         }
-        : {
-          name: botModelLabel,
-          subtitle: botStrengthSubtitle,
-          icon: "bot",
-          clockSeconds: whiteTimeSeconds,
-        },
+        : customBotSoloActive
+          ? {
+            ...soloBotPanel,
+            clockSeconds: whiteTimeSeconds,
+          }
+          : {
+            name: botModelLabel,
+            subtitle: botStrengthSubtitle,
+            icon: "bot",
+            clockSeconds: whiteTimeSeconds,
+          },
     b: isBotMatchMode
-      ? {
-        name: "Bot 2",
-        subtitle: `ELO ${bot2Elo}`,
-        icon: "bot",
-        clockSeconds: blackTimeSeconds,
-      }
+      ? bot1Side === "b"
+        ? {
+          name: "Bot 1",
+          subtitle: `ELO ${bot1Elo}`,
+          icon: "bot",
+          clockSeconds: blackTimeSeconds,
+        }
+        : {
+          name: "Bot 2",
+          subtitle: `ELO ${bot2Elo}`,
+          icon: "bot",
+          clockSeconds: blackTimeSeconds,
+        }
       : playerSide === "b"
         ? {
           name: viewerName,
@@ -1979,12 +2583,17 @@ export default function PlayComputerPage() {
           icon: "user",
           clockSeconds: blackTimeSeconds,
         }
-        : {
-          name: botModelLabel,
-          subtitle: botStrengthSubtitle,
-          icon: "bot",
-          clockSeconds: blackTimeSeconds,
-        },
+        : customBotSoloActive
+          ? {
+            ...soloBotPanel,
+            clockSeconds: blackTimeSeconds,
+          }
+          : {
+            name: botModelLabel,
+            subtitle: botStrengthSubtitle,
+            icon: "bot",
+            clockSeconds: blackTimeSeconds,
+          },
   };
   const topPanel = sidePanelsByColor[topSideColor];
   const bottomPanel = sidePanelsByColor[bottomSideColor];
@@ -2035,7 +2644,9 @@ export default function PlayComputerPage() {
     const opponentLabel =
       playerColor === "bot-vs-bot"
         ? `Bot 1 (ELO ${bot1Elo}) vs Bot 2 (ELO ${bot2Elo})`
-        : `${botModelLabel}${botStrengthSubtitle ? ` • ${botStrengthSubtitle}` : ""}`;
+        : customBotSoloActive
+          ? `Bot 1 (ELO ${bot1Elo})`
+          : `${botModelLabel}${botStrengthSubtitle ? ` • ${botStrengthSubtitle}` : ""}`;
 
     let outcome: ReplayOutcome = "draw";
     let outcomeLabel = "Draw";
@@ -2056,16 +2667,16 @@ export default function PlayComputerPage() {
 
     const resultTag = winnerDetails.winner === "w" ? "1-0" : winnerDetails.winner === "b" ? "0-1" : "1/2-1/2";
     const playerLabel = viewerName.trim() || "Guest User";
-    const botLabel = botModelLabel;
+    const botLabel = customBotSoloActive ? "Bot 1" : botModelLabel;
     const whiteLabel =
       playerColor === "bot-vs-bot"
-        ? "Bot 1"
+        ? bot1Side === "w" ? "Bot 1" : "Bot 2"
         : playerColor === "w"
           ? playerLabel
           : botLabel;
     const blackLabel =
       playerColor === "bot-vs-bot"
-        ? "Bot 2"
+        ? bot1Side === "b" ? "Bot 1" : "Bot 2"
         : playerColor === "b"
           ? playerLabel
           : botLabel;
@@ -2103,6 +2714,8 @@ export default function PlayComputerPage() {
     botStrengthSubtitle,
     bot1Elo,
     bot2Elo,
+    bot1Side,
+    customBotSoloActive,
     timeLimit,
     viewerName,
   ]);
@@ -2570,7 +3183,7 @@ export default function PlayComputerPage() {
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <button
-                      onClick={() => startGame("w")}
+                      onClick={() => startConfiguredGame("w")}
                       className="relative overflow-hidden py-4 px-2 rounded-2xl border border-[var(--border)] bg-gradient-to-b from-[var(--surface-alt)] to-[var(--surface)] hover:from-[var(--surface-hover)] hover:to-[var(--surface-alt)] text-[var(--text-primary)] transition-all flex flex-col items-center gap-3 group shadow-[0_4px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1"
                     >
                       <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl group-hover:bg-white/10 transition-colors" />
@@ -2578,7 +3191,7 @@ export default function PlayComputerPage() {
                       <span className="text-[13px] font-bold tracking-wide relative z-10">White</span>
                     </button>
                     <button
-                      onClick={() => startGame("random")}
+                      onClick={() => startConfiguredGame("random")}
                       className="relative overflow-hidden py-4 px-2 rounded-2xl border border-[var(--border)] bg-gradient-to-b from-[var(--surface-alt)] to-[var(--surface)] hover:from-[var(--surface-hover)] hover:to-[var(--surface-alt)] text-[var(--text-primary)] transition-all flex flex-col items-center gap-3 group shadow-[0_4px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1"
                     >
                       <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl group-hover:bg-white/10 transition-colors" />
@@ -2588,7 +3201,7 @@ export default function PlayComputerPage() {
                       <span className="text-[13px] font-bold tracking-wide relative z-10">Random</span>
                     </button>
                     <button
-                      onClick={() => startGame("b")}
+                      onClick={() => startConfiguredGame("b")}
                       className="relative overflow-hidden py-4 px-2 rounded-2xl border border-[var(--border)] bg-gradient-to-b from-[var(--surface-alt)] to-[var(--surface)] hover:from-[var(--surface-hover)] hover:to-[var(--surface-alt)] text-[var(--text-primary)] transition-all flex flex-col items-center gap-3 group shadow-[0_4px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1"
                     >
                       <div className="absolute top-0 right-0 w-16 h-16 bg-black/5 rounded-full blur-xl group-hover:bg-black/10 transition-colors" />
@@ -2596,20 +3209,36 @@ export default function PlayComputerPage() {
                       <span className="text-[13px] font-bold tracking-wide relative z-10">Black</span>
                     </button>
                     <button
-                      onClick={() => setBotMatchConfigOpen((open) => !open)}
-                      className="relative overflow-hidden py-4 px-2 rounded-2xl border border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--bg)] hover:opacity-90 transition-all flex flex-col items-center gap-3 group shadow-md hover:shadow-lg hover:-translate-y-1"
+                      type="button"
+                      aria-pressed={botMatchConfigOpen}
+                      onClick={toggleCustomBotSetup}
+                      className={`relative overflow-hidden py-4 px-2 rounded-2xl border transition-all flex flex-col items-center gap-3 group hover:-translate-y-1 ${botMatchConfigOpen
+                        ? "border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--bg)] shadow-md hover:shadow-lg hover:opacity-90"
+                        : "border-[var(--border)] bg-gradient-to-b from-[var(--surface-alt)] to-[var(--surface)] text-[var(--text-primary)] shadow-[0_4px_12px_rgba(0,0,0,0.04)] hover:from-[var(--surface-hover)] hover:to-[var(--surface-alt)] hover:border-[var(--border-hover)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)]"
+                        }`}
                     >
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-[var(--bg)] opacity-10 rounded-full blur-xl transition-colors duration-500" />
-                      <Bot className="w-8 h-8 group-hover:scale-110 transition-transform filter drop-shadow-[0_0_8px_rgba(16,185,129,0.5)] relative z-10" />
-                      <span className="text-[13px] font-bold tracking-wide relative z-10">Bot Match</span>
+                      <div className={`absolute top-0 right-0 w-16 h-16 rounded-full blur-xl transition-colors duration-500 ${botMatchConfigOpen ? "bg-[var(--bg)] opacity-10" : "bg-white/5 group-hover:bg-white/10"}`} />
+                      <LayoutGrid className="w-8 h-8 group-hover:scale-110 transition-transform relative z-10" />
+                      <span className="text-[13px] font-bold tracking-wide relative z-10">Custom Bot</span>
                     </button>
                   </div>
 
                   {botMatchConfigOpen && (
-                    <div className="mt-5 rounded-xl border border-[var(--border-hover)] bg-[var(--surface-alt)] p-4 space-y-3">
-                      <div className="text-[12px] uppercase tracking-wider font-semibold text-[var(--text-primary)]">
-                        Bot Match Setup
+                    <div className="mt-5 rounded-xl border border-[var(--border-hover)] bg-[var(--surface-alt)] p-4 space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-[12px] uppercase tracking-wider font-semibold text-[var(--text-primary)]">
+                          Custom Bot Setup
+                        </div>
+                        <label className="inline-flex items-center gap-2 text-[12px] font-semibold text-[var(--text-secondary)]">
+                          <input
+                            type="checkbox"
+                            checked={customBot2Enabled}
+                            onChange={(event) => setCustomBot2Enabled(event.target.checked)}
+                          />
+                          Bot 2
+                        </label>
                       </div>
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label className="text-[12px] text-[var(--text-muted)] font-semibold">
                           Bot 1 ELO
@@ -2623,12 +3252,13 @@ export default function PlayComputerPage() {
                             ))}
                           </select>
                         </label>
-                        <label className="text-[12px] text-[var(--text-muted)] font-semibold">
+                        <label className={`text-[12px] font-semibold ${customBot2Enabled ? "text-[var(--text-muted)]" : "text-[var(--text-muted)] opacity-50"}`}>
                           Bot 2 ELO
                           <select
                             value={bot2EloIndex}
                             onChange={(event) => setBot2EloIndex(Number(event.target.value))}
-                            className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
+                            disabled={!customBot2Enabled}
+                            className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)] disabled:cursor-not-allowed"
                           >
                             {ELOS.map((value, index) => (
                               <option key={`bot2-${value}`} value={index}>{value}</option>
@@ -2636,51 +3266,82 @@ export default function PlayComputerPage() {
                           </select>
                         </label>
                       </div>
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label className="text-[12px] text-[var(--text-muted)] font-semibold block">
-                          Bot 1 Opening Filter
-                          <input
-                            type="text"
-                            value={bot1OpeningQuery}
-                            onChange={(event) => setBot1OpeningQuery(event.target.value)}
-                            placeholder="Type to filter openings"
-                            className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
-                          />
+                          Bot 1 Opening
                           <select
                             value={bot1OpeningId}
                             onChange={(event) => {
                               setBot1OpeningId(event.target.value);
                               setBot1OpeningMoveIndex(0);
                             }}
-                            className="mt-2 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
+                            className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
                           >
-                            {bot1VisibleOpeningChoices.map((opening) => (
+                            {botOpeningChoices.map((opening) => (
                               <option key={opening.id} value={opening.id}>{opening.label}</option>
                             ))}
                           </select>
                         </label>
-                        <label className="text-[12px] text-[var(--text-muted)] font-semibold block">
-                          Bot 2 Opening Filter
-                          <input
-                            type="text"
-                            value={bot2OpeningQuery}
-                            onChange={(event) => setBot2OpeningQuery(event.target.value)}
-                            placeholder="Type to filter openings"
-                            className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
-                          />
+                        <label className={`text-[12px] font-semibold block ${customBot2Enabled ? "text-[var(--text-muted)]" : "text-[var(--text-muted)] opacity-50"}`}>
+                          Bot 2 Opening
                           <select
                             value={bot2OpeningId}
                             onChange={(event) => {
                               setBot2OpeningId(event.target.value);
                               setBot2OpeningMoveIndex(0);
                             }}
-                            className="mt-2 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
+                            disabled={!customBot2Enabled}
+                            className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)] disabled:cursor-not-allowed"
                           >
-                            {bot2VisibleOpeningChoices.map((opening) => (
+                            {botOpeningChoices.map((opening) => (
                               <option key={`bot2-${opening.id}`} value={opening.id}>{opening.label}</option>
                             ))}
                           </select>
                         </label>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <label className="text-[12px] text-[var(--text-muted)] font-semibold w-full">
+                            Starting Layout
+                            <select
+                              value={startingLayoutId}
+                              onChange={(event) => applyStartingLayout(event.target.value as StartingLayoutId)}
+                              className="mt-1 w-full bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
+                            >
+                              {STARTING_LAYOUT_PRESETS.map((preset) => (
+                                <option key={preset.id} value={preset.id}>{preset.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        <div className="text-[11px] text-[var(--text-muted)]">
+                          {selectedStartingLayout.description}
+                        </div>
+                        {isCustomFenEditorOpen && (
+                          <div className="space-y-2">
+                            <textarea
+                              value={customStartingFen}
+                              onChange={(event) => handleCustomFenInputChange(event.target.value)}
+                              rows={3}
+                              spellCheck={false}
+                              className="w-full resize-none bg-[var(--surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[12px] font-mono rounded px-3 py-2 focus:outline-none focus:border-[var(--text-primary)]"
+                            />
+                            <div className="flex items-center justify-between gap-3">
+                              <span className={`text-[11px] ${customStartingFenError ? "text-[var(--error-text)]" : "text-[var(--text-muted)]"}`}>
+                                {customStartingFenError ?? (customBoardStartValidation.valid ? "Valid custom position." : customBoardStartValidation.error)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={resetCustomBoardToDefault}
+                                className="text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                              >
+                                Reset FEN
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="text-[11px] text-[var(--text-muted)]">
@@ -2690,13 +3351,6 @@ export default function PlayComputerPage() {
                             ? botOpeningsError
                             : `${Math.max(0, botOpeningChoices.length - 1)} openings available from the internal catalog.`}
                       </div>
-
-                      <button
-                        onClick={() => startGame("bot-vs-bot")}
-                        className="w-full py-2.5 rounded-lg bg-[var(--text-primary)] text-[var(--bg)]  hover:opacity-90 transition-colors"
-                      >
-                        Start Bot Match
-                      </button>
                     </div>
                   )}
                 </div>
@@ -2892,7 +3546,7 @@ export default function PlayComputerPage() {
 
         {/* Right Side: The Board */}
         <div className="w-full lg:w-[65%] flex-1 flex flex-row items-center lg:items-start justify-center lg:justify-end bg-[var(--bg-alt)] p-2 sm:p-4 lg:p-0 lg:pr-[70px] relative shadow-[-30px_0_50px_rgba(0,0,0,0.15)] border-l border-[var(--border)]">
-          <div className="flex flex-col items-center justify-start h-[75vh] max-h-[720px] max-w-[100%] px-1 sm:px-0 sm:max-w-[95%] lg:max-w-[70%] lg:min-w-[500px] w-full relative shrink-0 lg:ml-auto lg:mr-8 lg:mt-4">
+          <div className={`flex flex-col items-center justify-start max-w-[100%] px-1 sm:px-0 sm:max-w-[95%] lg:max-w-[70%] lg:min-w-[500px] w-full relative shrink-0 lg:ml-auto lg:mr-8 lg:mt-4 ${isCustomBoardEditing ? "h-auto max-h-none pb-4" : "h-[75vh] max-h-[720px]"}`}>
 
             <div className="w-full lg:w-auto flex justify-end lg:absolute lg:-top-2 lg:-right-[52px] flex-row lg:flex-col gap-2 sm:gap-3 z-50 mb-2 lg:mb-0 px-1 lg:px-0 items-center">
               <button
@@ -3071,13 +3725,13 @@ export default function PlayComputerPage() {
                         const logicalRow = isBoardFlipped ? 7 - visRowIndex : visRowIndex;
                         const logicalCol = isBoardFlipped ? 7 - visColIndex : visColIndex;
                         const square = toSquare(logicalRow, logicalCol);
-                        const squarePiece = gameRef.current.get(square);
+                        const squarePiece = isCustomBoardEditing ? getPieceFromCode(piece) : displayGame.get(square);
                         const isLightSquare = (logicalRow + logicalCol) % 2 === 0;
-                        const isSelectedSquare = selectedSquare === square;
+                        const isSelectedSquare = (isCustomBoardEditing ? customEditorPickedSquare : selectedSquare) === square;
                         const isLegalTarget = botPreferences.showLegalMoves && legalTargets.includes(square);
                         const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square;
                         const isDraggedSquare = draggedSquare === square;
-                        const isKingInCheck = gameRef.current.isCheck() && squarePiece?.type === 'k' && squarePiece?.color === gameRef.current.turn();
+                        const isKingInCheck = !isCustomBoardEditing && displayGame.isCheck() && squarePiece?.type === 'k' && squarePiece?.color === displayGame.turn();
                         const queuedPremoveFromIndex = queuedPremoves.findIndex((move) => move.from === square);
                         const queuedPremoveToIndex = queuedPremoves.findIndex((move) => move.to === square);
                         const isQueuedPremoveFrom = queuedPremoveFromIndex >= 0;
@@ -3086,12 +3740,33 @@ export default function PlayComputerPage() {
                         return (
                           <div
                             key={square}
-                            onClick={() => handleSquareClick(square)}
-                            onMouseDown={(e) => handleRightClickDown(e, square)}
-                            onMouseUp={(e) => handleRightClickUp(e, square)}
-                            onContextMenu={(e) => e.preventDefault()}
+                            onClick={() => {
+                              if (isCustomBoardEditing) {
+                                handleCustomBoardSquareClick(square);
+                                return;
+                              }
+                              handleSquareClick(square);
+                            }}
+                            onMouseDown={(e) => {
+                              if (!isCustomBoardEditing) {
+                                handleRightClickDown(e, square);
+                              }
+                            }}
+                            onMouseUp={(e) => {
+                              if (!isCustomBoardEditing) {
+                                handleRightClickUp(e, square);
+                              }
+                            }}
+                            onContextMenu={(e) => {
+                              if (isCustomBoardEditing) {
+                                handleCustomBoardRightClick(e, square);
+                                return;
+                              }
+                              e.preventDefault();
+                            }}
                             onDragOver={(event) => {
-                              if (!draggedSquare || isPremoveTurn) return;
+                              if (!draggedSquare && !customPaletteDragPiece) return;
+                              if (!isCustomBoardEditing && isPremoveTurn) return;
                               event.preventDefault();
                               if (dragOverSquare !== square) setDragOverSquare(square);
                             }}
@@ -3099,10 +3774,14 @@ export default function PlayComputerPage() {
                               if (dragOverSquare === square) setDragOverSquare(null);
                             }}
                             onDrop={(event) => {
-                              handleDrop(event, square);
+                              if (isCustomBoardEditing) {
+                                handleCustomBoardDrop(event, square);
+                              } else {
+                                handleDrop(event, square);
+                              }
                               setDragOverSquare(null);
                             }}
-                            className={`relative flex items-center justify-center ${gameState === "playing" && (!shouldLockBoard || isPremoveTurn) ? "cursor-pointer" : ""}`}
+                            className={`relative flex items-center justify-center ${isCustomBoardEditing || (gameState === "playing" && (!shouldLockBoard || isPremoveTurn)) ? "cursor-pointer" : ""}`}
                           >
                             {dragOverSquare === square && (
                               <div className="absolute inset-0 ring-[3px] ring-white bg-white/20 z-20 pointer-events-none shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
@@ -3148,12 +3827,20 @@ export default function PlayComputerPage() {
 
                             <div
                               draggable={Boolean(
-                                botPreferences.moveMethod !== "click" &&
-                                (botPreferences.moveMethod === "drag" || !isPremoveTurn) &&
-                                squarePiece &&
-                                squarePiece.color === (isPremoveTurn ? playerSide : gameRef.current.turn()),
+                                isCustomBoardEditing
+                                  ? squarePiece
+                                  : botPreferences.moveMethod !== "click" &&
+                                  (botPreferences.moveMethod === "drag" || !isPremoveTurn) &&
+                                  squarePiece &&
+                                  squarePiece.color === (isPremoveTurn ? playerSide : displayGame.turn()),
                               )}
-                              onDragStart={(event) => handleDragStart(event, square)}
+                              onDragStart={(event) => {
+                                if (isCustomBoardEditing) {
+                                  handleCustomBoardDragStart(event, square);
+                                  return;
+                                }
+                                handleDragStart(event, square);
+                              }}
                               onDragEnd={() => setDraggedSquare(null)}
                               className={`relative z-10 h-full w-full p-[2.75%] ${isDraggedSquare ? "opacity-30" : "opacity-100"}`}
                             >
@@ -3221,6 +3908,78 @@ export default function PlayComputerPage() {
                 </BoardImage>
               </div>
             </div>
+
+            {isCustomBoardEditing && (
+              <div ref={customEditorDockRef} className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/95 shadow-[0_10px_30px_rgba(0,0,0,0.22)] overflow-hidden">
+                <div className="flex items-center justify-between gap-2 border-b border-[var(--border)] px-2.5 py-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <LayoutGrid className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
+                    <span className="truncate text-[12px] font-bold uppercase tracking-wide text-[var(--text-primary)]">
+                      Custom Board Editor
+                    </span>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomEditorPiece(null);
+                        setCustomEditorPickedSquare(null);
+                      }}
+                      className={`flex h-8 w-8 items-center justify-center rounded border transition-colors ${customEditorPiece === null ? "border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--bg)]" : "border-[var(--border-subtle)] bg-[var(--surface-alt)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"}`}
+                      title="Move pieces"
+                    >
+                      <MousePointer2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomEditorPiece((current) => current === "erase" ? null : "erase");
+                        setCustomEditorPickedSquare(null);
+                      }}
+                      className={`flex h-8 w-8 items-center justify-center rounded border transition-colors ${customEditorPiece === "erase" ? "border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--bg)]" : "border-[var(--border-subtle)] bg-[var(--surface-alt)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"}`}
+                      title="Erase squares"
+                    >
+                      <Eraser className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetCustomBoardToDefault}
+                      className="flex h-8 w-8 items-center justify-center rounded border border-[var(--border-subtle)] bg-[var(--surface-alt)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                      title="Reset to standard"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearCustomBoard}
+                      className="flex h-8 w-8 items-center justify-center rounded border border-[var(--border-subtle)] bg-[var(--surface-alt)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                      title="Clear board"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5 p-2">
+                  {CUSTOM_EDITOR_PIECES.map((pieceCode) => (
+                    <button
+                      key={pieceCode}
+                      type="button"
+                      draggable
+                      onClick={() => {
+                        setCustomEditorPiece((current) => current === pieceCode ? null : pieceCode);
+                        setCustomEditorPickedSquare(null);
+                      }}
+                      onDragStart={(event) => handleCustomPaletteDragStart(event, pieceCode)}
+                      onDragEnd={() => setCustomPaletteDragPiece(null)}
+                      className={`aspect-square min-h-9 rounded border bg-[var(--surface-alt)] p-0.5 transition-colors hover:bg-[var(--surface-hover)] ${customEditorPiece === pieceCode ? "border-[var(--text-primary)] ring-1 ring-[var(--text-primary)]" : "border-[var(--border-subtle)]"}`}
+                      title={`Drag or place ${pieceCode}`}
+                    >
+                      {getPieceIcon(pieceCode, pieceTheme)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Bottom Side Panel */}
             {gameState !== "setup" && (

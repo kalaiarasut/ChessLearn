@@ -4,61 +4,78 @@
 
 ▲ Next.js 16.2.3 (Turbopack)
 - Local:         http://localhost:3000
-- Network:       http://10.1.60.190:3000
+- Network:       http://10.1.74.133:3000
 - Environments: .env.local
 ✓ Ready in 2.4s
 
- GET /puzzles/solve?mode=standard 200 in 1882ms (next.js: 382ms, proxy.ts: 603ms, application-code: 897ms)
-○ Compiling /puzzles ...
- GET /puzzles 200 in 21.8s (next.js: 5.9s, proxy.ts: 4.3s, application-code: 11.6s)
- GET /api/puzzle-progress 200 in 2.3s (next.js: 534ms, application-code: 1801ms)
- GET /api/puzzle-progress 200 in 2.9s (next.js: 521ms, application-code: 2.4s)
- GET /api/puzzle-progress 200 in 5.6s (next.js: 2.1s, application-code: 3.4s)
- GET /api/puzzle-progress 200 in 8.8s (next.js: 50ms, application-code: 8.7s)
-○ Compiling /puzzles/dashboard ...
- GET /api/puzzle-progress 200 in 3.6s (next.js: 228ms, application-code: 3.4s)
- GET /puzzles/solve?mode=standard&theme=queenRookEndgame 200 in 2.2s (next.js: 53ms, proxy.ts: 1741ms, application-code: 403ms)
- GET /api/puzzle-progress 200 in 1762ms (next.js: 18ms, application-code: 1744ms)
- GET /api/puzzle-progress 200 in 2.5s (next.js: 16ms, application-code: 2.5s)
- GET /api/puzzle-progress 200 in 3.2s (next.js: 47ms, application-code: 3.1s)
- GET /puzzles/dashboard 200 in 25.6s (next.js: 23.4s, proxy.ts: 2.0s, application-code: 139ms)
- GET /api/puzzles?count=1&mode=standard&theme=queenRookEndgame&random=true&excludeIds=70BF3%2CfTeWk%2Cl24ox%2CPpND6%2CEpMS9%2CuLTI9%2C0V5FZ%2CJ0ILf%2CpUuJt%2CbGUg0 200 in 19.3s (next.js: 3.1s, application-code: 16.2s)
- GET /api/puzzles?count=1&mode=standard&theme=queenRookEndgame&random=true&excludeId=WSA1T&excludeIds=70BF3%2CfTeWk%2Cl24ox%2CPpND6%2CEpMS9%2CuLTI9%2C0V5FZ%2CJ0ILf%2CpUuJt%2CbGUg0%2CWSA1T 200 in 2.6s (next.js: 7ms, application-code: 2.6s)
- GET /settings 200 in 4.1s (next.js: 1911ms, proxy.ts: 2.1s, application-code: 133ms)
-○ Compiling / ...
- GET / 200 in 15.2s (next.js: 11.4s, proxy.ts: 3.7s, application-code: 80ms)
- GET /puzzles/solve?mode=standard 200 in 869ms (next.js: 56ms, proxy.ts: 35ms, application-code: 779ms)
- GET /api/puzzles?count=1&mode=standard&random=true 200 in 2.9s (next.js: 39ms, application-code: 2.9s)
-✓ Compiled in 7.1s
-○ Compiling /_error ...
- GET / 500 in 8.8s (next.js: 4.6s, proxy.ts: 3.6s, application-code: 589ms)
- GET / 500 in 973ms (next.js: 22ms, proxy.ts: 917ms, application-code: 34ms)
- GET / 500 in 350ms (next.js: 29ms, proxy.ts: 275ms, application-code: 46ms)
- GET / 500 in 5.0s (next.js: 31ms, proxy.ts: 4.8s, application-code: 115ms)
-✓ Compiled in 3.1s
- GET / 200 in 3.3s (next.js: 205ms, proxy.ts: 2.2s, application-code: 797ms)
- GET /puzzles/solve?mode=standard 200 in 1140ms (next.js: 458ms, proxy.ts: 21ms, application-code: 662ms)
-○ Compiling /play/computer ...
- GET /play/computer 200 in 5.6s (next.js: 3.5s, proxy.ts: 1889ms, application-code: 232ms)
- GET /puzzles 200 in 11.2s (next.js: 71ms, proxy.ts: 3.2s, application-code: 7.9s)
- GET /api/puzzle-progress 200 in 2.2s (next.js: 256ms, application-code: 1909ms)
- GET /api/puzzle-progress 200 in 2.0s (next.js: 16ms, application-code: 1989ms)
- GET /api/puzzle-progress 200 in 3.3s (next.js: 38ms, application-code: 3.3s)
- GET /puzzles/solve?mode=standard 200 in 6.5s (next.js: 12ms, proxy.ts: 6.4s, application-code: 80ms)
- GET /api/puzzle-progress 200 in 3.7s (next.js: 20ms, application-code: 3.6s)
- GET /api/puzzle-progress 200 in 3.8s (next.js: 13ms, application-code: 3.8s)
- GET /api/puzzle-progress 200 in 4.4s (next.js: 36ms, application-code: 4.3s)
- GET /api/puzzles?count=1&mode=standard&random=true&excludeIds=70BF3%2CfTeWk%2Cl24ox%2CPpND6%2CEpMS9%2CuLTI9%2C0V5FZ%2CJ0ILf%2CpUuJt%2CbGUg0 500 in 41s (next.js: 108ms, application-code: 40s)
- GET /api/puzzle-progress 200 in 4.9s (next.js: 12ms, application-code: 4.9s)
- GET /puzzles/solve?mode=standard 200 in 3.7s (next.js: 55ms, proxy.ts: 1972ms, application-code: 1705ms)
- GET /api/puzzle-progress 200 in 2.0s (next.js: 5ms, application-code: 1997ms)
- GET /api/puzzle-progress 200 in 2.9s (next.js: 7ms, application-code: 2.9s)
- GET /api/puzzle-progress 200 in 2.8s (next.js: 13ms, application-code: 2.8s)
- GET /api/puzzle-progress 200 in 1262ms (next.js: 28ms, application-code: 1234ms)
- GET /api/puzzle-progress 200 in 13.0s (next.js: 6ms, application-code: 13.0s)
- GET /api/puzzle-progress 200 in 4.9s (next.js: 20ms, application-code: 4.9s)
- GET /api/puzzle-progress 200 in 3.7s (next.js: 10ms, application-code: 3.7s)
- GET / 200 in 1641ms (next.js: 15ms, proxy.ts: 1292ms, application-code: 334ms)
- GET /puzzles 200 in 5.5s (next.js: 8ms, proxy.ts: 987ms, application-code: 4.5s)
- GET /api/puzzles?count=1&mode=standard&random=true&excludeIds=70BF3%2CfTeWk%2Cl24ox%2CPpND6%2CEpMS9%2CuLTI9%2C0V5FZ%2CJ0ILf%2CpUuJt%2CbGUg0 200 in 34.2s (next.js: 9ms, application-code: 34.2s)
+ GET / 200 in 2.5s (next.js: 350ms, proxy.ts: 1121ms, application-code: 1048ms)
+ GET /puzzles/dashboard 200 in 2.1s (next.js: 213ms, proxy.ts: 25ms, application-code: 1899ms)
+ GET /puzzles/solve?mode=standard 200 in 2.3s (next.js: 214ms, proxy.ts: 124ms, application-code: 1978ms)
+○ Compiling /puzzles/solve ...
+ GET /puzzles 200 in 5.3s (next.js: 1278ms, proxy.ts: 137ms, application-code: 3.9s)
+ GET /play/computer 200 in 8.9s (next.js: 7.0s, proxy.ts: 131ms, application-code: 1733ms)
+ GET /puzzles 200 in 6.0s (next.js: 500ms, proxy.ts: 756ms, application-code: 4.8s)
+ GET /puzzles/solve?mode=storm 200 in 4.5s (next.js: 47ms, proxy.ts: 44ms, application-code: 4.5s)
+○ Compiling /api/puzzles ...
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true 200 in 12.4s (next.js: 9.7s, application-code: 2.7s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=b1TBg&excludeIds=b1TBg 200 in 8.2s (next.js: 75ms, application-code: 8.1s)
+✓ Finished filesystem cache database compaction in 10.1s
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p038&excludeIds=p038 200 in 5.8s (next.js: 99ms, application-code: 5.7s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p005&excludeIds=b1TBg%2Cp005 200 in 5.4s (next.js: 19ms, application-code: 5.4s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p038&excludeIds=b1TBg 200 in 6.0s (next.js: 30ms, application-code: 6.0s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p014&excludeIds=b1TBg%2Cp014 200 in 5.3s (next.js: 17ms, application-code: 5.2s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p014&excludeIds=b1TBg 200 in 5.3s (next.js: 11ms, application-code: 5.3s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p014&excludeIds=b1TBg 200 in 5.6s (next.js: 10ms, application-code: 5.6s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p005&excludeIds=b1TBg%2Cp005 200 in 5.3s (next.js: 35ms, application-code: 5.2s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p013&excludeIds=p013%2Cb1TBg 200 in 5.4s (next.js: 11ms, application-code: 5.4s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p024&excludeIds=p013%2Cb1TBg%2Cp024 200 in 5.2s (next.js: 13ms, application-code: 5.2s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p004&excludeIds=p013%2Cb1TBg%2Cp004 200 in 5.2s (next.js: 14ms, application-code: 5.2s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p024&excludeIds=p013%2Cb1TBg 200 in 5.4s (next.js: 73ms, application-code: 5.3s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p006&excludeIds=p013%2Cb1TBg%2Cp006 200 in 5.2s (next.js: 8ms, application-code: 5.2s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p006&excludeIds=p013%2Cb1TBg 200 in 5.2s (next.js: 12ms, application-code: 5.2s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p006&excludeIds=p013%2Cb1TBg 200 in 5.5s (next.js: 42ms, application-code: 5.4s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p030&excludeIds=p013%2Cb1TBg%2Cp030 200 in 5.2s (next.js: 30ms, application-code: 5.2s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p030&excludeIds=p030%2Cp013%2Cb1TBg 200 in 5.2s (next.js: 9ms, application-code: 5.2s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p006&excludeIds=p030%2Cp013%2Cb1TBg%2Cp006 200 in 5.2s (next.js: 10ms, application-code: 5.2s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p048&excludeIds=p030%2Cp013%2Cb1TBg%2Cp048 200 in 5.9s (next.js: 17ms, application-code: 5.9s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p006&excludeIds=p030%2Cp013%2Cb1TBg 200 in 7.1s (next.js: 122ms, application-code: 7.0s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p054&excludeIds=p030%2Cp013%2Cb1TBg%2Cp054 200 in 5.6s (next.js: 72ms, application-code: 5.5s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p047&excludeIds=p030%2Cp013%2Cb1TBg%2Cp047 200 in 5.4s (next.js: 11ms, application-code: 5.4s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p054&excludeIds=p030%2Cp013%2Cb1TBg 200 in 5.6s (next.js: 46ms, application-code: 5.5s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p007&excludeIds=p030%2Cp013%2Cb1TBg%2Cp007 200 in 5.3s (next.js: 22ms, application-code: 5.2s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p007&excludeIds=p007%2Cp030%2Cp013%2Cb1TBg 200 in 5.3s (next.js: 57ms, application-code: 5.3s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p035&excludeIds=p007%2Cp030%2Cp013%2Cb1TBg%2Cp035 200 in 5.5s (next.js: 10ms, application-code: 5.5s)
+✓ Compiled in 6.7s
+ GET /puzzles/solve?mode=storm 200 in 1608ms (next.js: 466ms, proxy.ts: 584ms, application-code: 557ms)
+✓ Compiled in 2.2s
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeIds=p007%2Cp030%2Cp013%2Cb1TBg 200 in 2.8s (next.js: 1689ms, application-code: 1136ms)
+ GET /puzzles/solve?mode=storm 200 in 3.8s (next.js: 1163ms, proxy.ts: 791ms, application-code: 1855ms)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeIds=p007%2Cp030%2Cp013%2Cb1TBg 200 in 5.2s (next.js: 11ms, application-code: 5.2s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p048&excludeIds=p007%2Cp030%2Cp013%2Cb1TBg%2Cp048 200 in 5.2s (next.js: 9ms, application-code: 5.2s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p048&excludeIds=p007%2Cp030%2Cp013%2Cb1TBg%2Cp048%2Cp059 200 in 5.2s (next.js: 12ms, application-code: 5.2s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p048&excludeIds=p007%2Cp030%2Cp013%2Cb1TBg%2Cp048%2Cp059%2Cp004 200 in 5.3s (next.js: 13ms, application-code: 5.3s)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p048&excludeIds=p007%2Cp030%2Cp013%2Cb1TBg%2Cp048%2Cp059%2Cp004%2Cp015 200 in 5.3s (next.js: 16ms, application-code: 5.3s)
+✓ Compiled in 1091ms
+ GET /puzzles/solve?mode=storm 200 in 1390ms (next.js: 516ms, proxy.ts: 536ms, application-code: 339ms)
+✓ Compiled in 881ms
+ GET /puzzles/solve?mode=storm 200 in 1231ms (next.js: 405ms, proxy.ts: 405ms, application-code: 421ms)
+✓ Compiled in 702ms
+ GET /puzzles/solve?mode=storm 200 in 1052ms (next.js: 369ms, proxy.ts: 388ms, application-code: 295ms)
+✓ Compiled in 768ms
+ GET /puzzles/solve?mode=storm 200 in 1274ms (next.js: 554ms, proxy.ts: 456ms, application-code: 264ms)
+ GET /puzzles/solve?mode=standard 200 in 1136ms (next.js: 38ms, proxy.ts: 44ms, application-code: 1055ms)
+ GET /puzzles/solve?mode=streak 200 in 1215ms (next.js: 695ms, proxy.ts: 49ms, application-code: 470ms)
+ GET /puzzles/solve?mode=storm 200 in 477ms (next.js: 20ms, proxy.ts: 154ms, application-code: 303ms)
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p059&excludeIds=p007%2Cp030%2Cp013%2Cb1TBg%2Cp059%2Cp004%2Cp015%2Cp047 200 in 9.5s (next.js: 3.2s, application-code: 6.3s)
+✓ Finished filesystem cache database compaction in 13.9s
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p059&excludeIds=p007%2Cp030%2Cp013%2Cb1TBg%2Cp059%2Cp004%2Cp015%2Cp047%2Cp010 200 in 5.5s (next.js: 44ms, application-code: 5.5s)
+✓ Compiled in 1613ms
+ GET /puzzles/solve?mode=storm 200 in 1488ms (next.js: 619ms, proxy.ts: 534ms, application-code: 335ms)
+ GET /puzzles/solve?mode=storm 200 in 1174ms (next.js: 20ms, proxy.ts: 25ms, application-code: 1129ms)
+○ Compiling /settings ...
+ GET /api/puzzles?count=1&mode=storm&minRating=600&maxRating=1400&random=true&excludeId=p004&excludeIds=p048%2Cp007%2Cp030%2Cp013%2Cb1TBg 200 in 7.0s (next.js: 557ms, application-code: 6.4s)
+ GET /settings 200 in 6.7s (next.js: 6.4s, proxy.ts: 56ms, application-code: 235ms)
+ GET /play/computer 200 in 2.6s (next.js: 521ms, proxy.ts: 770ms, application-code: 1353ms)
+ GET /play/computer 200 in 547ms (next.js: 14ms, proxy.ts: 21ms, application-code: 511ms)
+ GET /play/computer 200 in 1108ms (next.js: 25ms, proxy.ts: 24ms, application-code: 1059ms)
 [?25h

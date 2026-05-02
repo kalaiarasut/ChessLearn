@@ -66,11 +66,19 @@ type FreeMoveHistoryEntry = {
   fen: string;
   lastMove: { from: string; to: string } | null;
 };
+type PrefetchedPuzzleEntry = {
+  mode: PuzzleMode;
+  theme: string;
+  requestedPuzzleId: string | null;
+  streakCount: number;
+  sourcePuzzleId: string | null;
+  puzzle: PuzzleData;
+};
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"];
 
-function PuzzleSolveSkeleton() {
+function PuzzleSolveSkeleton({ mode }: { mode: PuzzleMode }) {
   const renderSkeletonDescription = (className = "") => (
     <div className={`rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-5 ${className}`}>
       <div className="flex flex-wrap gap-2 mb-4">
@@ -85,6 +93,9 @@ function PuzzleSolveSkeleton() {
   return (
     <>
       <div className="flex flex-col items-center gap-4">
+        <div className="rounded-full border border-[var(--border)] bg-[var(--surface-alt)] px-4 py-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+          Loading {mode === "storm" ? "storm" : mode === "streak" ? "streak" : mode === "daily" ? "daily puzzle" : mode === "review" ? "review puzzle" : "puzzle"}
+        </div>
         <div style={{ width: "min(85vw, 520px)" }} className="lg:hidden block">
           {renderSkeletonDescription()}
         </div>
@@ -188,14 +199,7 @@ function SolverInner() {
   const consumedRequestedIdRef = useRef<string | null>(null);
   const solveStartedAtRef = useRef<number>(Date.now());
   const draggingFromRef = useRef<string | null>(null);
-  const prefetchedPuzzleRef = useRef<{
-    mode: PuzzleMode;
-    theme: string;
-    requestedPuzzleId: string | null;
-    streakCount: number;
-    sourcePuzzleId: string | null;
-    puzzle: PuzzleData;
-  } | null>(null);
+  const prefetchedPuzzlesRef = useRef<PrefetchedPuzzleEntry[]>([]);
   const prefetchInFlightRef = useRef(false);
   const solutionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const solutionGameRef = useRef<Chess | null>(null);
@@ -413,6 +417,7 @@ function SolverInner() {
     initialLoad?: boolean;
     currentPuzzleId?: string | null;
     currentRecentIds?: string[];
+    streakCountOverride?: number;
   }) {
     if (mode === "review") {
       const reviewResponse = await fetch(
@@ -447,8 +452,9 @@ function SolverInner() {
       search.set("minRating", "600");
       search.set("maxRating", "1400");
     } else if (mode === "streak") {
-      search.set("minRating", `${600 + streakCount * 50}`);
-      search.set("maxRating", `${900 + streakCount * 50}`);
+      const activeStreakCount = args.streakCountOverride ?? streakCount;
+      search.set("minRating", `${600 + activeStreakCount * 50}`);
+      search.set("maxRating", `${900 + activeStreakCount * 50}`);
     }
 
     const shouldUseRequestedId =
@@ -487,60 +493,96 @@ function SolverInner() {
     };
   }
 
-  async function prefetchNextPuzzle(currentPuzzleId: string) {
+  function getPrefetchTargetSize() {
+    if (mode === "storm") return 4;
+    if (mode === "streak") return 2;
+    if (mode === "standard") return 2;
+    return 1;
+  }
+
+  function takePrefetchedPuzzle(currentPuzzleId: string | null, streakCountOverride: number) {
+    const matchIndex = prefetchedPuzzlesRef.current.findIndex(
+      (entry) =>
+        entry.mode === mode &&
+        entry.theme === themeFilter &&
+        entry.requestedPuzzleId === requestedPuzzleId &&
+        entry.streakCount === streakCountOverride &&
+        entry.puzzle.id !== currentPuzzleId,
+    );
+
+    if (matchIndex < 0) {
+      return null;
+    }
+
+    const [entry] = prefetchedPuzzlesRef.current.splice(matchIndex, 1);
+    return entry;
+  }
+
+  async function prefetchNextPuzzle(currentPuzzleId: string, streakCountOverride = streakCount) {
     if (mode === "review" || requestedPuzzleId || prefetchInFlightRef.current) {
       return;
     }
 
     prefetchInFlightRef.current = true;
     try {
-      const result = await requestPuzzleData({
-        currentPuzzleId,
-        currentRecentIds:
-          progress.dataSource === "server" ? [] : [...progress.recentPuzzleIds, currentPuzzleId],
-      });
+      const targetSize = getPrefetchTargetSize();
+      const queue = prefetchedPuzzlesRef.current.filter(
+        (entry) =>
+          entry.mode === mode &&
+          entry.theme === themeFilter &&
+          entry.requestedPuzzleId === requestedPuzzleId &&
+          entry.streakCount === streakCountOverride,
+      );
+      const queuedIds = new Set(queue.map((entry) => entry.puzzle.id));
+      prefetchedPuzzlesRef.current = prefetchedPuzzlesRef.current.filter(
+        (entry) =>
+          entry.mode === mode &&
+          entry.theme === themeFilter &&
+          entry.requestedPuzzleId === requestedPuzzleId &&
+          entry.streakCount === streakCountOverride,
+      );
 
-      if (result.kind === "ok" && result.puzzle.id !== currentPuzzleId) {
-        prefetchedPuzzleRef.current = {
+      while (prefetchedPuzzlesRef.current.length < targetSize) {
+        const result = await requestPuzzleData({
+          currentPuzzleId,
+          streakCountOverride,
+          currentRecentIds:
+            progress.dataSource === "server" ? [] : [...progress.recentPuzzleIds, currentPuzzleId, ...queuedIds],
+        });
+
+        if (result.kind !== "ok" || result.puzzle.id === currentPuzzleId || queuedIds.has(result.puzzle.id)) {
+          break;
+        }
+
+        queuedIds.add(result.puzzle.id);
+        prefetchedPuzzlesRef.current.push({
           mode,
           theme: themeFilter,
           requestedPuzzleId,
-          streakCount,
+          streakCount: streakCountOverride,
           sourcePuzzleId: currentPuzzleId,
           puzzle: result.puzzle,
-        };
+        });
       }
     } catch {
-      prefetchedPuzzleRef.current = null;
+      prefetchedPuzzlesRef.current = prefetchedPuzzlesRef.current.filter((entry) => entry.mode !== mode);
     } finally {
       prefetchInFlightRef.current = false;
     }
   }
 
-  async function fetchPuzzle(initialLoad = false) {
+  async function fetchPuzzle(initialLoad = false, streakCountOverride = streakCount) {
     setLoading(true);
     setFetchError(null);
     setEmptyState("none");
     clearSolutionTimer();
 
     const currentPuzzleId = puzzle?.id ?? null;
-    const canUsePrefetched =
-      !initialLoad &&
-      prefetchedPuzzleRef.current &&
-      prefetchedPuzzleRef.current.mode === mode &&
-      prefetchedPuzzleRef.current.theme === themeFilter &&
-      prefetchedPuzzleRef.current.requestedPuzzleId === requestedPuzzleId &&
-      prefetchedPuzzleRef.current.streakCount === streakCount &&
-      prefetchedPuzzleRef.current.sourcePuzzleId === currentPuzzleId;
+    const prefetched = !initialLoad ? takePrefetchedPuzzle(currentPuzzleId, streakCountOverride) : null;
 
-    if (canUsePrefetched) {
-      const prefetched = prefetchedPuzzleRef.current;
-      if (!prefetched) {
-        return;
-      }
-      prefetchedPuzzleRef.current = null;
+    if (prefetched) {
       initPuzzle(prefetched.puzzle);
-      void prefetchNextPuzzle(prefetched.puzzle.id);
+      void prefetchNextPuzzle(prefetched.puzzle.id, streakCountOverride);
       return;
     }
 
@@ -548,6 +590,7 @@ function SolverInner() {
       const result = await requestPuzzleData({
         initialLoad,
         currentPuzzleId,
+        streakCountOverride,
         currentRecentIds: progress.recentPuzzleIds,
       });
 
@@ -568,7 +611,7 @@ function SolverInner() {
       }
 
       initPuzzle(result.puzzle, result.reviewItem);
-      void prefetchNextPuzzle(result.puzzle.id);
+      void prefetchNextPuzzle(result.puzzle.id, streakCountOverride);
     } catch (error) {
       setFetchError(error instanceof Error ? error.message : "Failed to load puzzle.");
       setPuzzle(null);
@@ -600,7 +643,7 @@ function SolverInner() {
     setRightClickStartSquare(null);
     setFreeMoveHistory([]);
     setFreeMoveHistoryIndex(0);
-    prefetchedPuzzleRef.current = null;
+    prefetchedPuzzlesRef.current = [];
     clearSolutionTimer();
 
     if (mode === "storm") {
@@ -627,6 +670,7 @@ function SolverInner() {
             if (stormTimerRef.current) {
               clearInterval(stormTimerRef.current);
             }
+            void submitAttempt("failed", stormScore);
             setPhase("storm_over");
             return 0;
           }
@@ -640,7 +684,9 @@ function SolverInner() {
         }
       };
     }
-  }, [mode, loading, phase]);
+    // submitAttempt is intentionally omitted so the active storm timer is not recreated on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, loading, phase, stormScore]);
 
   const pushFreeMove = (nextGame: Chess, nextLastMove: { from: string; to: string }) => {
     const nextEntry = { fen: nextGame.fen(), lastMove: nextLastMove };
@@ -685,10 +731,6 @@ function SolverInner() {
     if (phase === "playing" && solutionState !== "hidden") {
       return;
     }
-    if (moveMethod === "drag") {
-      return;
-    }
-
     const piece = game.get(sq as Square);
     const activeColor = phase === "playing" ? playerSide : game.turn();
 
@@ -707,7 +749,7 @@ function SolverInner() {
       }
 
       if (!legalMoves.includes(sq)) {
-        handleWrongMove(selectedSq);
+        handleIllegalInput(selectedSq);
         setSelectedSq(null);
         setLegalMoves([]);
         return;
@@ -819,7 +861,7 @@ function SolverInner() {
 
     if (!from || !legalMoves.includes(sq)) {
       if (from) {
-        handleWrongMove(from);
+        handleIllegalInput(from);
       }
       setSelectedSq(null);
       setLegalMoves([]);
@@ -845,6 +887,15 @@ function SolverInner() {
     setLegalMoves([]);
   };
 
+  const handleIllegalInput = (from: string) => {
+    playSound("illegal");
+    setWrongMoveSquare(from);
+    setMoveResult(null);
+    window.setTimeout(() => {
+      setWrongMoveSquare((current) => (current === from ? null : current));
+    }, 350);
+  };
+
   const handleWrongMove = (from: string) => {
     playSound("illegal");
     setWrongMoveSquare(from);
@@ -852,6 +903,36 @@ function SolverInner() {
     window.setTimeout(() => {
       setWrongMoveSquare((current) => (current === from ? null : current));
     }, 450);
+
+    if (mode === "storm" && phase === "playing") {
+      setStormLives((currentLives) => {
+        const nextLives = Math.max(0, currentLives - 1);
+        if (nextLives === 0) {
+          void submitAttempt("failed", stormScore);
+          setPhase("storm_over");
+        } else {
+          window.setTimeout(() => {
+            void fetchPuzzle();
+          }, 450);
+        }
+        return nextLives;
+      });
+      return;
+    }
+
+    if (mode === "streak" && phase === "playing") {
+      void submitAttempt("failed", streakCount);
+      setPhase("streak_over");
+    }
+  };
+
+  const handleStormPass = () => {
+    if (mode !== "storm" || phase !== "playing" || !puzzle) {
+      return;
+    }
+
+    const sourceSquare = puzzle.moves[moveIndex]?.slice(0, 2) ?? lastMove?.to ?? "a1";
+    handleWrongMove(sourceSquare);
   };
 
   const handlePuzzleSolved = () => {
@@ -869,8 +950,11 @@ function SolverInner() {
       const nextStreak = streakCount + 1;
       setStreakCount(nextStreak);
       void submitAttempt("solved", nextStreak);
+      if (puzzle) {
+        void prefetchNextPuzzle(puzzle.id, nextStreak);
+      }
       setTimeout(() => {
-        void fetchPuzzle();
+        void fetchPuzzle(false, nextStreak);
       }, 300);
       return;
     }
@@ -1155,7 +1239,22 @@ function SolverInner() {
           ? "text-sky-400"
           : mode === "daily"
             ? "text-emerald-400"
-            : "text-violet-400";
+          : "text-violet-400";
+  const sideInstruction =
+    mode === "storm"
+      ? "Solve fast. Wrong moves cost one life, and three misses end the run."
+      : mode === "streak"
+        ? "Keep the chain alive. One wrong move ends the streak."
+        : mode === "daily" && progress.dailyStatus.completed
+          ? "Daily puzzle completed. You can still review the line or continue free play."
+          : mode === "review"
+            ? `Replay queue: ${progress.replayCount} ${progress.replayCount === 1 ? "puzzle" : "puzzles"} waiting.`
+        : `${playerSide === "w" ? "White" : "Black"} to move - find the best continuation.`;
+  const streakMinRating = 600 + streakCount * 50;
+  const streakMaxRating = 900 + streakCount * 50;
+  const endedScore = phase === "storm_over" ? stormScore : streakCount;
+  const previousBest = phase === "storm_over" ? progress.summary.bestStormScore : progress.summary.bestStreakScore;
+  const isNewBest = endedScore > previousBest;
 
   const renderEmptyPanel = () => {
     if (loading) {
@@ -1241,8 +1340,47 @@ function SolverInner() {
         ))}
       </div>
       <p className="text-[13px] text-[var(--text-muted)] font-medium">
-        {playerSide === "w" ? "White" : "Black"} to move - find the best continuation.
+        {sideInstruction}
       </p>
+      {mode === "storm" && (
+        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-2">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-dimmed)] font-bold">Score</p>
+            <p className="text-[16px] text-[var(--text-primary)] font-bold tabular-nums">{stormScore}</p>
+          </div>
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-2">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-dimmed)] font-bold">Lives</p>
+            <p className="text-[16px] text-rose-400 font-bold tabular-nums">{stormLives}</p>
+          </div>
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-2">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-dimmed)] font-bold">Best</p>
+            <p className="text-[16px] text-[var(--text-primary)] font-bold tabular-nums">{progress.summary.bestStormScore}</p>
+          </div>
+        </div>
+      )}
+      {mode === "streak" && (
+        <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-2">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-dimmed)] font-bold">Current</p>
+            <p className="text-[16px] text-[var(--text-primary)] font-bold tabular-nums">{streakCount}</p>
+          </div>
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-2">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-dimmed)] font-bold">Best</p>
+            <p className="text-[16px] text-[var(--text-primary)] font-bold tabular-nums">{progress.summary.bestStreakScore}</p>
+          </div>
+          <div className="col-span-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-2">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-dimmed)] font-bold">Current Rating Band</p>
+            <p className="text-[14px] text-[var(--text-primary)] font-bold tabular-nums">
+              {streakMinRating}-{streakMaxRating}
+            </p>
+          </div>
+        </div>
+      )}
+      {mode === "daily" && progress.dailyStatus.completed && (
+        <p className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[12px] font-semibold text-emerald-400">
+          Daily complete for {progress.dailyStatus.date}.
+        </p>
+      )}
       {mode === "review" && reviewItem && (
         <p className="mt-3 text-[12px] text-sky-400 font-semibold">
           Replay item #{reviewItem.id} due {new Date(reviewItem.nextReviewAt).toLocaleString()}.
@@ -1288,7 +1426,7 @@ function SolverInner() {
 
       <main className="flex-1 flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 px-6 py-8 max-w-[1200px] mx-auto w-full">
         {shouldShowSkeleton ? (
-          <PuzzleSolveSkeleton />
+          <PuzzleSolveSkeleton mode={mode} />
         ) : !puzzle || !game ? (
           <div className="w-full max-w-[640px]">{renderEmptyPanel()}</div>
         ) : (
@@ -1560,6 +1698,15 @@ function SolverInner() {
                       </button>
                     </>
                   )}
+                  {mode === "storm" && (
+                    <button
+                      onClick={handleStormPass}
+                      className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:border-amber-400/50 transition-all text-[13px] font-semibold"
+                    >
+                      <SkipForward className="w-4 h-4" />
+                      Pass -1 Life
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1625,8 +1772,8 @@ function SolverInner() {
                   <p className="text-[13px] text-[var(--text-dimmed)] font-semibold mb-4">
                     {phase === "storm_over" ? "puzzles solved" : "puzzle streak"}
                   </p>
-                  <p className="text-[12px] text-[var(--text-dimmed)] mb-4">
-                    Personal best: {phase === "storm_over" ? progress.summary.bestStormScore : progress.summary.bestStreakScore}
+                  <p className={`text-[12px] font-semibold mb-4 ${isNewBest ? "text-amber-300" : "text-[var(--text-dimmed)]"}`}>
+                    {isNewBest ? "New personal best" : `Personal best: ${previousBest}`}
                   </p>
                   <div className="flex gap-3">
                     <Link

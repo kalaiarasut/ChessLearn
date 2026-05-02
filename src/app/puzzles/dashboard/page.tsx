@@ -69,6 +69,9 @@ export default function DashboardPage() {
   const totalPlayed = filteredActivity.length;
   const totalSolved = filteredActivity.filter((entry) => entry.solved).length;
   const solvedPercent = totalPlayed > 0 ? (totalSolved / totalPlayed) * 100 : 0;
+  const stormActivityCount = filteredActivity.filter((entry) => entry.mode === "storm").length;
+  const streakActivityCount = filteredActivity.filter((entry) => entry.mode === "streak").length;
+  const reviewActivityCount = filteredActivity.filter((entry) => entry.mode === "review").length;
   const themeRows = useMemo(
     () =>
       buildThemeDashboardRows(progress.themeStats, progress.summary.currentRating, progress.reviewThemeCounts).sort(
@@ -283,6 +286,47 @@ export default function DashboardPage() {
             </p>
           </div>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link
+          href="/puzzles/solve?mode=storm"
+          className="rounded-2xl border border-[var(--border)] bg-gradient-to-br from-amber-500/10 to-[var(--surface-alt)] p-5 hover:border-[var(--border-hover)] transition-colors"
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <Zap className="w-5 h-5 text-amber-400" />
+            <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--text-dimmed)]">Timed</span>
+          </div>
+          <p className="text-[18px] font-bold text-[var(--text-primary)]">Storm Record</p>
+          <p className="mt-1 text-[28px] font-bold tabular-nums text-[var(--text-primary)]">{progress.summary.bestStormScore}</p>
+          <p className="mt-2 text-[12px] font-medium text-[var(--text-muted)]">{stormActivityCount} storm attempts in this range</p>
+        </Link>
+
+        <Link
+          href="/puzzles/solve?mode=streak"
+          className="rounded-2xl border border-[var(--border)] bg-gradient-to-br from-rose-500/10 to-[var(--surface-alt)] p-5 hover:border-[var(--border-hover)] transition-colors"
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <Flame className="w-5 h-5 text-rose-400" />
+            <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--text-dimmed)]">Perfect Run</span>
+          </div>
+          <p className="text-[18px] font-bold text-[var(--text-primary)]">Streak Record</p>
+          <p className="mt-1 text-[28px] font-bold tabular-nums text-[var(--text-primary)]">{progress.summary.bestStreakScore}</p>
+          <p className="mt-2 text-[12px] font-medium text-[var(--text-muted)]">{streakActivityCount} streak attempts in this range</p>
+        </Link>
+
+        <Link
+          href="/puzzles/solve?mode=review"
+          className="rounded-2xl border border-[var(--border)] bg-gradient-to-br from-sky-500/10 to-[var(--surface-alt)] p-5 hover:border-[var(--border-hover)] transition-colors"
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <Target className="w-5 h-5 text-sky-400" />
+            <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--text-dimmed)]">Review</span>
+          </div>
+          <p className="text-[18px] font-bold text-[var(--text-primary)]">Replay Queue</p>
+          <p className="mt-1 text-[28px] font-bold tabular-nums text-[var(--text-primary)]">{progress.replayCount}</p>
+          <p className="mt-2 text-[12px] font-medium text-[var(--text-muted)]">{reviewActivityCount} review attempts in this range</p>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

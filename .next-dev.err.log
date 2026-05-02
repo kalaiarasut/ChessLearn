@@ -1,840 +1,1230 @@
+The width(-1) and height(-1) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
 [browser] Image with src "/boards/burled_wood.jpg" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
 Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
-[browser] Please ensure that the container has a non-static position, like 'relative', 'fixed', or 'absolute' to ensure scroll offset is calculated correctly. (<anonymous>)
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-⨯ ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  [90m30 |[0m [36mimport[0m { useTheme } [36mfrom[0m [32m"@/lib/theme-context"[0m;
-  [90m31 |[0m [36mimport[0m { [33mAuthMenu[0m } [36mfrom[0m [32m"@/components/auth-menu"[0m;
-[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mBoardSettingsModal[0m } [36mfrom[0m [32m"@/components/board-settings-modal"[0m;
-  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-  [90m33 |[0m [36mimport[0m { loadClientPreferences, saveClientPreferences, [36mtype[0m [33mMoveMethod[0m } [36mfrom[0m [32m"@/lib/clien...[0m
-  [90m34 |[0m [36mimport[0m themeManifest [36mfrom[0m [32m"@/data/themeManifest.json"[0m;
-  [90m35 |[0m [36mimport[0m { [33mPuzzleSyncBanner[0m } [36mfrom[0m [32m"../_components/PuzzleSyncBanner"[0m;
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-[browser] Uncaught Error: ./src/app/puzzles/solve/page.tsx:32:1
-Module not found: Can't resolve '@/components/board-settings-modal'
-  30 | import { useTheme } from "@/lib/theme-context";
-  31 | import { AuthMenu } from "@/components/auth-menu";
-> 32 | import { BoardSettingsModal } from "@/components/board-settings-modal";
-     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  33 | import { loadClientPreferences, saveClientPreferences, type MoveMethod } from "@/lib/clien...
-  34 | import themeManifest from "@/data/themeManifest.json";
-  35 | import { PuzzleSyncBanner } from "../_components/PuzzleSyncBanner";
-
-Import map: aliased to relative './src/components/board-settings-modal' inside of [project]/
-
-
-Import traces:
-  Client Component Browser:
-    ./src/app/puzzles/solve/page.tsx [Client Component Browser]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./src/app/puzzles/solve/page.tsx [Client Component SSR]
-    ./src/app/puzzles/solve/page.tsx [Server Component]
-
-https://nextjs.org/docs/messages/module-not-found
-
-
-    at <unknown> (Error: ./src/app/puzzles/solve/page.tsx:32:1)
-    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
-    at <unknown> (Error: (./src/app/puzzles/solve/page.tsx:32:1)
-    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
-[browser] Please ensure that the container has a non-static position, like 'relative', 'fixed', or 'absolute' to ensure scroll offset is calculated correctly. (<anonymous>)
-Cloudflare D1 fetch error: Error [TimeoutError]: The operation was aborted due to timeout
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
     at async queryD1 (src\lib\puzzle-service.ts:65:24)
     at async getPuzzles (src\lib\puzzle-service.ts:200:24)
-    at async GET (src\app\api\puzzles\route.ts:62:21)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
   63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
   64 |     try {
 > 65 |       const response = await fetch(
@@ -869,11 +1259,10 @@ Cloudflare D1 fetch error: Error [TimeoutError]: The operation was aborted due t
   INVALID_NODE_TYPE_ERR: 24,
   DATA_CLONE_ERR: 25
 }
-[browser] Please ensure that the container has a non-static position, like 'relative', 'fixed', or 'absolute' to ensure scroll offset is calculated correctly. (<anonymous>)
-Cloudflare D1 fetch error: Error [TimeoutError]: The operation was aborted due to timeout
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
     at async queryD1 (src\lib\puzzle-service.ts:65:24)
     at async getPuzzles (src\lib\puzzle-service.ts:200:24)
-    at async GET (src\app\api\puzzles\route.ts:62:21)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
   63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
   64 |     try {
 > 65 |       const response = await fetch(
@@ -908,3 +1297,52 @@ Cloudflare D1 fetch error: Error [TimeoutError]: The operation was aborted due t
   INVALID_NODE_TYPE_ERR: 24,
   DATA_CLONE_ERR: 25
 }
+Puzzle D1 fetch failed or timed out; using bundled fallback puzzles. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:65:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:200:24)
+    at async GET (src\app\api\puzzles\route.ts:139:17)
+  63 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  64 |     try {
+> 65 |       const response = await fetch(
+     |                        ^
+  66 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/qu...
+  67 |         {
+  68 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "127.0.0.1".
+Cross-origin access to Next.js dev resources is blocked by default for safety.
+
+To allow this host in development, add it to "allowedDevOrigins" in next.config.js and restart the dev server:
+
+// next.config.js
+module.exports = {
+  allowedDevOrigins: ['127.0.0.1'],
+}
+
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
