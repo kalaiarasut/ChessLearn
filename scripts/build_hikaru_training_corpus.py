@@ -232,7 +232,6 @@ def apply_chessify_headers(
 
 def write_game_to_handle(
     handle,
-    exporter: chess.pgn.StringExporter,
     game: chess.pgn.Game,
     source: str,
     source_file: str,
@@ -241,6 +240,7 @@ def write_game_to_handle(
     split: str,
 ) -> None:
     apply_chessify_headers(game, source, source_file, time_class, hikaru_color, split)
+    exporter = chess.pgn.StringExporter(headers=True, variations=False, comments=False)
     handle.write(game.accept(exporter).rstrip())
     handle.write("\n\n")
 
@@ -350,7 +350,6 @@ def main(argv: Iterable[str]) -> int:
     by_year: Counter[str] = Counter()
     target_positions_by_phase: Counter[str] = Counter()
     target_positions_by_source: Counter[str] = Counter()
-    exporter = chess.pgn.StringExporter(headers=True, variations=False, comments=False)
 
     with (
         COMBINED_CLEAN.open("w", encoding="utf-8", newline="\n") as combined_output,
@@ -418,7 +417,6 @@ def main(argv: Iterable[str]) -> int:
 
                     write_game_to_handle(
                         combined_output,
-                        exporter,
                         game,
                         spec.label,
                         source_file,
@@ -429,7 +427,6 @@ def main(argv: Iterable[str]) -> int:
                     split_output = test_output if split == "test" else train_output
                     write_game_to_handle(
                         split_output,
-                        exporter,
                         game,
                         spec.label,
                         source_file,

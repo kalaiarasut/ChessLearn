@@ -8,6 +8,7 @@ import { ArrowLeft, Settings, Play, Pause, Bot, RotateCcw, ChevronLeft, ChevronR
 import themeManifest from "@/data/themeManifest.json";
 import { useTheme } from "@/lib/theme-context";
 import { STOCKFISH_ELO_LIMITS, useStockfishPlayer, type PlayerEngineVariant, type PlayerStrengthMode, type PlayerTimeMode } from "./use-stockfish-player";
+import { loadHikaruStyleModel, type HikaruStyleModel } from "./hikaru-style-prior";
 import { useStockfishAnalysis } from "../../learn/[opening]/use-stockfish-analysis";
 import { useStockfishEngineDownload } from "./use-stockfish-engine-download";
 import { useGameReview, type MoveReviewCategory, type ReviewedMove } from "./use-game-review";
@@ -28,6 +29,7 @@ const ELO_MIN = STOCKFISH_ELO_LIMITS["stockfish-18"].min;
 const ELO_MAX = STOCKFISH_ELO_LIMITS["stockfish-18"].max;
 const FULL_ENGINE_WASM_PATH = "/engines/stockfish/stockfish-18-single.wasm";
 const BOT_ENGINE_VARIANT_STORAGE_KEY = "ChessLearn.bot.engineVariant.v1";
+const BOT_MOVE_PERSONALITY_STORAGE_KEY = "ChessLearn.bot.movePersonality.v1";
 const ANALYSIS_ENGINE_VARIANT_STORAGE_KEY = "ChessLearn.bot.analysisEngineVariant.v1";
 const REPLAY_ARCHIVE_STORAGE_KEY = "ChessLearn.bot.replayArchive.v1";
 const REPLAY_ARCHIVE_MAX_ITEMS = 60;
@@ -63,6 +65,8 @@ type SideColor = "w" | "b";
 type StrengthMode = PlayerStrengthMode | "beginner";
 type EngineVariant = PlayerEngineVariant;
 type TimeMode = PlayerTimeMode;
+type BotMovePersonality = "stockfish" | "hikaru";
+type CustomBotPresetId = "hikaru" | "stockfish-lite" | "stockfish-full";
 type StartingLayoutId = "standard" | "no-castling" | "chess960" | "shuffle" | "double-fischer" | "transcendental" | "custom";
 type PieceCode = `${SideColor}${keyof typeof MATERIAL_VALUES}`;
 type CustomEditorPiece = PieceCode | "erase" | null;
@@ -108,6 +112,32 @@ const BOT_OPENING_ENGINE_CHOICE: BotOpeningChoice = {
   searchText: "engine choice",
   bookMovesBySide: { w: [], b: [] },
 };
+
+const CUSTOM_BOT_PRESETS: Array<{
+  id: CustomBotPresetId;
+  label: string;
+  detail: string;
+  imageSrc: string;
+}> = [
+  {
+    id: "hikaru",
+    label: "Hikaru",
+    detail: "Style model",
+    imageSrc: "/bot-avatars/hikaru.jpg",
+  },
+  {
+    id: "stockfish-lite",
+    label: "Stockfish Lite",
+    detail: "Fast 7MB",
+    imageSrc: "/bot-avatars/stockfish.jpeg",
+  },
+  {
+    id: "stockfish-full",
+    label: "Stockfish Full",
+    detail: "Strong 108MB",
+    imageSrc: "/bot-avatars/stockfish.jpeg",
+  },
+];
 
 const UCI_MOVE_PATTERN = /^[a-h][1-8][a-h][1-8][nbrq]?$/;
 
@@ -328,6 +358,29 @@ const validateStartingFen = (value: string) => {
 
 const isEngineVariant = (value: unknown): value is EngineVariant =>
   value === "stockfish-18" || value === "stockfish-18-lite";
+
+const isBotMovePersonality = (value: unknown): value is BotMovePersonality =>
+  value === "stockfish" || value === "hikaru";
+
+const getCustomBotPresetFromEngine = (
+  engineVariant: EngineVariant,
+  movePersonality: BotMovePersonality,
+): CustomBotPresetId => {
+  if (movePersonality === "hikaru") {
+    return "hikaru";
+  }
+
+  return engineVariant === "stockfish-18" ? "stockfish-full" : "stockfish-lite";
+};
+
+const getEngineVariantForBotPreset = (preset: CustomBotPresetId): EngineVariant =>
+  preset === "stockfish-full" ? "stockfish-18" : "stockfish-18-lite";
+
+const getMovePersonalityForBotPreset = (preset: CustomBotPresetId): BotMovePersonality =>
+  preset === "hikaru" ? "hikaru" : "stockfish";
+
+const getCustomBotPresetLabel = (preset: CustomBotPresetId) =>
+  CUSTOM_BOT_PRESETS.find((item) => item.id === preset)?.label ?? "Stockfish Lite";
 
 const getRecommendedBotEngineVariant = (fullEngineAvailable: boolean): EngineVariant => {
   if (!fullEngineAvailable || typeof window === "undefined") {
@@ -660,7 +713,7 @@ const MOVE_REVIEW_TONES: Record<
 > = {
   book: {
     label: "Book",
-    symbol: "Bk",
+    symbol: "\uE03D", // Book symbol from chessglyph
     badgeColor: "#6bbf59",
     badgeTextColor: "#ffffff",
     bubbleTextColor: "#5ba84d",
@@ -673,9 +726,9 @@ const MOVE_REVIEW_TONES: Record<
   },
   brilliant: {
     label: "Brilliant",
-    symbol: "!!",
+    symbol: "\uE03B", // Brilliant !! symbol
     badgeColor: "#42dcca",
-    badgeTextColor: "#f4fffd",
+    badgeTextColor: "#ffffff", // Pure white for better contrast
     bubbleTextColor: "#2bc7b4",
     fromFill: "rgba(66, 220, 202, 0.34)",
     toFill: "rgba(66, 220, 202, 0.56)",
@@ -686,7 +739,7 @@ const MOVE_REVIEW_TONES: Record<
   },
   great: {
     label: "Great Move",
-    symbol: "!",
+    symbol: "\uE01C", // Great ! symbol (often a star)
     badgeColor: "#7ea7d9",
     badgeTextColor: "#ffffff",
     bubbleTextColor: "#6f96ca",
@@ -1253,6 +1306,11 @@ export default function PlayComputerPage() {
   const [strengthMode, setStrengthMode] = useState<StrengthMode>("skill");
   const [skillLevel, setSkillLevel] = useState<number>(20);
   const [botEngineVariant, setBotEngineVariant] = useState<EngineVariant>("stockfish-18");
+  const [botMovePersonality, setBotMovePersonality] = useState<BotMovePersonality>("stockfish");
+  const [customBot1Preset, setCustomBot1Preset] = useState<CustomBotPresetId>("stockfish-full");
+  const [customBot2Preset, setCustomBot2Preset] = useState<CustomBotPresetId>("stockfish-lite");
+  const [hikaruStyleModel, setHikaruStyleModel] = useState<HikaruStyleModel | null>(null);
+  const [hikaruStyleModelStatus, setHikaruStyleModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [botTimeMode, setBotTimeMode] = useState<TimeMode>("clock");
   const [botFixedMoveTimeMs, setBotFixedMoveTimeMs] = useState<number>(1000);
   const elo = ELOS[Math.min(Math.max(eloIndex, 0), ELOS.length - 1)] ?? ELOS[0];
@@ -1369,6 +1427,8 @@ export default function PlayComputerPage() {
     if (!fullEngineAvailable) {
       setBotEngineVariant((current) => (current === "stockfish-18" ? "stockfish-18-lite" : current));
       setAnalysisEngineVariant((current) => (current === "stockfish-18" ? "stockfish-18-lite" : current));
+      setCustomBot1Preset((current) => (current === "stockfish-full" ? "stockfish-lite" : current));
+      setCustomBot2Preset((current) => (current === "stockfish-full" ? "stockfish-lite" : current));
     }
   }, [fullEngineAvailable]);
 
@@ -1378,6 +1438,7 @@ export default function PlayComputerPage() {
     }
 
     const storedBotVariant = window.localStorage.getItem(BOT_ENGINE_VARIANT_STORAGE_KEY);
+    const storedMovePersonality = window.localStorage.getItem(BOT_MOVE_PERSONALITY_STORAGE_KEY);
     const storedAnalysisVariant = window.localStorage.getItem(ANALYSIS_ENGINE_VARIANT_STORAGE_KEY);
 
     const resolvedBotVariant =
@@ -1389,9 +1450,15 @@ export default function PlayComputerPage() {
         ? storedAnalysisVariant
         : "stockfish-18-lite";
 
+    const resolvedMovePersonality = isBotMovePersonality(storedMovePersonality) ? storedMovePersonality : "stockfish";
+
     setBotEngineVariant(resolvedBotVariant);
+    setBotMovePersonality(resolvedMovePersonality);
+    setCustomBot1Preset(getCustomBotPresetFromEngine(resolvedBotVariant, resolvedMovePersonality));
+    setCustomBot2Preset("stockfish-lite");
     setAnalysisEngineVariant(resolvedAnalysisVariant);
     window.localStorage.setItem(BOT_ENGINE_VARIANT_STORAGE_KEY, resolvedBotVariant);
+    window.localStorage.setItem(BOT_MOVE_PERSONALITY_STORAGE_KEY, resolvedMovePersonality);
     window.localStorage.setItem(ANALYSIS_ENGINE_VARIANT_STORAGE_KEY, resolvedAnalysisVariant);
     setEngineVariantsResolved(true);
   }, [fullEngineAvailabilityChecked, fullEngineAvailable]);
@@ -1500,7 +1567,12 @@ export default function PlayComputerPage() {
       ? Math.min(analysisMaxTimeSeconds, 0.35)
       : 0.2
     : analysisMaxTimeSeconds;
-  const botEngineDownloadStatus = engineDownloadStatuses[botEngineVariant];
+  const activeBotPreset = isBotMatchMode && gameRef.current.turn() === bot2Side
+    ? customBot2Preset
+    : customBot1Preset;
+  const activeBotEngineVariant = getEngineVariantForBotPreset(activeBotPreset);
+  const activeBotMovePersonality = getMovePersonalityForBotPreset(activeBotPreset);
+  const botEngineDownloadStatus = engineDownloadStatuses[activeBotEngineVariant];
   const analysisEngineDownloadStatus = engineDownloadStatuses[analysisEngineVariant];
   const isBotEngineReady = engineVariantsResolved && botEngineDownloadStatus.ready;
   const isAnalysisEngineReady = engineVariantsResolved && analysisEngineDownloadStatus.ready;
@@ -1509,14 +1581,18 @@ export default function PlayComputerPage() {
   const gameOverReasonLabel = getGameOverReasonLabel(gameRef.current, timeoutStatus);
   const shouldCelebrateWin = playerColor !== "bot-vs-bot" && liveWinnerDetails.winner === playerColor;
   const shouldShowBoardOverlay = showGameOverOverlay && gameState === "game_over";
+  const activeBotStyleModel = activeBotMovePersonality === "hikaru" && hikaruStyleModelStatus === "ready"
+    ? hikaruStyleModel
+    : null;
+  const activeBotStyleTimeClass = timeLimit <= 3 ? "bullet" : timeLimit >= 15 ? "rapid" : "blitz";
 
   useEffect(() => {
     if (!engineVariantsResolved) {
       return;
     }
 
-    ensureEngineReady(botEngineVariant).catch(() => { });
-  }, [botEngineVariant, engineVariantsResolved, ensureEngineReady]);
+    ensureEngineReady(activeBotEngineVariant).catch(() => { });
+  }, [activeBotEngineVariant, engineVariantsResolved, ensureEngineReady]);
 
   useEffect(() => {
     const previousGameState = previousGameStateRef.current;
@@ -1543,7 +1619,7 @@ export default function PlayComputerPage() {
     }, 980);
     const dismissTimer = window.setTimeout(() => {
       setShowGameOverOverlay(false);
-    }, 4600);
+    }, 6600);
 
     let confettiTimerA: number | null = null;
     let confettiTimerB: number | null = null;
@@ -1647,9 +1723,11 @@ export default function PlayComputerPage() {
       strengthMode: engineStrengthMode,
       whiteTimeSeconds,
       blackTimeSeconds,
-      engineVariant: botEngineVariant,
+      engineVariant: activeBotEngineVariant,
       timeMode: activeTimeMode,
       fixedMoveTimeMs: activeFixedMoveTimeMs,
+      styleModel: activeBotStyleModel,
+      styleTimeClass: activeBotStyleTimeClass,
     },
     isBotEngineReady,
   );
@@ -1738,8 +1816,8 @@ export default function PlayComputerPage() {
   const engineStatusBadge = useMemo(() => {
     const prioritizedStatuses = [
       {
-        variant: botEngineVariant,
-        label: botEngineVariant === "stockfish-18" ? "Full" : "Lite",
+        variant: activeBotEngineVariant,
+        label: activeBotEngineVariant === "stockfish-18" ? "Full" : "Lite",
         status: botEngineDownloadStatus,
       },
       ...(analysisEnabled
@@ -1782,8 +1860,8 @@ export default function PlayComputerPage() {
     analysisEnabled,
     analysisEngineDownloadStatus,
     analysisEngineVariant,
+    activeBotEngineVariant,
     botEngineDownloadStatus,
-    botEngineVariant,
   ]);
 
   const { toggleTheme, isDark } = useTheme();
@@ -1818,6 +1896,51 @@ export default function PlayComputerPage() {
 
     window.localStorage.setItem(BOT_ENGINE_VARIANT_STORAGE_KEY, botEngineVariant);
   }, [botEngineVariant, engineVariantsResolved]);
+
+  useEffect(() => {
+    if (!engineVariantsResolved || typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(BOT_MOVE_PERSONALITY_STORAGE_KEY, botMovePersonality);
+  }, [botMovePersonality, engineVariantsResolved]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const needsHikaruModel = customBot1Preset === "hikaru" || customBot2Preset === "hikaru";
+
+    if (!needsHikaruModel) {
+      setHikaruStyleModelStatus("idle");
+      return;
+    }
+
+    if (hikaruStyleModel) {
+      setHikaruStyleModelStatus("ready");
+      return;
+    }
+
+    setHikaruStyleModelStatus("loading");
+    loadHikaruStyleModel()
+      .then((model) => {
+        if (cancelled) {
+          return;
+        }
+        setHikaruStyleModel(model);
+        setHikaruStyleModelStatus("ready");
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        setHikaruStyleModel(null);
+        setHikaruStyleModelStatus("error");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [customBot1Preset, customBot2Preset, hikaruStyleModel]);
 
   useEffect(() => {
     if (!engineVariantsResolved || typeof window === "undefined") {
@@ -2483,6 +2606,21 @@ export default function PlayComputerPage() {
     }
 
     setBotMatchConfigOpen(true);
+  };
+
+  const applyCustomBotPreset = (botSlot: 1 | 2, preset: CustomBotPresetId) => {
+    if (preset === "stockfish-full" && !fullEngineAvailable) {
+      return;
+    }
+
+    if (botSlot === 1) {
+      setCustomBot1Preset(preset);
+      setBotMovePersonality(getMovePersonalityForBotPreset(preset));
+      setBotEngineVariant(getEngineVariantForBotPreset(preset));
+      return;
+    }
+
+    setCustomBot2Preset(preset);
   };
 
   const startConfiguredGame = (color: "w" | "b" | "random") => {
@@ -3158,9 +3296,11 @@ export default function PlayComputerPage() {
   };
   const topCapturedPieceCodes = toCapturedPieceCodes(topSideColor, capturedByTopTypes);
   const bottomCapturedPieceCodes = toCapturedPieceCodes(bottomSideColor, capturedByBottomTypes);
-  const botModelLabel = botEngineVariant === "stockfish-18" ? "Stockfish-18" : "Stockfish-18-Lite";
+  const bot1ModelLabel = getCustomBotPresetLabel(customBot1Preset);
+  const bot2ModelLabel = getCustomBotPresetLabel(customBot2Preset);
+  const botModelLabel = customBotSoloActive ? bot1ModelLabel : botEngineVariant === "stockfish-18" ? "Stockfish-18" : "Stockfish-18-Lite";
   const soloBotPanel = {
-    name: "Bot 1",
+    name: bot1ModelLabel,
     subtitle: `ELO ${bot1Elo}`,
     icon: "bot" as const,
   };
@@ -3168,13 +3308,13 @@ export default function PlayComputerPage() {
     w: isBotMatchMode
       ? bot1Side === "w"
         ? {
-          name: "Bot 1",
+          name: bot1ModelLabel,
           subtitle: `ELO ${bot1Elo}`,
           icon: "bot",
           clockSeconds: whiteTimeSeconds,
         }
         : {
-          name: "Bot 2",
+          name: bot2ModelLabel,
           subtitle: `ELO ${bot2Elo}`,
           icon: "bot",
           clockSeconds: whiteTimeSeconds,
@@ -3200,13 +3340,13 @@ export default function PlayComputerPage() {
     b: isBotMatchMode
       ? bot1Side === "b"
         ? {
-          name: "Bot 1",
+          name: bot1ModelLabel,
           subtitle: `ELO ${bot1Elo}`,
           icon: "bot",
           clockSeconds: blackTimeSeconds,
         }
         : {
-          name: "Bot 2",
+          name: bot2ModelLabel,
           subtitle: `ELO ${bot2Elo}`,
           icon: "bot",
           clockSeconds: blackTimeSeconds,
@@ -3291,9 +3431,9 @@ export default function PlayComputerPage() {
     const winnerDetails = getReplayWinnerDetails(endedGame, timeoutStatus);
     const opponentLabel =
       playerColor === "bot-vs-bot"
-        ? `Bot 1 (ELO ${bot1Elo}) vs Bot 2 (ELO ${bot2Elo})`
+        ? `${bot1ModelLabel} (ELO ${bot1Elo}) vs ${bot2ModelLabel} (ELO ${bot2Elo})`
         : customBotSoloActive
-          ? `Bot 1 (ELO ${bot1Elo})`
+          ? `${bot1ModelLabel} (ELO ${bot1Elo})`
           : `${botModelLabel}${botStrengthSubtitle ? ` • ${botStrengthSubtitle}` : ""}`;
 
     let outcome: ReplayOutcome = "draw";
@@ -3315,16 +3455,16 @@ export default function PlayComputerPage() {
 
     const resultTag = winnerDetails.winner === "w" ? "1-0" : winnerDetails.winner === "b" ? "0-1" : "1/2-1/2";
     const playerLabel = viewerName.trim() || "Guest User";
-    const botLabel = customBotSoloActive ? "Bot 1" : botModelLabel;
+    const botLabel = customBotSoloActive ? bot1ModelLabel : botModelLabel;
     const whiteLabel =
       playerColor === "bot-vs-bot"
-        ? bot1Side === "w" ? "Bot 1" : "Bot 2"
+        ? bot1Side === "w" ? bot1ModelLabel : bot2ModelLabel
         : playerColor === "w"
           ? playerLabel
           : botLabel;
     const blackLabel =
       playerColor === "bot-vs-bot"
-        ? bot1Side === "b" ? "Bot 1" : "Bot 2"
+        ? bot1Side === "b" ? bot1ModelLabel : bot2ModelLabel
         : playerColor === "b"
           ? playerLabel
           : botLabel;
@@ -3360,6 +3500,8 @@ export default function PlayComputerPage() {
     playerColor,
     botModelLabel,
     botStrengthSubtitle,
+    bot1ModelLabel,
+    bot2ModelLabel,
     bot1Elo,
     bot2Elo,
     bot1Side,
@@ -3517,6 +3659,55 @@ export default function PlayComputerPage() {
   const reviewCelebrationCoords = reviewCelebrationMove
     ? getSquareVisualCenter(reviewCelebrationMove.to, isBoardFlipped)
     : null;
+  const renderCustomBotPresetButtons = (botSlot: 1 | 2, selectedPreset: CustomBotPresetId) => (
+    <div className="grid grid-cols-3 gap-2">
+      {CUSTOM_BOT_PRESETS.map((preset) => {
+        const selected = selectedPreset === preset.id;
+        const disabled = preset.id === "stockfish-full" && !fullEngineAvailable;
+        const statusText =
+          disabled
+            ? "Unavailable"
+            : preset.id === "hikaru" && selected
+              ? hikaruStyleModelStatus === "ready"
+                ? "Ready"
+                : hikaruStyleModelStatus === "loading"
+                  ? "Loading"
+                  : hikaruStyleModelStatus === "error"
+                    ? "Error"
+                    : preset.detail
+              : preset.detail;
+
+        return (
+          <button
+            key={`${botSlot}-${preset.id}`}
+            type="button"
+            disabled={disabled}
+            aria-pressed={selected}
+            onClick={() => applyCustomBotPreset(botSlot, preset.id)}
+            className={`min-w-0 rounded-lg border p-2 text-left transition-all ${selected
+              ? "border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--bg)] shadow-md"
+              : "border-[var(--border-subtle)] bg-[var(--surface)] text-[var(--text-primary)] hover:border-[var(--border-hover)] hover:bg-[var(--surface-hover)]"
+              } ${disabled ? "opacity-45 cursor-not-allowed hover:bg-[var(--surface)]" : "cursor-pointer hover:-translate-y-0.5"}`}
+          >
+            <span className="block aspect-square overflow-hidden rounded-md bg-black/10">
+              <img
+                src={preset.imageSrc}
+                alt=""
+                className="h-full w-full object-cover"
+                draggable={false}
+              />
+            </span>
+            <span className="mt-2 block truncate text-[12px] font-bold leading-tight">
+              {preset.label}
+            </span>
+            <span className={`mt-0.5 block truncate text-[10px] leading-tight ${selected ? "opacity-75" : "text-[var(--text-muted)]"}`}>
+              {statusText}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-[var(--bg)]">
@@ -3937,6 +4128,22 @@ export default function PlayComputerPage() {
                           Bot 2
                         </label>
                       </div>
+
+                      <div className="space-y-2">
+                        <div className="text-[12px] text-[var(--text-muted)] font-semibold">
+                          Bot 1 Selection
+                        </div>
+                        {renderCustomBotPresetButtons(1, customBot1Preset)}
+                      </div>
+
+                      {customBot2Enabled && (
+                        <div className="space-y-2">
+                          <div className="text-[12px] text-[var(--text-muted)] font-semibold">
+                            Bot 2 Selection
+                          </div>
+                          {renderCustomBotPresetButtons(2, customBot2Preset)}
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label className="text-[12px] text-[var(--text-muted)] font-semibold">
@@ -4528,7 +4735,7 @@ export default function PlayComputerPage() {
                             )}
                             {isReviewFromSquare && currentReviewedTone && (
                               <div
-                                className="absolute inset-[7%] rounded-[4px] z-[5]"
+                                className="absolute inset-0 z-[5]"
                                 style={{
                                   backgroundColor: currentReviewedTone.fromFill,
                                   boxShadow: `inset 0 0 0 1px ${currentReviewedTone.moveBorder}`,
@@ -4537,7 +4744,7 @@ export default function PlayComputerPage() {
                             )}
                             {isReviewToSquare && currentReviewedTone && (
                               <div
-                                className="absolute inset-[3%] rounded-[4px] z-[5]"
+                                className="absolute inset-0 z-[5]"
                                 style={{
                                   backgroundColor: currentReviewedTone.toFill,
                                   boxShadow: `inset 0 0 0 2px ${currentReviewedTone.moveBorder}, 0 0 20px ${currentReviewedTone.glow}`,
@@ -4607,10 +4814,12 @@ export default function PlayComputerPage() {
                             </div>
                             {isReviewToSquare && currentReviewedTone && (
                               <span
-                                className="absolute right-1 top-1 z-[12] flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-black shadow-[0_10px_22px_rgba(0,0,0,0.28)]"
+                                className="absolute right-1 top-1 z-[12] flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-black shadow-[0_10px_22px_rgba(0,0,0,0.28)] transition-opacity duration-300"
                                 style={{
                                   backgroundColor: currentReviewedTone.badgeColor,
                                   color: currentReviewedTone.badgeTextColor,
+                                  opacity: reviewCelebrationPhase === "hidden" ? 1 : 0,
+                                  fontFamily: "chessglyph-v3, sans-serif"
                                 }}
                               >
                                 {currentReviewedTone.symbol}
@@ -4642,6 +4851,7 @@ export default function PlayComputerPage() {
                                 color: reviewCelebrationTone.badgeTextColor,
                                 opacity: 1,
                                 transform: "translate(-50%, -50%) scale(1.08)",
+                                fontFamily: "chessglyph-v3, sans-serif"
                               }
                             : {
                                 left: `${reviewCelebrationCoords.x}%`,
@@ -4649,22 +4859,24 @@ export default function PlayComputerPage() {
                                 backgroundColor: reviewCelebrationTone.badgeColor,
                                 color: reviewCelebrationTone.badgeTextColor,
                                 opacity: reviewCelebrationPhase === "hidden" ? 0 : 1,
-                                transform: "translate(8%, -72%) scale(0.7)",
+                                transform: "translate(15%, -115%) scale(0.45)",
+                                fontFamily: "chessglyph-v3, sans-serif"
                               }
                         }
                       >
                         {reviewCelebrationTone.symbol}
                       </div>
                       <div
-                        className="absolute rounded-full bg-white px-4 py-1.5 text-[16px] font-black shadow-[0_18px_36px_rgba(0,0,0,0.2)] transition-all duration-300"
+                        className="absolute rounded-full px-4 py-1.5 text-[16px] border-[2.5px] border-white font-black shadow-[0_18px_36px_rgba(0,0,0,0.2)] transition-all duration-300"
                         style={{
                           left: `${reviewCelebrationCoords.x}%`,
                           top: `${reviewCelebrationCoords.y}%`,
-                          color: reviewCelebrationTone.bubbleTextColor,
+                          backgroundColor: reviewCelebrationTone.badgeColor,
+                          color: "#ffffff",
                           opacity: showReviewCelebrationLabel ? 1 : 0,
                           transform: showReviewCelebrationLabel
-                            ? "translate(10%, -165%) scale(1)"
-                            : "translate(-4%, -138%) scale(0.92)",
+                            ? "translate(-50%, -200%) scale(1)"
+                            : "translate(-50%, -150%) scale(0.92)",
                         }}
                       >
                         {reviewCelebrationTone.label}
@@ -4997,7 +5209,12 @@ export default function PlayComputerPage() {
                           <span className="text-[14px] text-[var(--text-primary)] flex items-center gap-2">Bot Engine <InfoHint text="Selected engine downloads automatically on first use and stays cached locally. Full is stronger but much heavier. Lite is faster and lighter." /></span>
                           <select
                             value={botEngineVariant}
-                            onChange={(event) => setBotEngineVariant(event.target.value as EngineVariant)}
+                            onChange={(event) => {
+                              const nextVariant = event.target.value as EngineVariant;
+                              setBotEngineVariant(nextVariant);
+                              setBotMovePersonality("stockfish");
+                              setCustomBot1Preset(nextVariant === "stockfish-18" ? "stockfish-full" : "stockfish-lite");
+                            }}
                             className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] min-w-[200px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
                           >
                             <option value="stockfish-18" disabled={!fullEngineAvailable}>Stockfish 18.1 NNUE (Full{fullEngineAvailable ? ", 108MB" : " unavailable on this deploy"})</option>

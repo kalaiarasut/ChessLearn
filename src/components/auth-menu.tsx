@@ -18,6 +18,7 @@ export function AuthMenu() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 

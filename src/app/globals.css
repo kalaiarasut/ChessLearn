@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'chessglyph-v3';
+  src: url('/fonts/chessglyph.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
 @theme {
   --color-background: #161616;
   --color-foreground: #e0e0e0;

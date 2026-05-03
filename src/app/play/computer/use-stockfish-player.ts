@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { chooseHikaruStyleMove, type EngineMoveCandidate, type HikaruStyleModel } from "./hikaru-style-prior";
 
 type EngineState = {
   ready: boolean;
   isThinking: boolean;
   bestMove: string | null;
+  candidates: EngineMoveCandidate[];
 };
 
 export type PlayerEngineVariant = "stockfish-18" | "stockfish-18-lite";
@@ -26,6 +28,8 @@ type PlayerEngineOptions = {
   engineVariant: PlayerEngineVariant;
   timeMode: PlayerTimeMode;
   fixedMoveTimeMs: number;
+  styleModel?: HikaruStyleModel | null;
+  styleTimeClass?: string;
 };
 
 const MIN_CLOCK_MOVE_TIME_MS = 250;
@@ -61,14 +65,21 @@ export function useStockfishPlayer(
     ready: false,
     isThinking: false,
     bestMove: null,
+    candidates: [],
   });
   
   const workerRef = useRef<Worker | null>(null);
   const optionsRef = useRef(options);
+  const fenRef = useRef(fen);
+  const candidatesRef = useRef<Map<number, EngineMoveCandidate>>(new Map());
 
   useEffect(() => {
     optionsRef.current = options;
   }, [options]);
+
+  useEffect(() => {
+    fenRef.current = fen;
+  }, [fen]);
 
   const workerScript = useMemo(
     () => {
@@ -88,6 +99,7 @@ export function useStockfishPlayer(
           ready: false,
           isThinking: false,
           bestMove: null,
+          candidates: [],
         });
       });
       return;
@@ -98,6 +110,7 @@ export function useStockfishPlayer(
         ready: false,
         isThinking: false,
         bestMove: null,
+        candidates: [],
       });
     });
 
@@ -119,9 +132,50 @@ export function useStockfishPlayer(
 
       if (message.startsWith("bestmove")) {
         const parts = message.split(" ");
-        const bestMove = parts[1]; // e.g. "e2e4"
-        setState((current) => ({ ...current, isThinking: false, bestMove }));
+        const engineBestMove = parts[1]; // e.g. "e2e4"
+        const candidates = Array.from(candidatesRef.current.values())
+          .sort((a, b) => a.multipv - b.multipv);
+        const styledMove = chooseHikaruStyleMove(
+          fenRef.current,
+          candidates,
+          optionsRef.current.styleModel ?? null,
+          optionsRef.current.styleTimeClass ?? "blitz",
+        );
+        const bestMove = styledMove ?? engineBestMove;
+        setState((current) => ({ ...current, isThinking: false, bestMove, candidates }));
         return;
+      }
+
+      if (message.startsWith("info ") && message.includes(" pv ")) {
+        const parts = message.split(/\s+/);
+        const multipvIndex = parts.indexOf("multipv");
+        const pvIndex = parts.indexOf("pv");
+        const scoreIndex = parts.indexOf("score");
+        const multipv = multipvIndex >= 0 ? Number.parseInt(parts[multipvIndex + 1] ?? "1", 10) : 1;
+        const move = parts[pvIndex + 1];
+
+        if (!move || !/^[a-h][1-8][a-h][1-8][nbrq]?$/.test(move)) {
+          return;
+        }
+
+        const candidate: EngineMoveCandidate = {
+          move,
+          multipv: Number.isFinite(multipv) ? multipv : 1,
+        };
+
+        if (scoreIndex >= 0) {
+          const scoreType = parts[scoreIndex + 1];
+          const scoreValue = Number.parseInt(parts[scoreIndex + 2] ?? "", 10);
+          if (Number.isFinite(scoreValue)) {
+            if (scoreType === "cp") {
+              candidate.scoreCp = scoreValue;
+            } else if (scoreType === "mate") {
+              candidate.mate = scoreValue;
+            }
+          }
+        }
+
+        candidatesRef.current.set(candidate.multipv, candidate);
       }
     };
 
@@ -152,6 +206,7 @@ export function useStockfishPlayer(
     // Slight delay to make it feel natural
     const timeoutId = window.setTimeout(() => {
       setState((current) => ({ ...current, isThinking: true, bestMove: null }));
+      candidatesRef.current.clear();
 
       const {
         elo,
@@ -174,6 +229,7 @@ export function useStockfishPlayer(
 
       const boundedSkill = Math.max(0, Math.min(20, Math.round(skillLevel)));
       worker.postMessage(`setoption name Skill Level value ${boundedSkill}`);
+      worker.postMessage(`setoption name MultiPV value ${optionsRef.current.styleModel ? 5 : 1}`);
       
       worker.postMessage(`position fen ${fen}`);
 
