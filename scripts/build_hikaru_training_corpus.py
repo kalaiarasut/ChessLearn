@@ -375,6 +375,12 @@ def main(argv: Iterable[str]) -> int:
                         break
 
                     total_seen[spec.label] += 1
+                    if total_seen[spec.label] % 1000 == 0:
+                        print(
+                            f"{spec.label}: seen={total_seen[spec.label]} "
+                            f"accepted={by_source[spec.label]}",
+                            flush=True,
+                        )
                     headers = game.headers
                     has_hikaru, hikaru_color = is_hikaru(headers)
                     if not has_hikaru:
@@ -447,6 +453,10 @@ def main(argv: Iterable[str]) -> int:
                     target_positions_by_phase["opening"] += phase_counts["opening"]
                     target_positions_by_phase["middlegame"] += phase_counts["middlegame"]
                     target_positions_by_phase["endgame"] += phase_counts["endgame"]
+                    if accepted_count % 500 == 0:
+                        combined_output.flush()
+                        train_output.flush()
+                        test_output.flush()
 
             print(
                 f"Finished {spec.label}: seen={total_seen[spec.label]} "
