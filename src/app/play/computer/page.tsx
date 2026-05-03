@@ -10,6 +10,7 @@ import { useTheme } from "@/lib/theme-context";
 import { STOCKFISH_ELO_LIMITS, useStockfishPlayer, type PlayerEngineVariant, type PlayerStrengthMode, type PlayerTimeMode } from "./use-stockfish-player";
 import { useStockfishAnalysis } from "../../learn/[opening]/use-stockfish-analysis";
 import { useStockfishEngineDownload } from "./use-stockfish-engine-download";
+import { useGameReview, type MoveReviewCategory, type ReviewedMove } from "./use-game-review";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreferences } from "@/lib/client-preferences";
 import { SettingsModalLayout, BoardPiecesSettingsTab } from "@/components/settings-layout";
@@ -629,6 +630,153 @@ const buildReplayPgn = (entry: ReplayArchiveEntry) => {
 const toSquare = (rowIndex: number, columnIndex: number) =>
   `${FILES[columnIndex]}${8 - rowIndex}` as Square;
 
+const getSquareVisualCenter = (square: Square, isBoardFlipped: boolean) => {
+  const col = FILES.indexOf(square[0] as typeof FILES[number]);
+  const row = 8 - Number(square[1]);
+  const visualColumn = isBoardFlipped ? 7 - col : col;
+  const visualRow = isBoardFlipped ? 7 - row : row;
+
+  return {
+    x: (visualColumn + 0.5) * 12.5,
+    y: (visualRow + 0.5) * 12.5,
+  };
+};
+
+const MOVE_REVIEW_TONES: Record<
+  MoveReviewCategory,
+  {
+    label: string;
+    symbol: string;
+    badgeColor: string;
+    badgeTextColor: string;
+    bubbleTextColor: string;
+    fromFill: string;
+    toFill: string;
+    moveBg: string;
+    moveBorder: string;
+    moveText: string;
+    glow: string;
+  }
+> = {
+  book: {
+    label: "Book",
+    symbol: "Bk",
+    badgeColor: "#6bbf59",
+    badgeTextColor: "#ffffff",
+    bubbleTextColor: "#5ba84d",
+    fromFill: "rgba(107, 191, 89, 0.22)",
+    toFill: "rgba(107, 191, 89, 0.38)",
+    moveBg: "rgba(107, 191, 89, 0.12)",
+    moveBorder: "rgba(107, 191, 89, 0.34)",
+    moveText: "#c9f0bf",
+    glow: "rgba(107, 191, 89, 0.42)",
+  },
+  brilliant: {
+    label: "Brilliant",
+    symbol: "!!",
+    badgeColor: "#42dcca",
+    badgeTextColor: "#f4fffd",
+    bubbleTextColor: "#2bc7b4",
+    fromFill: "rgba(66, 220, 202, 0.34)",
+    toFill: "rgba(66, 220, 202, 0.56)",
+    moveBg: "rgba(66, 220, 202, 0.16)",
+    moveBorder: "rgba(66, 220, 202, 0.42)",
+    moveText: "#8bf2e7",
+    glow: "rgba(66, 220, 202, 0.6)",
+  },
+  great: {
+    label: "Great Move",
+    symbol: "!",
+    badgeColor: "#7ea7d9",
+    badgeTextColor: "#ffffff",
+    bubbleTextColor: "#6f96ca",
+    fromFill: "rgba(126, 167, 217, 0.28)",
+    toFill: "rgba(126, 167, 217, 0.5)",
+    moveBg: "rgba(126, 167, 217, 0.14)",
+    moveBorder: "rgba(126, 167, 217, 0.4)",
+    moveText: "#b7cff1",
+    glow: "rgba(126, 167, 217, 0.55)",
+  },
+  best: {
+    label: "Best",
+    symbol: "★",
+    badgeColor: "#95cf62",
+    badgeTextColor: "#ffffff",
+    bubbleTextColor: "#75b04d",
+    fromFill: "rgba(149, 207, 98, 0.24)",
+    toFill: "rgba(149, 207, 98, 0.42)",
+    moveBg: "rgba(149, 207, 98, 0.14)",
+    moveBorder: "rgba(149, 207, 98, 0.38)",
+    moveText: "#bde48f",
+    glow: "rgba(149, 207, 98, 0.45)",
+  },
+  excellent: {
+    label: "Excellent",
+    symbol: "✓",
+    badgeColor: "#66cdaa",
+    badgeTextColor: "#ffffff",
+    bubbleTextColor: "#4fb28f",
+    fromFill: "rgba(102, 205, 170, 0.22)",
+    toFill: "rgba(102, 205, 170, 0.36)",
+    moveBg: "rgba(102, 205, 170, 0.12)",
+    moveBorder: "rgba(102, 205, 170, 0.34)",
+    moveText: "#b8f0db",
+    glow: "rgba(102, 205, 170, 0.35)",
+  },
+  good: {
+    label: "Good",
+    symbol: "•",
+    badgeColor: "#4d88ff",
+    badgeTextColor: "#ffffff",
+    bubbleTextColor: "#7ba9ff",
+    fromFill: "rgba(77, 136, 255, 0.2)",
+    toFill: "rgba(77, 136, 255, 0.32)",
+    moveBg: "rgba(77, 136, 255, 0.1)",
+    moveBorder: "rgba(77, 136, 255, 0.28)",
+    moveText: "#a7c3ff",
+    glow: "rgba(77, 136, 255, 0.3)",
+  },
+  inaccuracy: {
+    label: "Inaccuracy",
+    symbol: "?",
+    badgeColor: "#f0ad5e",
+    badgeTextColor: "#ffffff",
+    bubbleTextColor: "#e59f4a",
+    fromFill: "rgba(240, 173, 94, 0.26)",
+    toFill: "rgba(240, 173, 94, 0.42)",
+    moveBg: "rgba(240, 173, 94, 0.14)",
+    moveBorder: "rgba(240, 173, 94, 0.36)",
+    moveText: "#ffd09b",
+    glow: "rgba(240, 173, 94, 0.45)",
+  },
+  mistake: {
+    label: "Mistake",
+    symbol: "?!",
+    badgeColor: "#ff8a65",
+    badgeTextColor: "#ffffff",
+    bubbleTextColor: "#ff9d7d",
+    fromFill: "rgba(255, 138, 101, 0.26)",
+    toFill: "rgba(255, 138, 101, 0.42)",
+    moveBg: "rgba(255, 138, 101, 0.14)",
+    moveBorder: "rgba(255, 138, 101, 0.38)",
+    moveText: "#ffc2b1",
+    glow: "rgba(255, 138, 101, 0.45)",
+  },
+  blunder: {
+    label: "Blunder",
+    symbol: "??",
+    badgeColor: "#ef5350",
+    badgeTextColor: "#ffffff",
+    bubbleTextColor: "#ff9f9d",
+    fromFill: "rgba(239, 83, 80, 0.24)",
+    toFill: "rgba(239, 83, 80, 0.46)",
+    moveBg: "rgba(239, 83, 80, 0.14)",
+    moveBorder: "rgba(239, 83, 80, 0.4)",
+    moveText: "#ffb9b7",
+    glow: "rgba(239, 83, 80, 0.48)",
+  },
+};
+
 const getPieceCode = (
   piece: {
     color: "w" | "b";
@@ -1177,6 +1325,12 @@ export default function PlayComputerPage() {
   const [showGameOverOverlay, setShowGameOverOverlay] = useState(false);
   const [showGameOverOverview, setShowGameOverOverview] = useState(false);
   const [showGameOverActions, setShowGameOverActions] = useState(false);
+  const [isGameReviewActive, setIsGameReviewActive] = useState(false);
+  const [hasAutoStartedGameReview, setHasAutoStartedGameReview] = useState(false);
+  const [reviewPreviewPlyIndex, setReviewPreviewPlyIndex] = useState<number | null>(null);
+  const [reviewCelebrationPly, setReviewCelebrationPly] = useState<number | null>(null);
+  const [reviewCelebrationPhase, setReviewCelebrationPhase] = useState<"hidden" | "center" | "corner">("hidden");
+  const [showReviewCelebrationLabel, setShowReviewCelebrationLabel] = useState(false);
   const [rightClickHighlights, setRightClickHighlights] = useState<Set<Square>>(new Set());
   const [rightClickArrows, setRightClickArrows] = useState<{ start: Square; end: Square }[]>([]);
   const [rightClickStartSquare, setRightClickStartSquare] = useState<Square | null>(null);
@@ -1383,27 +1537,95 @@ export default function PlayComputerPage() {
 
     const overviewTimer = window.setTimeout(() => {
       setShowGameOverOverview(true);
-    }, 180);
+    }, 260);
     const actionsTimer = window.setTimeout(() => {
       setShowGameOverActions(true);
-    }, 760);
+    }, 980);
     const dismissTimer = window.setTimeout(() => {
       setShowGameOverOverlay(false);
-    }, 2800);
+    }, 4600);
 
-    let confettiTimer: number | null = null;
+    let confettiTimerA: number | null = null;
+    let confettiTimerB: number | null = null;
+    let confettiTimerC: number | null = null;
+    let confettiTimerD: number | null = null;
+    let confettiTimerE: number | null = null;
     if (shouldCelebrateWin) {
-      confettiTimer = window.setTimeout(() => {
-        confettiRef.current?.fire({});
-      }, 240);
+      confettiTimerA = window.setTimeout(() => {
+        confettiRef.current?.fire({
+          particleCount: 95,
+          spread: 52,
+          startVelocity: 17,
+          scalar: 1.75,
+          gravity: 0.42,
+          ticks: 460,
+          origin: { x: 0.1, y: -0.08 },
+        });
+      }, 260);
+      confettiTimerB = window.setTimeout(() => {
+        confettiRef.current?.fire({
+          particleCount: 95,
+          spread: 52,
+          startVelocity: 17,
+          scalar: 1.75,
+          gravity: 0.42,
+          ticks: 460,
+          origin: { x: 0.9, y: -0.08 },
+        });
+      }, 420);
+      confettiTimerC = window.setTimeout(() => {
+        confettiRef.current?.fire({
+          particleCount: 100,
+          spread: 58,
+          startVelocity: 18,
+          scalar: 1.85,
+          gravity: 0.4,
+          ticks: 480,
+          origin: { x: 0.5, y: -0.1 },
+        });
+      }, 560);
+      confettiTimerD = window.setTimeout(() => {
+        confettiRef.current?.fire({
+          particleCount: 78,
+          spread: 48,
+          startVelocity: 16,
+          scalar: 1.7,
+          gravity: 0.42,
+          ticks: 440,
+          origin: { x: 0.3, y: -0.08 },
+        });
+      }, 760);
+      confettiTimerE = window.setTimeout(() => {
+        confettiRef.current?.fire({
+          particleCount: 78,
+          spread: 48,
+          startVelocity: 16,
+          scalar: 1.7,
+          gravity: 0.42,
+          ticks: 440,
+          origin: { x: 0.7, y: -0.08 },
+        });
+      }, 920);
     }
 
     return () => {
       window.clearTimeout(overviewTimer);
       window.clearTimeout(actionsTimer);
       window.clearTimeout(dismissTimer);
-      if (confettiTimer !== null) {
-        window.clearTimeout(confettiTimer);
+      if (confettiTimerA !== null) {
+        window.clearTimeout(confettiTimerA);
+      }
+      if (confettiTimerB !== null) {
+        window.clearTimeout(confettiTimerB);
+      }
+      if (confettiTimerC !== null) {
+        window.clearTimeout(confettiTimerC);
+      }
+      if (confettiTimerD !== null) {
+        window.clearTimeout(confettiTimerD);
+      }
+      if (confettiTimerE !== null) {
+        window.clearTimeout(confettiTimerE);
       }
     };
   }, [gameState, shouldCelebrateWin]);
@@ -1462,6 +1684,57 @@ export default function PlayComputerPage() {
     analysisRequestMaxTimeSeconds,
   );
   const analysisModelLabel = analysisEngineVariant === "stockfish-18" ? "Stockfish-18" : "Stockfish-18-Lite";
+  const reviewTimePerPositionMs = analysisDepth <= 13 ? 220 : analysisDepth <= 17 ? 360 : 600;
+  const gameReview = useGameReview(
+    history,
+    sanHistory,
+    isGameReviewActive && isAnalysisEngineReady,
+    analysisEngineVariant,
+    analysisThreads,
+    reviewTimePerPositionMs,
+  );
+  const reviewedMoves = useMemo(() => {
+    const nextReviews: Record<number, ReviewedMove> = {};
+    const sideBookIndexes: Record<SideColor, number> = { w: 0, b: 0 };
+
+    for (let plyIndex = 1; plyIndex < history.length; plyIndex += 1) {
+      const review = gameReview.reviews[plyIndex];
+      if (!review) {
+        continue;
+      }
+
+      const sideBookIndex = sideBookIndexes[review.mover];
+      sideBookIndexes[review.mover] += 1;
+
+      const sideBookMoves = isBotMatchMode
+        ? review.mover === bot1Side
+          ? bot1OpeningBookMoves
+          : review.mover === bot2Side
+            ? bot2OpeningBookMoves
+            : []
+        : review.mover === bot1Side
+          ? bot1OpeningBookMoves
+          : [];
+      const expectedBookMove = sideBookMoves[sideBookIndex];
+
+      nextReviews[plyIndex] =
+        expectedBookMove && review.uci === expectedBookMove
+          ? { ...review, category: "book" }
+          : review;
+    }
+
+    return nextReviews;
+  }, [
+    bot1OpeningBookMoves,
+    bot1Side,
+    bot2OpeningBookMoves,
+    bot2Side,
+    gameReview.reviews,
+    history.length,
+    isBotMatchMode,
+  ]);
+  const currentReviewedMove = isGameReviewActive ? reviewedMoves[currentMoveIndex] ?? null : null;
+  const currentReviewedTone = currentReviewedMove ? MOVE_REVIEW_TONES[currentReviewedMove.category] : null;
   const engineStatusBadge = useMemo(() => {
     const prioritizedStatuses = [
       {
@@ -2165,6 +2438,11 @@ export default function PlayComputerPage() {
     setShowGameOverOverlay(false);
     setShowGameOverOverview(false);
     setShowGameOverActions(false);
+    setIsGameReviewActive(false);
+    setHasAutoStartedGameReview(false);
+    setReviewCelebrationPly(null);
+    setReviewCelebrationPhase("hidden");
+    setShowReviewCelebrationLabel(false);
     setActiveGameId(createReplaySessionId());
     setPlayerColor(finalColor);
     setFen(initialFen);
@@ -2239,6 +2517,11 @@ export default function PlayComputerPage() {
     setShowGameOverOverlay(false);
     setShowGameOverOverview(false);
     setShowGameOverActions(false);
+    setIsGameReviewActive(false);
+    setHasAutoStartedGameReview(false);
+    setReviewCelebrationPly(null);
+    setReviewCelebrationPhase("hidden");
+    setShowReviewCelebrationLabel(false);
     setGameState("setup");
     setIsPlayingHistory(false);
     setTimeoutStatus(null);
@@ -2682,8 +2965,25 @@ export default function PlayComputerPage() {
       return new Chess(DEFAULT_FEN);
     }
   }, [setupPreviewFen]);
+  const reviewPreviewFen =
+    reviewPreviewPlyIndex === null
+      ? null
+      : history[Math.max(0, Math.min(reviewPreviewPlyIndex, history.length - 1))] ?? null;
+  const reviewPreviewGame = useMemo(() => {
+    if (!reviewPreviewFen) {
+      return null;
+    }
+
+    try {
+      return new Chess(reviewPreviewFen);
+    } catch {
+      return null;
+    }
+  }, [reviewPreviewFen]);
+  const isReviewAnalysisPreviewing = isGameReviewActive && gameReview.status === "analyzing" && reviewPreviewGame !== null;
   const isCustomBoardEditing = gameState === "setup" && botMatchConfigOpen && startingLayoutId === "custom" && isCustomFenEditorOpen;
-  const displayGame = gameState === "setup" ? setupPreviewGame : game;
+  const displayGame = gameState === "setup" ? setupPreviewGame : reviewPreviewGame ?? game;
+  const displayLastMove = isReviewAnalysisPreviewing ? null : lastMove;
   const boardState = isCustomBoardEditing
     ? boardPiecesToState(customBoardPieces)
     : displayGame.board().map((row) => row.map((piece) => getPieceCode(piece)));
@@ -2727,10 +3027,10 @@ export default function PlayComputerPage() {
 
     const timer = window.setTimeout(() => {
       setPositionFromHistory(currentMoveIndex + 1);
-    }, 850);
+    }, isGameReviewActive ? 1325 : 850);
 
     return () => window.clearTimeout(timer);
-  }, [isPlayingHistory, currentMoveIndex, history.length]);
+  }, [isPlayingHistory, currentMoveIndex, history.length, isGameReviewActive]);
 
   useEffect(() => {
     if (gameState !== "playing" || isReviewing || gameRef.current.isGameOver()) {
@@ -2787,6 +3087,61 @@ export default function PlayComputerPage() {
     }
     setIsPlayingHistory((previous) => !previous);
   };
+
+  useEffect(() => {
+    if (!isGameReviewActive || gameReview.status !== "analyzing") {
+      setReviewPreviewPlyIndex(null);
+      return;
+    }
+
+    const reviewIndex = Math.max(0, Math.min(gameReview.currentPly, history.length - 1));
+    setIsPlayingHistory(false);
+    setReviewPreviewPlyIndex(reviewIndex);
+  }, [gameReview.currentPly, gameReview.status, history.length, isGameReviewActive]);
+
+  useEffect(() => {
+    if (!isGameReviewActive || gameReview.status !== "ready" || hasAutoStartedGameReview) {
+      return;
+    }
+
+    setReviewPreviewPlyIndex(null);
+    setPositionFromHistory(0);
+    setHasAutoStartedGameReview(true);
+    setIsPlayingHistory(true);
+  }, [gameReview.status, hasAutoStartedGameReview, isGameReviewActive]);
+
+  useEffect(() => {
+    if (
+      !isGameReviewActive ||
+      !currentReviewedMove ||
+      (currentReviewedMove.category !== "great" && currentReviewedMove.category !== "brilliant")
+    ) {
+      setReviewCelebrationPly(null);
+      setReviewCelebrationPhase("hidden");
+      setShowReviewCelebrationLabel(false);
+      return;
+    }
+
+    setReviewCelebrationPly(currentReviewedMove.plyIndex);
+    setReviewCelebrationPhase("center");
+    setShowReviewCelebrationLabel(false);
+
+    const badgeTimer = window.setTimeout(() => {
+      setReviewCelebrationPhase("corner");
+    }, 190);
+    const labelTimer = window.setTimeout(() => {
+      setShowReviewCelebrationLabel(true);
+    }, 250);
+    const hideLabelTimer = window.setTimeout(() => {
+      setShowReviewCelebrationLabel(false);
+    }, 1450);
+
+    return () => {
+      window.clearTimeout(badgeTimer);
+      window.clearTimeout(labelTimer);
+      window.clearTimeout(hideLabelTimer);
+    };
+  }, [currentMoveIndex, currentReviewedMove, isGameReviewActive]);
 
   const topSuggestedMove = analysis.lines[0]?.pv[0] ?? null;
   const pieceThemePath = PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`;
@@ -2903,6 +3258,19 @@ export default function PlayComputerPage() {
     }
 
     restartCurrentGame();
+  };
+  const handleStartGameReview = () => {
+    if (history.length <= 1) {
+      return;
+    }
+
+    setIsGameReviewActive(true);
+    setHasAutoStartedGameReview(false);
+    setReviewCelebrationPly(null);
+    setReviewCelebrationPhase("hidden");
+    setShowReviewCelebrationLabel(false);
+    setIsPlayingHistory(false);
+    setReviewPreviewPlyIndex(null);
   };
 
   useEffect(() => {
@@ -3033,6 +3401,11 @@ export default function PlayComputerPage() {
     setPlayerColor(entry.playerSide);
     setGameState("game_over");
     setIsPlayingHistory(autoPlayFromStart && entry.fenHistory.length > 1);
+    setIsGameReviewActive(false);
+    setHasAutoStartedGameReview(false);
+    setReviewCelebrationPly(null);
+    setReviewCelebrationPhase("hidden");
+    setShowReviewCelebrationLabel(false);
     setSelectedSquare(null);
     setDraggedSquare(null);
     setDragOverSquare(null);
@@ -3125,6 +3498,8 @@ export default function PlayComputerPage() {
     moveNumber: number;
     whiteMove: string;
     blackMove: string;
+    whitePlyIndex: number;
+    blackPlyIndex: number;
   }> = [];
 
   for (let index = 0; index < visibleSanMoves.length; index += 2) {
@@ -3132,8 +3507,16 @@ export default function PlayComputerPage() {
       moveNumber: Math.floor(index / 2) + 1,
       whiteMove: visibleSanMoves[index] ?? "",
       blackMove: visibleSanMoves[index + 1] ?? "",
+      whitePlyIndex: index + 1,
+      blackPlyIndex: index + 2,
     });
   }
+
+  const reviewCelebrationMove = reviewCelebrationPly ? reviewedMoves[reviewCelebrationPly] ?? null : null;
+  const reviewCelebrationTone = reviewCelebrationMove ? MOVE_REVIEW_TONES[reviewCelebrationMove.category] : null;
+  const reviewCelebrationCoords = reviewCelebrationMove
+    ? getSquareVisualCenter(reviewCelebrationMove.to, isBoardFlipped)
+    : null;
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-[var(--bg)]">
@@ -3797,19 +4180,45 @@ export default function PlayComputerPage() {
                       {playedMoveRows.length === 0 ? (
                         <div className="px-3 py-3 text-[13px] text-[var(--text-muted)]">No moves yet.</div>
                       ) : (
-                        playedMoveRows.map((row, rowIndex) => {
-                          const whitePlyIndex = rowIndex * 2 + 1;
-                          const blackPlyIndex = rowIndex * 2 + 2;
+                        playedMoveRows.map((row) => {
+                          const whitePlyIndex = row.whitePlyIndex;
+                          const blackPlyIndex = row.blackPlyIndex;
                           const isCurrentWhite = currentMoveIndex === whitePlyIndex;
                           const isCurrentBlack = currentMoveIndex === blackPlyIndex;
+                          const whiteReview = reviewedMoves[whitePlyIndex];
+                          const blackReview = reviewedMoves[blackPlyIndex];
+                          const whiteTone = whiteReview ? MOVE_REVIEW_TONES[whiteReview.category] : null;
+                          const blackTone = blackReview ? MOVE_REVIEW_TONES[blackReview.category] : null;
 
                           return (
                             <div key={row.moveNumber} className="grid grid-cols-[36px_1fr_1fr] items-center px-3 py-1.5 border-b border-[#252527] text-[14px]">
                               <span className="text-[#a5a5a8]">{row.moveNumber}.</span>
-                              <span className={`truncate ${isCurrentWhite ? "text-white font-semibold" : "text-[#d4d4d6]"}`}>
+                              <span
+                                className={`truncate rounded-md border border-transparent px-2 py-1 transition-colors ${isCurrentWhite ? "font-semibold text-white" : "text-[#d4d4d6]"}`}
+                                style={
+                                  whiteTone
+                                    ? {
+                                        color: whiteTone.moveText,
+                                        backgroundColor: whiteTone.moveBg,
+                                        borderColor: whiteTone.moveBorder,
+                                      }
+                                    : undefined
+                                }
+                              >
                                 {row.whiteMove || ""}
                               </span>
-                              <span className={`truncate ${isCurrentBlack ? "text-white font-semibold" : "text-[#d4d4d6]"}`}>
+                              <span
+                                className={`truncate rounded-md border border-transparent px-2 py-1 transition-colors ${isCurrentBlack ? "font-semibold text-white" : "text-[#d4d4d6]"}`}
+                                style={
+                                  blackTone
+                                    ? {
+                                        color: blackTone.moveText,
+                                        backgroundColor: blackTone.moveBg,
+                                        borderColor: blackTone.moveBorder,
+                                      }
+                                    : undefined
+                                }
+                              >
                                 {row.blackMove || ""}
                               </span>
                             </div>
@@ -3839,20 +4248,31 @@ export default function PlayComputerPage() {
                     </button>
                   </div>
 
-                  <div className="text-[13px] text-[var(--text-muted)] mb-2">
-                    {timeoutStatus ?? getPositionStatus(gameRef.current)}
-                  </div>
                   {showMoveFeedback && (
                     <div className="text-[12px] text-[var(--text-secondary)] mb-2">
                       {topSuggestedMove ? `Suggested move: ${topSuggestedMove}` : "No suggestion yet."}
                     </div>
                   )}
-                  <button
-                    onClick={handleResetAction}
-                    className="w-full flex items-center justify-center px-4 py-2.5 bg-[var(--cta-bg)] text-[var(--cta-text)] rounded-md font-semibold text-[13px] hover:bg-[var(--cta-hover)] transition-colors"
-                  >
-                    {isReplayView ? "Reset Replay" : "Reset Game"}
-                  </button>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={handleResetAction}
+                      className="w-full flex items-center justify-center px-4 py-2.5 bg-[var(--cta-bg)] text-[var(--cta-text)] rounded-md font-semibold text-[13px] hover:bg-[var(--cta-hover)] transition-colors"
+                    >
+                      {isReplayView ? "Reset Replay" : "Reset Game"}
+                    </button>
+                    {gameState === "game_over" && history.length > 1 && (
+                      <button
+                        onClick={handleStartGameReview}
+                        className="w-full flex items-center justify-center px-4 py-2.5 rounded-md border border-[var(--border-hover)] bg-[var(--surface-alt)] text-[var(--text-primary)] font-semibold text-[13px] hover:bg-[var(--surface-hover)] transition-colors"
+                      >
+                        {isGameReviewActive
+                          ? gameReview.status === "ready"
+                            ? "Replay Analysis"
+                            : `Analysing... ${gameReview.progressPercent}%`
+                          : "Analyse Game"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -3952,7 +4372,7 @@ export default function PlayComputerPage() {
                 className={`flex-1 aspect-square relative shadow-2xl ${!engineReady && gameState === "setup" ? "opacity-90 grayscale-[0.3]" : ""}`}
               >
                 <BoardImage src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`} className="w-full h-full overflow-hidden rounded-sm">
-                  <Confetti ref={confettiRef} className="pointer-events-none absolute inset-0 z-[95] h-full w-full" />
+                  <Confetti ref={confettiRef} className="pointer-events-none absolute inset-0 z-[170] h-full w-full" />
                   {suggestionStart && suggestionEnd && (
                     <svg className="absolute inset-0 w-full h-full pointer-events-none z-[15]" viewBox="0 0 100 100" preserveAspectRatio="none">
                       <defs>
@@ -4045,9 +4465,11 @@ export default function PlayComputerPage() {
                         const isLightSquare = (logicalRow + logicalCol) % 2 === 0;
                         const isSelectedSquare = (isCustomBoardEditing ? customEditorPickedSquare : selectedSquare) === square;
                         const isLegalTarget = botPreferences.showLegalMoves && legalTargets.includes(square);
-                        const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square;
+                        const isLastMoveSquare = displayLastMove?.from === square || displayLastMove?.to === square;
                         const isDraggedSquare = draggedSquare === square;
                         const isKingInCheck = !isCustomBoardEditing && displayGame.isCheck() && squarePiece?.type === 'k' && squarePiece?.color === displayGame.turn();
+                        const isReviewFromSquare = currentReviewedMove?.from === square;
+                        const isReviewToSquare = currentReviewedMove?.to === square;
                         const queuedPremoveFromIndex = queuedPremoves.findIndex((move) => move.from === square);
                         const queuedPremoveToIndex = queuedPremoves.findIndex((move) => move.to === square);
                         const isQueuedPremoveFrom = queuedPremoveFromIndex >= 0;
@@ -4104,7 +4526,25 @@ export default function PlayComputerPage() {
                             {rightClickHighlights.has(square) && (
                               <div className="absolute inset-0 bg-red-500/50 z-[4]" />
                             )}
-                            {isLastMoveSquare && (
+                            {isReviewFromSquare && currentReviewedTone && (
+                              <div
+                                className="absolute inset-[7%] rounded-[4px] z-[5]"
+                                style={{
+                                  backgroundColor: currentReviewedTone.fromFill,
+                                  boxShadow: `inset 0 0 0 1px ${currentReviewedTone.moveBorder}`,
+                                }}
+                              />
+                            )}
+                            {isReviewToSquare && currentReviewedTone && (
+                              <div
+                                className="absolute inset-[3%] rounded-[4px] z-[5]"
+                                style={{
+                                  backgroundColor: currentReviewedTone.toFill,
+                                  boxShadow: `inset 0 0 0 2px ${currentReviewedTone.moveBorder}, 0 0 20px ${currentReviewedTone.glow}`,
+                                }}
+                              />
+                            )}
+                            {isLastMoveSquare && !currentReviewedMove && (
                               <div className="absolute inset-[4%] rounded-[4px] bg-amber-300/20" />
                             )}
                             {isSelectedSquare && (
@@ -4157,9 +4597,25 @@ export default function PlayComputerPage() {
                               }}
                               onDragEnd={() => setDraggedSquare(null)}
                               className={`relative z-10 h-full w-full p-[2.75%] ${isDraggedSquare ? "opacity-30" : "opacity-100"}`}
+                              style={
+                                isReviewToSquare && currentReviewedTone
+                                  ? { filter: `drop-shadow(0 0 12px ${currentReviewedTone.glow})` }
+                                  : undefined
+                              }
                             >
                               {getPieceIcon(piece, pieceTheme)}
                             </div>
+                            {isReviewToSquare && currentReviewedTone && (
+                              <span
+                                className="absolute right-1 top-1 z-[12] flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-black shadow-[0_10px_22px_rgba(0,0,0,0.28)]"
+                                style={{
+                                  backgroundColor: currentReviewedTone.badgeColor,
+                                  color: currentReviewedTone.badgeTextColor,
+                                }}
+                              >
+                                {currentReviewedTone.symbol}
+                              </span>
+                            )}
                             {isQueuedPremoveFrom && botPreferences.premoveMode === "multiple" && (
                               <span className="absolute right-1 top-1 z-[7] flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[11px] font-black text-white shadow-md">
                                 {queuedPremoveFromIndex + 1}
@@ -4170,6 +4626,51 @@ export default function PlayComputerPage() {
                       })
                     )}
                   </div>
+
+                  {reviewCelebrationMove && reviewCelebrationTone && reviewCelebrationCoords && (
+                    <div className="pointer-events-none absolute inset-0 z-[90]">
+                      <div
+                        className={`absolute flex h-16 w-16 items-center justify-center rounded-full text-[28px] font-black shadow-[0_18px_40px_rgba(0,0,0,0.24)] transition-all duration-500 ${
+                          reviewCelebrationPhase === "center" ? "-translate-x-1/2 -translate-y-1/2" : ""
+                        }`}
+                        style={
+                          reviewCelebrationPhase === "center"
+                            ? {
+                                left: "50%",
+                                top: "50%",
+                                backgroundColor: reviewCelebrationTone.badgeColor,
+                                color: reviewCelebrationTone.badgeTextColor,
+                                opacity: 1,
+                                transform: "translate(-50%, -50%) scale(1.08)",
+                              }
+                            : {
+                                left: `${reviewCelebrationCoords.x}%`,
+                                top: `${reviewCelebrationCoords.y}%`,
+                                backgroundColor: reviewCelebrationTone.badgeColor,
+                                color: reviewCelebrationTone.badgeTextColor,
+                                opacity: reviewCelebrationPhase === "hidden" ? 0 : 1,
+                                transform: "translate(8%, -72%) scale(0.7)",
+                              }
+                        }
+                      >
+                        {reviewCelebrationTone.symbol}
+                      </div>
+                      <div
+                        className="absolute rounded-full bg-white px-4 py-1.5 text-[16px] font-black shadow-[0_18px_36px_rgba(0,0,0,0.2)] transition-all duration-300"
+                        style={{
+                          left: `${reviewCelebrationCoords.x}%`,
+                          top: `${reviewCelebrationCoords.y}%`,
+                          color: reviewCelebrationTone.bubbleTextColor,
+                          opacity: showReviewCelebrationLabel ? 1 : 0,
+                          transform: showReviewCelebrationLabel
+                            ? "translate(10%, -165%) scale(1)"
+                            : "translate(-4%, -138%) scale(0.92)",
+                        }}
+                      >
+                        {reviewCelebrationTone.label}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Game Over Overlay */}
                   {shouldShowBoardOverlay && (
@@ -4200,7 +4701,7 @@ export default function PlayComputerPage() {
                         >
                           <button
                             onClick={() => startGame(playerColor)}
-                            className="pointer-events-auto w-full py-[14px] bg-[var(--cta-bg)] text-white font-bold rounded-xl hover:bg-[var(--cta-hover)] hover:scale-[1.02] shadow-[0_4px_14px_rgba(0,0,0,0.25)] transition-all duration-300 relative overflow-hidden group border border-white/10"
+                            className="pointer-events-auto w-full py-[14px] bg-[var(--cta-bg)] text-[var(--cta-text)] font-bold rounded-xl hover:bg-[var(--cta-hover)] hover:scale-[1.02] shadow-[0_12px_28px_rgba(0,0,0,0.28)] transition-all duration-300 relative overflow-hidden group border border-white/10"
                           >
                             <span className="relative z-10 flex items-center justify-center gap-2">
                               <RotateCcw className="w-[18px] h-[18px]" strokeWidth={2.5} />

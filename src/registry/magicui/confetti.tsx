@@ -40,10 +40,13 @@ export const Confetti = forwardRef<ConfettiRef, ConfettiProps>(function Confetti
     () => ({
       fire: (options) => {
         instanceRef.current?.({
-          particleCount: 180,
-          spread: 120,
-          startVelocity: 42,
-          origin: { y: 0.7 },
+          particleCount: 100,
+          spread: 52,
+          startVelocity: 16,
+          gravity: 0.42,
+          scalar: 1.55,
+          ticks: 420,
+          origin: { y: -0.08 },
           ...options,
         });
       },

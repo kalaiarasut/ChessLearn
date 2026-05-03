@@ -49,3 +49,6 @@ puzzles.sqlite3-shm
 /puzzle-chunks/
 /puzzle-theme-fts-chunks/
 /.playwright-mcp/
+
+# downloaded player-game corpora
+/data/player-games/

@@ -9,12 +9,28 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import StreakAnimation from "@/components/ui/StreakAnimation";
 import Navbar from "@/components/ui/Navbar";
 
+type HomeStreakState = {
+  days: boolean[];
+  currentDayIndex: number;
+};
+
+function toHomeStreakState(currentStreak: number): HomeStreakState {
+  const normalizedStreak = Math.min(7, Math.max(1, Math.round(currentStreak)));
+  const currentDayIndex = Math.min(6, normalizedStreak - 1);
+
+  return {
+    days: Array.from({ length: 7 }, (_, index) => index < currentDayIndex),
+    currentDayIndex,
+  };
+}
+
 export default function Home() {
   const { isDark } = useTheme();
   const [siteStats, setSiteStats] = useState({
     puzzlesToday: 0,
     activePlayers: 0,
   });
+  const [streakState, setStreakState] = useState<HomeStreakState | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -41,30 +57,44 @@ export default function Home() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadSiteStats() {
+    async function loadHomeBackendState() {
       try {
-        const response = await fetch("/api/site-stats", { cache: "no-store" });
-        if (!response.ok) {
-          return;
+        const [siteStatsResponse, puzzleProgressResponse] = await Promise.all([
+          fetch("/api/site-stats", { cache: "no-store" }),
+          fetch("/api/login-streak", { method: "POST", cache: "no-store" }),
+        ]);
+
+        if (siteStatsResponse.ok) {
+          const payload = (await siteStatsResponse.json()) as {
+            puzzlesToday?: number;
+            activePlayers?: number;
+          };
+
+          if (!cancelled) {
+            setSiteStats({
+              puzzlesToday: Math.max(0, Math.round(payload.puzzlesToday ?? 0)),
+              activePlayers: Math.max(0, Math.round(payload.activePlayers ?? 0)),
+            });
+          }
         }
 
-        const payload = (await response.json()) as {
-          puzzlesToday?: number;
-          activePlayers?: number;
-        };
+        if (puzzleProgressResponse.ok) {
+          const payload = (await puzzleProgressResponse.json()) as {
+            currentStreak?: number;
+            didUpdateToday?: boolean;
+          };
+          const backendStreak = payload.currentStreak ?? 0;
 
-        if (!cancelled) {
-          setSiteStats({
-            puzzlesToday: Math.max(0, Math.round(payload.puzzlesToday ?? 0)),
-            activePlayers: Math.max(0, Math.round(payload.activePlayers ?? 0)),
-          });
+          if (!cancelled && payload.didUpdateToday === true && backendStreak > 0) {
+            setStreakState(toHomeStreakState(backendStreak));
+          }
         }
       } catch {
-        // Keep zeroed stats when the aggregate API is unavailable.
+        // Keep fallback stats and hide the login streak when APIs are unavailable.
       }
     }
 
-    loadSiteStats().catch(() => {});
+    loadHomeBackendState().catch(() => {});
 
     return () => {
       cancelled = true;
@@ -95,10 +125,12 @@ export default function Home() {
                   Play Chess Online<br />on the #1 Site!
                 </h1>
 
-                {/* Streak Animation slightly to the right of the Hero title */}
-                <div className="absolute top-1/2 -translate-y-1/2 -right-[150px] xl:-right-[250px] hidden md:block scale-50 xl:scale-75 origin-left pointer-events-none">
-                  <StreakAnimation days={[true, true, true, false, false, false, false]} currentDayIndex={2} />
-                </div>
+                {/* Streak Animation to the right of the Hero title */}
+                {streakState ? (
+                  <div className="absolute top-[58%] left-[calc(50%+360px)] -translate-y-1/2 hidden min-[1500px]:block scale-[0.66] min-[1800px]:scale-[0.74] origin-left pointer-events-none">
+                    <StreakAnimation days={streakState.days} currentDayIndex={streakState.currentDayIndex} />
+                  </div>
+                ) : null}
               </div>
 
               <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-6 mt-8 max-[480px]:mt-6 max-[480px]:space-y-3 max-[480px]:space-x-0 text-[var(--text-muted)] text-[16px] max-[480px]:text-[14px] font-medium">
