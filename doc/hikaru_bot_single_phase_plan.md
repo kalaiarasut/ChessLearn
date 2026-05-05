@@ -418,3 +418,5 @@ The bot identity is now selected in `Custom Bot Setup`, not in the settings pane
 - Stockfish Lite and Stockfish Full use normal Stockfish move choice.
 - Stockfish Full remains disabled when the full engine bundle is unavailable.
 - Bot images are stored in `public/bot-avatars/hikaru.jpg` and `public/bot-avatars/stockfish.jpeg`.
+- The Hikaru card includes an info badge that explains the held-out style-prior evaluation: top-1 15.74%, top-3 28.87%, top-5 37.31%, with opening positions at top-1 46.17%, top-3 68.80%, top-5 78.26%.
+- `next.config.ts` rewrites `/engines/stockfish/stockfish-18-single.wasm` to `STOCKFISH18_FULL_WASM_URL` when deployed. This keeps the browser and worker on the normal local engine path while allowing Vercel to serve the full WASM from the GitHub release asset instead of requiring the ignored 108MB file in the repository.

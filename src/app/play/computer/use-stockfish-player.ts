@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { chooseHikaruStyleMove, type EngineMoveCandidate, type HikaruStyleModel } from "./hikaru-style-prior";
+import { STOCKFISH_18_FULL_WORKER_SCRIPT } from "./engine-assets";
 
 type EngineState = {
   ready: boolean;
@@ -84,7 +85,7 @@ export function useStockfishPlayer(
   const workerScript = useMemo(
     () => {
       if (options.engineVariant === "stockfish-18") {
-        return "/engines/stockfish/stockfish-18-single.js";
+        return STOCKFISH_18_FULL_WORKER_SCRIPT;
       }
 
       return "/engines/stockfish/stockfish-18-lite-single.js";

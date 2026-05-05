@@ -11,6 +11,7 @@ import { STOCKFISH_ELO_LIMITS, useStockfishPlayer, type PlayerEngineVariant, typ
 import { loadHikaruStyleModel, type HikaruStyleModel } from "./hikaru-style-prior";
 import { useStockfishAnalysis } from "../../learn/[opening]/use-stockfish-analysis";
 import { useStockfishEngineDownload } from "./use-stockfish-engine-download";
+import { STOCKFISH_18_FULL_WASM_CANDIDATE_URLS } from "./engine-assets";
 import { useGameReview, type MoveReviewCategory, type ReviewedMove } from "./use-game-review";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreferences } from "@/lib/client-preferences";
@@ -27,7 +28,6 @@ const PIECE_THEME_ASSETS = themeManifest.pieceAssets as Record<string, string>;
 const ELOS = [1320, 1400, 1500, 1650, 1800, 2000, 2200, 2500, 2850, 3190];
 const ELO_MIN = STOCKFISH_ELO_LIMITS["stockfish-18"].min;
 const ELO_MAX = STOCKFISH_ELO_LIMITS["stockfish-18"].max;
-const FULL_ENGINE_WASM_PATH = "/engines/stockfish/stockfish-18-single.wasm";
 const BOT_ENGINE_VARIANT_STORAGE_KEY = "ChessLearn.bot.engineVariant.v1";
 const BOT_MOVE_PERSONALITY_STORAGE_KEY = "ChessLearn.bot.movePersonality.v1";
 const ANALYSIS_ENGINE_VARIANT_STORAGE_KEY = "ChessLearn.bot.analysisEngineVariant.v1";
@@ -138,6 +138,10 @@ const CUSTOM_BOT_PRESETS: Array<{
     imageSrc: "/bot-avatars/stockfish.jpeg",
   },
 ];
+const HIKARU_BOT_INFO = {
+  title: "Hikaru style evaluation",
+  summary: "Held-out next-move match: top-1 15.74%, top-3 28.87%, top-5 37.31%. Opening positions are much stronger: top-1 46.17%, top-3 68.80%, top-5 78.26%. Top-N means Hikaru's real move was inside the model's first N legal-move choices, not a win-rate.",
+};
 
 const UCI_MOVE_PATTERN = /^[a-h][1-8][a-h][1-8][nbrq]?$/;
 
@@ -1401,21 +1405,36 @@ export default function PlayComputerPage() {
   useEffect(() => {
     const abortController = new AbortController();
 
-    fetch(FULL_ENGINE_WASM_PATH, {
-      method: "HEAD",
-      cache: "no-store",
-      signal: abortController.signal,
-    })
-      .then((response) => {
-        const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-        const isLikelyHtml = contentType.includes("text/html");
-        setFullEngineAvailable(response.ok && !isLikelyHtml);
-      })
-      .catch(() => {
-        setFullEngineAvailable(false);
-      })
+    const checkFullEngineAvailability = async () => {
+      for (const url of STOCKFISH_18_FULL_WASM_CANDIDATE_URLS) {
+        try {
+          const response = await fetch(url, {
+            method: "HEAD",
+            cache: "no-store",
+            signal: abortController.signal,
+          });
+          const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+          const isLikelyHtml = contentType.includes("text/html");
+
+          if (response.ok && !isLikelyHtml) {
+            setFullEngineAvailable(true);
+            return;
+          }
+        } catch {
+          if (abortController.signal.aborted) {
+            return;
+          }
+        }
+      }
+
+      setFullEngineAvailable(false);
+    };
+
+    checkFullEngineAvailability()
       .finally(() => {
-        setFullEngineAvailabilityChecked(true);
+        if (!abortController.signal.aborted) {
+          setFullEngineAvailabilityChecked(true);
+        }
       });
 
     return () => {
@@ -3684,7 +3703,7 @@ export default function PlayComputerPage() {
             disabled={disabled}
             aria-pressed={selected}
             onClick={() => applyCustomBotPreset(botSlot, preset.id)}
-            className={`min-w-0 rounded-lg border p-2 text-left transition-all ${selected
+            className={`group/preset relative min-w-0 rounded-lg border p-2 text-left transition-all ${selected
               ? "border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--bg)] shadow-md"
               : "border-[var(--border-subtle)] bg-[var(--surface)] text-[var(--text-primary)] hover:border-[var(--border-hover)] hover:bg-[var(--surface-hover)]"
               } ${disabled ? "opacity-45 cursor-not-allowed hover:bg-[var(--surface)]" : "cursor-pointer hover:-translate-y-0.5"}`}
@@ -3697,6 +3716,19 @@ export default function PlayComputerPage() {
                 draggable={false}
               />
             </span>
+            {preset.id === "hikaru" ? (
+              <span
+                className="absolute right-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-white/70 bg-black/70 text-white shadow-md"
+                aria-label={HIKARU_BOT_INFO.title}
+                title={`${HIKARU_BOT_INFO.title}: ${HIKARU_BOT_INFO.summary}`}
+              >
+                <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-[260px] -translate-x-1/2 rounded-lg border border-[var(--border-hover)] bg-[var(--surface-alt)] p-3 text-[11px] font-normal leading-snug text-[var(--text-primary)] shadow-xl group-hover/preset:block">
+                  <span className="block text-[12px] font-bold">{HIKARU_BOT_INFO.title}</span>
+                  <span className="mt-1 block">{HIKARU_BOT_INFO.summary}</span>
+                </span>
+              </span>
+            ) : null}
             <span className="mt-2 block truncate text-[12px] font-bold leading-tight">
               {preset.label}
             </span>

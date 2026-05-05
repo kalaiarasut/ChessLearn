@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { STOCKFISH_18_FULL_WASM_LOCAL_PATH } from "./engine-assets";
 
 export type DownloadableEngineVariant = "stockfish-18" | "stockfish-18-lite";
 
@@ -31,7 +32,7 @@ const ENGINE_MANIFESTS: Record<DownloadableEngineVariant, EngineManifest> = {
     label: "Full",
     assets: [
       { url: "/engines/stockfish/stockfish-18-single.js", bytes: 20_569 },
-      { url: "/engines/stockfish/stockfish-18-single.wasm", bytes: 112_992_459 },
+      { url: STOCKFISH_18_FULL_WASM_LOCAL_PATH, bytes: 112_992_459 },
     ],
     totalBytes: 113_013_028,
   },
