@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPuzzles, type PuzzleEntry } from "@/lib/puzzle-service";
+import { getPuzzles } from "@/lib/puzzle-service";
 import {
   getAuthenticatedPuzzleUserId,
   getNextReviewPuzzleForCurrentUser,
   getRecentPuzzleIdsForUser,
 } from "@/lib/puzzle-progress-server";
-import fallbackPuzzles from "@/data/puzzles.json";
 
 export const runtime = "nodejs";
 
@@ -32,54 +31,6 @@ function parseExcludeIds(searchParams: URLSearchParams) {
   }
 
   return Array.from(ids);
-}
-
-function hashSeed(value: string) {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
-  }
-  return hash;
-}
-
-function selectFallbackPuzzles(options: {
-  id?: string | null;
-  count: number;
-  theme?: string | null;
-  minRating: number;
-  maxRating: number;
-  mode?: string | null;
-  excludeIds?: string[];
-}) {
-  const localPuzzles = fallbackPuzzles as PuzzleEntry[];
-  const excluded = new Set(options.excludeIds ?? []);
-
-  if (options.id) {
-    return localPuzzles.filter((puzzle) => puzzle.id === options.id).slice(0, 1);
-  }
-
-  const filterPool = (ignoreTheme: boolean, ignoreExclusions: boolean) =>
-    localPuzzles.filter((puzzle) => {
-      if (!ignoreExclusions && excluded.has(puzzle.id)) return false;
-      if (puzzle.rating < options.minRating || puzzle.rating > options.maxRating) return false;
-      if (!ignoreTheme && options.theme && options.theme !== "mix" && !puzzle.themes.includes(options.theme)) return false;
-      return true;
-    });
-
-  let pool = filterPool(false, false);
-  if (pool.length === 0) pool = filterPool(true, false);
-  if (pool.length === 0) pool = filterPool(true, true);
-
-  if (pool.length === 0) {
-    return [];
-  }
-
-  const seed =
-    options.mode === "daily"
-      ? hashSeed(new Date().toISOString().slice(0, 10))
-      : Math.floor(Math.random() * pool.length);
-  const start = seed % pool.length;
-  return [...pool.slice(start), ...pool.slice(0, start)].slice(0, options.count);
 }
 
 function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string) {
@@ -138,16 +89,30 @@ export async function GET(request: NextRequest) {
     try {
       puzzles = await withTimeout(getPuzzles(puzzleQuery), 6_000, "Puzzle D1 request timed out");
     } catch (error) {
-      console.warn("Puzzle D1 fetch failed or timed out; using bundled fallback puzzles.", error);
-      puzzles = selectFallbackPuzzles({
-        id: exactPuzzleId,
-        count: parseInteger(searchParams.get("count"), 10),
-        theme,
-        minRating: parseInteger(searchParams.get("minRating"), 0),
-        maxRating: parseInteger(searchParams.get("maxRating"), 9999),
-        mode,
-        excludeIds,
-      });
+      console.warn("Puzzle D1 fetch failed or timed out.", error);
+
+      const canRetryWithoutRecentFilters = !exactPuzzleId && excludeIds.length > 0;
+      if (!canRetryWithoutRecentFilters) {
+        const details = error instanceof Error ? error.message : "Puzzle D1 request failed.";
+        return NextResponse.json(
+          { error: "Puzzle service unavailable", details },
+          { status: 503 },
+        );
+      }
+
+      try {
+        puzzles = await withTimeout(
+          getPuzzles({ ...puzzleQuery, excludeId: null, excludeIds: [] }),
+          6_000,
+          "Puzzle D1 retry timed out",
+        );
+      } catch (retryError) {
+        const details = retryError instanceof Error ? retryError.message : "Puzzle D1 retry failed.";
+        return NextResponse.json(
+          { error: "Puzzle service unavailable", details },
+          { status: 503 },
+        );
+      }
     }
 
     return NextResponse.json({ puzzles });

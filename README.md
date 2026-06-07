@@ -10,7 +10,7 @@ The repository includes:
 - A Play Bot experience powered by Stockfish 18
 - Shared board, piece, sound, and gameplay preferences
 - Supabase authentication plus server-backed persistence for signed-in users
-- Cloudflare D1-backed puzzle delivery with a bundled JSON fallback
+- Cloudflare D1-only puzzle delivery
 - A changelog page and public leaderboard
 - Supporting scripts for opening data ingestion and preprocessing
 
@@ -232,8 +232,8 @@ The app includes route-specific loading components for major surfaces such as:
     - `excludeId`
     - `excludeIds`
     - `excludeRecent`
-  - Uses Cloudflare D1 when credentials are configured
-  - Falls back to bundled `src/data/puzzles.json` if D1 fails or times out
+  - Uses Cloudflare D1 only
+  - Returns an error instead of serving local substitute puzzle data if D1 fails or times out
 
 - `GET /api/puzzle-progress`
   - Returns the authenticated user puzzle progress snapshot
@@ -330,7 +330,6 @@ The app includes route-specific loading components for major surfaces such as:
 |   |   `-- settings-layout.tsx
 |   |-- data/
 |   |   |-- openingDescriptions.json
-|   |   |-- puzzles.json
 |   |   |-- themeManifest.json
 |   |   |-- openings/
 |   |   |-- openings_combined/
@@ -443,8 +442,8 @@ CLOUDFLARE_API_TOKEN=...
 
 Notes:
 
-- `CLOUDFLARE_DATABASE_ID` is optional in code because a fallback ID exists, but you should still set your own database ID in real deployments
-- If `CLOUDFLARE_ACCOUNT_ID` or `CLOUDFLARE_API_TOKEN` is missing, live puzzle queries fail and the app falls back to bundled local puzzle data
+- `CLOUDFLARE_DATABASE_ID` is optional in code because a default D1 database ID is configured, but you should still set your own database ID in real deployments
+- If `CLOUDFLARE_ACCOUNT_ID` or `CLOUDFLARE_API_TOKEN` is missing, puzzle queries fail instead of serving local substitute puzzle data
 
 ### Optional for custom full Stockfish WASM hosting
 
@@ -520,14 +519,14 @@ Puzzle selection is designed to use a Cloudflare D1 database over the HTTP API.
 
 - The D1 fetch path times out quickly
 - The API retries transient query failures once
-- If D1 is unavailable, `/api/puzzles` falls back to `src/data/puzzles.json`
+- If D1 is unavailable, `/api/puzzles` returns an unavailable error instead of serving fake or local substitute puzzle data
 
 ### Important implementation notes
 
 - Daily mode uses a deterministic date-based seed
 - Random selection uses row ID wrapping instead of full random sorting
 - Theme search prefers an FTS table named `puzzle_theme_fts` when available
-- If that FTS table is missing, the app falls back to `LIKE` filtering
+- If that FTS table is missing, the app uses `LIKE` filtering
 
 ## Openings Data Pipeline
 
@@ -798,8 +797,8 @@ npm run refresh:openings
 ### Production recommendations
 
 - Host the full Stockfish WASM file on reliable object storage or a CDN
-- Do not rely on the default fallback D1 database ID
-- Treat the bundled puzzle JSON as resilience fallback, not as your primary production dataset
+- Do not rely on the default D1 database ID
+- Keep puzzle delivery backed by Cloudflare D1; do not add bundled puzzle-data substitutes
 - Keep Supabase RLS enabled exactly as defined in the SQL file
 
 ## Troubleshooting
@@ -821,7 +820,7 @@ Set:
 
 and verify Supabase auth redirect URLs.
 
-### Puzzle API returns fallback content
+### Puzzle API is unavailable
 
 This usually means one of:
 
@@ -829,7 +828,7 @@ This usually means one of:
 - `CLOUDFLARE_API_TOKEN` is missing
 - D1 API calls are failing or timing out
 
-The app is designed to continue working with local fallback puzzle data in that case.
+The app intentionally does not serve local substitute puzzle content. Puzzle rows must come from Cloudflare D1.
 
 ### `/api/preferences` or `/api/learn-progress` returns `401`
 

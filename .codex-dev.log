@@ -1,0 +1,764 @@
+
+> ChessLearn@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.3 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.1.74.158:3000
+- Environments: .env.local
+✓ Ready in 2.2s
+
+Puzzle D1 fetch failed or timed out. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:132:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:277:24)
+    at async GET (src\app\api\puzzles\route.ts:90:17)
+  130 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  131 |     try {
+> 132 |       const response = await fetch(
+      |                        ^
+  133 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/q...
+  134 |         {
+  135 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+ GET /api/puzzles?count=1&mode=standard&random=true 503 in 8.5s (next.js: 2.9s, application-code: 5.6s)
+ GET /api/puzzles?count=4&mode=storm&random=true&minRating=600&maxRating=1400 200 in 5.1s (next.js: 20ms, application-code: 5.0s)
+ GET /api/puzzles?count=2&mode=streak&random=true&minRating=600&maxRating=900 200 in 1590ms (next.js: 11ms, application-code: 1580ms)
+Puzzle D1 fetch failed or timed out. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:132:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:277:24)
+    at async GET (src\app\api\puzzles\route.ts:90:17)
+  130 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  131 |     try {
+> 132 |       const response = await fetch(
+      |                        ^
+  133 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/q...
+  134 |         {
+  135 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+ GET /api/puzzles?count=1&mode=standard&theme=mateIn2&random=true 503 in 5.5s (next.js: 11ms, application-code: 5.5s)
+ GET /api/puzzles?count=1&mode=standard&random=true 200 in 4.9s (next.js: 255ms, application-code: 4.7s)
+ GET /api/puzzles?count=4&mode=storm&random=true&minRating=600&maxRating=1400 200 in 702ms (next.js: 36ms, application-code: 667ms)
+ GET /api/puzzles?count=2&mode=streak&random=true&minRating=600&maxRating=900 200 in 407ms (next.js: 62ms, application-code: 345ms)
+Puzzle D1 fetch failed or timed out. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:133:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:284:28)
+    at async GET (src\app\api\puzzles\route.ts:90:17)
+  131 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  132 |     try {
+> 133 |       const response = await fetch(
+      |                        ^
+  134 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/q...
+  135 |         {
+  136 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+ GET /api/puzzles?count=1&mode=standard&theme=mateIn2&random=true 503 in 5.8s (next.js: 36ms, application-code: 5.7s)
+ GET /api/puzzles?count=1&mode=standard&random=true 200 in 1839ms (next.js: 172ms, application-code: 1667ms)
+ GET /api/puzzles?count=4&mode=storm&random=true&minRating=600&maxRating=1400 200 in 1607ms (next.js: 7ms, application-code: 1600ms)
+ GET /api/puzzles?count=2&mode=streak&random=true&minRating=600&maxRating=900 200 in 570ms (next.js: 36ms, application-code: 534ms)
+Puzzle D1 fetch failed or timed out. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:133:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:288:28)
+    at async GET (src\app\api\puzzles\route.ts:90:17)
+  131 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  132 |     try {
+> 133 |       const response = await fetch(
+      |                        ^
+  134 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/q...
+  135 |         {
+  136 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+ GET /api/puzzles?count=1&mode=standard&theme=mateIn2&random=true 503 in 5.4s (next.js: 20ms, application-code: 5.4s)
+Puzzle D1 fetch failed or timed out. Error [TimeoutError]: The operation was aborted due to timeout
+    at async queryD1 (src\lib\puzzle-service.ts:133:24)
+    at async getPuzzles (src\lib\puzzle-service.ts:288:28)
+    at async GET (src\app\api\puzzles\route.ts:90:17)
+  131 |   for (let attempt = 1; attempt <= D1_RETRY_ATTEMPTS; attempt += 1) {
+  132 |     try {
+> 133 |       const response = await fetch(
+      |                        ^
+  134 |         `https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database/${dbId}/q...
+  135 |         {
+  136 |           method: "POST", {
+  code: 23,
+  INDEX_SIZE_ERR: 1,
+  DOMSTRING_SIZE_ERR: 2,
+  HIERARCHY_REQUEST_ERR: 3,
+  WRONG_DOCUMENT_ERR: 4,
+  INVALID_CHARACTER_ERR: 5,
+  NO_DATA_ALLOWED_ERR: 6,
+  NO_MODIFICATION_ALLOWED_ERR: 7,
+  NOT_FOUND_ERR: 8,
+  NOT_SUPPORTED_ERR: 9,
+  INUSE_ATTRIBUTE_ERR: 10,
+  INVALID_STATE_ERR: 11,
+  SYNTAX_ERR: 12,
+  INVALID_MODIFICATION_ERR: 13,
+  NAMESPACE_ERR: 14,
+  INVALID_ACCESS_ERR: 15,
+  VALIDATION_ERR: 16,
+  TYPE_MISMATCH_ERR: 17,
+  SECURITY_ERR: 18,
+  NETWORK_ERR: 19,
+  ABORT_ERR: 20,
+  URL_MISMATCH_ERR: 21,
+  QUOTA_EXCEEDED_ERR: 22,
+  TIMEOUT_ERR: 23,
+  INVALID_NODE_TYPE_ERR: 24,
+  DATA_CLONE_ERR: 25
+}
+ GET /api/puzzles?count=4&mode=standard&theme=mateIn2&random=true 503 in 5.1s (next.js: 6ms, application-code: 5.1s)
+ GET /api/puzzles?count=8&mode=standard&theme=mateIn2&random=true 200 in 1832ms (next.js: 488ms, application-code: 1344ms)
+ GET /api/puzzles?count=8&mode=standard&theme=mateIn3&random=true 200 in 642ms (next.js: 10ms, application-code: 632ms)
+ GET /api/puzzles?count=8&mode=standard&theme=mateIn4&random=true 200 in 842ms (next.js: 10ms, application-code: 831ms)
+○ Compiling /puzzles/solve ...
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+○ Compiling / ...
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+ GET / 200 in 1356ms (next.js: 184ms, proxy.ts: 54ms, application-code: 1118ms)
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+ GET / 200 in 638ms (next.js: 66ms, proxy.ts: 94ms, application-code: 478ms)
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+ GET / 200 in 2.2s (next.js: 146ms, proxy.ts: 113ms, application-code: 1958ms)
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+ GET / 200 in 892ms (next.js: 64ms, proxy.ts: 43ms, application-code: 785ms)
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+ GET / 200 in 1642ms (next.js: 338ms, proxy.ts: 30ms, application-code: 1274ms)
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+ GET / 200 in 2.0s (next.js: 381ms, proxy.ts: 34ms, application-code: 1594ms)
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+ GET /puzzles/solve?mode=standard&theme=mateIn2 200 in 722ms (next.js: 55ms, proxy.ts: 18ms, application-code: 649ms)
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+ GET /puzzles/solve?mode=standard&theme=mateIn3 200 in 278ms (next.js: 14ms, proxy.ts: 18ms, application-code: 246ms)
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+ GET /puzzles/solve?mode=standard&theme=mateIn4 200 in 348ms (next.js: 17ms, proxy.ts: 15ms, application-code: 317ms)
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+ GET / 200 in 2.4s (next.js: 877ms, proxy.ts: 270ms, application-code: 1213ms)
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+ GET / 200 in 251ms (next.js: 16ms, proxy.ts: 25ms, application-code: 210ms)
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+ GET / 200 in 137ms (next.js: 17ms, proxy.ts: 11ms, application-code: 109ms)
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+ GET / 200 in 1516ms (next.js: 64ms, proxy.ts: 37ms, application-code: 1415ms)
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+[browser] Please ensure that the container has a non-static position, like 'relative', 'fixed', or 'absolute' to ensure scroll offset is calculated correctly. (<anonymous>)
+○ Compiling /api/login-streak ...
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+Error while requesting resource
+There was an issue requesting https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+⚠ [next]/internal/font/google/inter_fe8b9d92.module.css
+next/font: warning:
+Failed to download `Inter` from Google Fonts. Using fallback font instead.
+
+Import trace:
+  Server Component:
+    [next]/internal/font/google/inter_fe8b9d92.module.css
+    [next]/internal/font/google/inter_fe8b9d92.js
+    ./src/app/layout.tsx
+
+
+ POST /api/login-streak 401 in 6.6s (next.js: 6.5s, application-code: 101ms)
+ GET /api/site-stats 500 in 18.4s (next.js: 6.0s, application-code: 12.4s)
+✓ Finished writing to filesystem cache in 10.8s

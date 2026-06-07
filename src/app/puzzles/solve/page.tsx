@@ -78,6 +78,70 @@ type PrefetchedPuzzleEntry = {
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"];
 
+function playPuzzleUciMove(game: Chess, uci: string) {
+  if (!/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(uci)) {
+    return null;
+  }
+
+  return game.move({
+    from: uci.slice(0, 2) as Square,
+    to: uci.slice(2, 4) as Square,
+    promotion: (uci[4] as "q" | "r" | "b" | "n") || undefined,
+  });
+}
+
+function canPlayPuzzleLine(game: Chess, moves: string[], startIndex: number) {
+  if (startIndex >= moves.length) {
+    return false;
+  }
+
+  const testGame = new Chess(game.fen());
+  for (let index = startIndex; index < moves.length; index += 1) {
+    if (testGame.isGameOver()) {
+      return false;
+    }
+
+    if (!playPuzzleUciMove(testGame, moves[index])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function getPuzzleStart(nextPuzzle: PuzzleData) {
+  const initialGame = new Chess(nextPuzzle.fen);
+
+  if (initialGame.isGameOver() || nextPuzzle.moves.length === 0) {
+    return null;
+  }
+
+  if (nextPuzzle.moves.length > 1) {
+    const setupGame = new Chess(nextPuzzle.fen);
+    const setupMove = playPuzzleUciMove(setupGame, nextPuzzle.moves[0]);
+    if (setupMove && !setupGame.isGameOver() && canPlayPuzzleLine(setupGame, nextPuzzle.moves, 1)) {
+      return {
+        game: setupGame,
+        moveIndex: 1,
+        lastMove: {
+          from: nextPuzzle.moves[0].slice(0, 2),
+          to: nextPuzzle.moves[0].slice(2, 4),
+        },
+      };
+    }
+  }
+
+  if (canPlayPuzzleLine(initialGame, nextPuzzle.moves, 0)) {
+    return {
+      game: initialGame,
+      moveIndex: 0,
+      lastMove: null,
+    };
+  }
+
+  return null;
+}
+
 function PuzzleSolveSkeleton({ mode }: { mode: PuzzleMode }) {
   const renderSkeletonDescription = (className = "") => (
     <div className={`rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-5 ${className}`}>
@@ -364,17 +428,21 @@ function SolverInner() {
     }
   };
 
+  function showInvalidPuzzleLine() {
+    setFetchError("This puzzle line is invalid or already finished. Try another puzzle.");
+    setPuzzle(null);
+    setGame(null);
+    setLoading(false);
+  }
+
   function initPuzzle(nextPuzzle: PuzzleData, nextReviewItem?: PuzzleReviewItem | null) {
-    const nextGame = new Chess(nextPuzzle.fen);
-    const firstMove = nextPuzzle.moves[0];
-    if (firstMove) {
-      nextGame.move({
-        from: firstMove.slice(0, 2) as Square,
-        to: firstMove.slice(2, 4) as Square,
-        promotion: (firstMove[4] as "q" | "r" | "b" | "n") || undefined,
-      });
+    const start = getPuzzleStart(nextPuzzle);
+    if (!start) {
+      showInvalidPuzzleLine();
+      return false;
     }
 
+    const nextGame = start.game;
     const side = nextGame.turn();
     consumedRequestedIdRef.current = requestedPuzzleId;
     solveStartedAtRef.current = Date.now();
@@ -390,18 +458,19 @@ function SolverInner() {
     solutionCursorRef.current = null;
     solutionPlayingRef.current = false;
     solutionAutoReplayRef.current = false;
-    setMoveIndex(1);
     setPhase("playing");
     setMoveResult(null);
     setHintSquare(null);
     setSelectedSq(null);
     setLegalMoves([]);
-    setLastMove(firstMove ? { from: firstMove.slice(0, 2), to: firstMove.slice(2, 4) } : null);
+    setLastMove(start.lastMove);
     setFreeMoveHistory([]);
     setFreeMoveHistoryIndex(0);
     setFetchError(null);
     setEmptyState("none");
     setLoading(false);
+    setMoveIndex(start.moveIndex);
+    return true;
   }
 
   function clearSolutionTimer() {
@@ -441,8 +510,29 @@ function SolverInner() {
       };
     }
 
+    const puzzles = await requestPuzzleBatchData(args, 1);
+    if (!puzzles[0]) {
+      throw new Error("No puzzle found.");
+    }
+
+    return {
+      kind: "ok" as const,
+      puzzle: puzzles[0],
+      reviewItem: null,
+    };
+  }
+
+  function buildPuzzleSearchParams(
+    args: {
+      initialLoad?: boolean;
+      currentPuzzleId?: string | null;
+      currentRecentIds?: string[];
+      streakCountOverride?: number;
+    },
+    count: number,
+  ) {
     const search = new URLSearchParams();
-    search.set("count", "1");
+    search.set("count", `${count}`);
     search.set("mode", mode);
     if (themeFilter) {
       search.set("theme", themeFilter);
@@ -479,18 +569,31 @@ function SolverInner() {
       }
     }
 
+    return search;
+  }
+
+  async function requestPuzzleBatchData(
+    args: {
+      initialLoad?: boolean;
+      currentPuzzleId?: string | null;
+      currentRecentIds?: string[];
+      streakCountOverride?: number;
+    },
+    count: number,
+  ) {
+    if (mode === "review") {
+      return [];
+    }
+
+    const search = buildPuzzleSearchParams(args, count);
     const response = await fetch(`/api/puzzles?${search.toString()}`, { cache: "no-store" });
     const data = await response.json();
 
-    if (!response.ok || !data.puzzles?.[0]) {
+    if (!response.ok || !Array.isArray(data.puzzles)) {
       throw new Error(data.details ?? data.error ?? "No puzzle found.");
     }
 
-    return {
-      kind: "ok" as const,
-      puzzle: data.puzzles[0] as PuzzleData,
-      reviewItem: null,
-    };
+    return data.puzzles as PuzzleData[];
   }
 
   function getPrefetchTargetSize() {
@@ -526,46 +629,58 @@ function SolverInner() {
     prefetchInFlightRef.current = true;
     try {
       const targetSize = getPrefetchTargetSize();
-      const queue = prefetchedPuzzlesRef.current.filter(
-        (entry) =>
-          entry.mode === mode &&
-          entry.theme === themeFilter &&
-          entry.requestedPuzzleId === requestedPuzzleId &&
-          entry.streakCount === streakCountOverride,
-      );
+      const isMatchingEntry = (entry: PrefetchedPuzzleEntry) =>
+        entry.mode === mode &&
+        entry.theme === themeFilter &&
+        entry.requestedPuzzleId === requestedPuzzleId &&
+        entry.streakCount === streakCountOverride;
+      const queue = prefetchedPuzzlesRef.current.filter(isMatchingEntry);
       const queuedIds = new Set(queue.map((entry) => entry.puzzle.id));
-      prefetchedPuzzlesRef.current = prefetchedPuzzlesRef.current.filter(
-        (entry) =>
-          entry.mode === mode &&
-          entry.theme === themeFilter &&
-          entry.requestedPuzzleId === requestedPuzzleId &&
-          entry.streakCount === streakCountOverride,
-      );
+      const missingCount = Math.max(0, targetSize - queue.length);
 
-      while (prefetchedPuzzlesRef.current.length < targetSize) {
-        const result = await requestPuzzleData({
+      if (missingCount === 0) {
+        return;
+      }
+
+      const batch = await requestPuzzleBatchData(
+        {
           currentPuzzleId,
           streakCountOverride,
           currentRecentIds:
             progress.dataSource === "server" ? [] : [...progress.recentPuzzleIds, currentPuzzleId, ...queuedIds],
-        });
+        },
+        missingCount * 2,
+      );
 
-        if (result.kind !== "ok" || result.puzzle.id === currentPuzzleId || queuedIds.has(result.puzzle.id)) {
-          break;
+      for (const nextPuzzle of batch) {
+        if (
+          nextPuzzle.id === currentPuzzleId ||
+          queuedIds.has(nextPuzzle.id) ||
+          prefetchedPuzzlesRef.current.filter(isMatchingEntry).length >= targetSize
+        ) {
+          continue;
         }
 
-        queuedIds.add(result.puzzle.id);
+        queuedIds.add(nextPuzzle.id);
         prefetchedPuzzlesRef.current.push({
           mode,
           theme: themeFilter,
           requestedPuzzleId,
           streakCount: streakCountOverride,
           sourcePuzzleId: currentPuzzleId,
-          puzzle: result.puzzle,
+          puzzle: nextPuzzle,
         });
       }
     } catch {
-      prefetchedPuzzlesRef.current = prefetchedPuzzlesRef.current.filter((entry) => entry.mode !== mode);
+      prefetchedPuzzlesRef.current = prefetchedPuzzlesRef.current.filter(
+        (entry) =>
+          !(
+            entry.mode === mode &&
+            entry.theme === themeFilter &&
+            entry.requestedPuzzleId === requestedPuzzleId &&
+            entry.streakCount === streakCountOverride
+          ),
+      );
     } finally {
       prefetchInFlightRef.current = false;
     }
@@ -581,8 +696,9 @@ function SolverInner() {
     const prefetched = !initialLoad ? takePrefetchedPuzzle(currentPuzzleId, streakCountOverride) : null;
 
     if (prefetched) {
-      initPuzzle(prefetched.puzzle);
-      void prefetchNextPuzzle(prefetched.puzzle.id, streakCountOverride);
+      if (initPuzzle(prefetched.puzzle)) {
+        void prefetchNextPuzzle(prefetched.puzzle.id, streakCountOverride);
+      }
       return;
     }
 
@@ -610,8 +726,9 @@ function SolverInner() {
         return;
       }
 
-      initPuzzle(result.puzzle, result.reviewItem);
-      void prefetchNextPuzzle(result.puzzle.id, streakCountOverride);
+      if (initPuzzle(result.puzzle, result.reviewItem)) {
+        void prefetchNextPuzzle(result.puzzle.id, streakCountOverride);
+      }
     } catch (error) {
       setFetchError(error instanceof Error ? error.message : "Failed to load puzzle.");
       setPuzzle(null);
@@ -1010,11 +1127,11 @@ function SolverInner() {
       setTimeout(() => {
         const replyMove = puzzle.moves[nextIndex];
         const replyGame = new Chess(nextGame.fen());
-        replyGame.move({
-          from: replyMove.slice(0, 2) as Square,
-          to: replyMove.slice(2, 4) as Square,
-          promotion: (replyMove[4] as "q" | "r" | "b" | "n") || undefined,
-        });
+        const replyMoveResult = playPuzzleUciMove(replyGame, replyMove);
+        if (!replyMoveResult) {
+          showInvalidPuzzleLine();
+          return;
+        }
         setGame(replyGame);
         setLastMove({ from: replyMove.slice(0, 2), to: replyMove.slice(2, 4) });
         setMoveIndex(nextIndex + 1);
