@@ -222,6 +222,8 @@ function SolverInner() {
   const [masterVolume, setMasterVolume] = useState(80);
   const [preferencesSaving, setPreferencesSaving] = useState(false);
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
+  const [preferencesReady, setPreferencesReady] = useState(false);
+  const [autoNext, setAutoNext] = useState(true);
   const piecePath = PIECE_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`;
   const boardPath = BOARD_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`;
 
@@ -236,7 +238,6 @@ function SolverInner() {
   const [legalMoves, setLegalMoves] = useState<string[]>([]);
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [preferencesReady, setPreferencesReady] = useState(false);
   const [visualReady, setVisualReady] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [emptyState, setEmptyState] = useState<EmptyState>("none");
@@ -278,6 +279,7 @@ function SolverInner() {
     setMoveMethod(preferences.learn.moveMethod);
     setShowLegalMoves(preferences.learn.showLegalMoves);
     setMasterVolume(preferences.learn.masterVolume);
+    setAutoNext(preferences.puzzle.autoNext !== false);
 
     try {
       const raw = window.localStorage.getItem(PUZZLE_APPEARANCE_STORAGE_KEY);
@@ -1077,6 +1079,14 @@ function SolverInner() {
     }
 
     void submitAttempt("solved");
+
+    if (autoNext && (mode === "standard" || mode === "review")) {
+      setTimeout(() => {
+        void fetchPuzzle();
+      }, 300);
+      return;
+    }
+
     setPhase("solved");
   };
 
@@ -1283,7 +1293,7 @@ function SolverInner() {
   }, [game]);
 
   useEffect(() => {
-    if (!game || !puzzle || !preferencesReady) {
+    if (!puzzle || !preferencesReady) {
       setVisualReady(false);
       return;
     }
@@ -1291,16 +1301,8 @@ function SolverInner() {
     let cancelled = false;
     setVisualReady(false);
 
-    const pieceCodes = new Set<string>();
-    for (const row of game.board()) {
-      for (const piece of row) {
-        if (piece) {
-          pieceCodes.add(`${piece.color}${piece.type}`);
-        }
-      }
-    }
-
-    const sources = [boardPath, ...Array.from(pieceCodes).map((piece) => `${piecePath}/${piece}.png`)];
+    const allPieces = ["wp", "wn", "wb", "wr", "wq", "wk", "bp", "bn", "bb", "br", "bq", "bk"];
+    const sources = [boardPath, ...allPieces.map((piece) => `${piecePath}/${piece}.png`)];
     let remaining = sources.length;
 
     const markLoaded = () => {
@@ -1320,7 +1322,7 @@ function SolverInner() {
     return () => {
       cancelled = true;
     };
-  }, [boardPath, game, piecePath, preferencesReady, puzzle]);
+  }, [boardPath, piecePath, preferencesReady, puzzle]);
 
   const ranks = flipped ? [...RANKS].reverse() : RANKS;
   const files = flipped ? [...FILES].reverse() : FILES;
@@ -1355,7 +1357,7 @@ function SolverInner() {
         : mode === "review"
           ? "text-sky-400"
           : mode === "daily"
-            ? "text-emerald-400"
+            ? "text-[var(--text-primary)]"
           : "text-violet-400";
   const sideInstruction =
     mode === "storm"
@@ -1400,7 +1402,7 @@ function SolverInner() {
     if (emptyState === "review_empty") {
       return (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-alt)] p-8 text-center">
-          <Check className="w-8 h-8 mx-auto mb-3 text-emerald-400" />
+          <Check className="w-8 h-8 mx-auto mb-3 text-[var(--text-primary)]" />
           <h3 className="text-[20px] font-serif text-[var(--text-primary)] mb-2">Replay queue cleared</h3>
           <p className="text-[14px] text-[var(--text-muted)] font-medium mb-5">
             No review puzzles are waiting right now. Miss a puzzle or train a weaker theme to refill the queue.
@@ -1494,7 +1496,7 @@ function SolverInner() {
         </div>
       )}
       {mode === "daily" && progress.dailyStatus.completed && (
-        <p className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[12px] font-semibold text-emerald-400">
+        <p className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-alt)] px-3 py-2 text-[12px] font-semibold text-[var(--text-primary)]">
           Daily complete for {progress.dailyStatus.date}.
         </p>
       )}
@@ -1606,13 +1608,8 @@ function SolverInner() {
                   unoptimized
                 />
 
-                {moveResult && (
-                  <div
-                    className={`absolute inset-0 z-30 rounded-xl pointer-events-none transition-opacity duration-200 ${moveResult === "correct"
-                        ? "bg-emerald-500/10 border-2 border-emerald-500/40"
-                        : "bg-red-500/10 border-2 border-red-500/40"
-                      }`}
-                  />
+                {moveResult === "incorrect" && (
+                  <div className="absolute inset-0 z-30 rounded-xl pointer-events-none transition-opacity duration-200 bg-red-500/10 border-2 border-red-500/40" />
                 )}
 
                 {rightClickArrows.length > 0 && (
@@ -1693,17 +1690,17 @@ function SolverInner() {
                           }}
                           onDrop={() => handleDrop(square)}
                         >
-                          {isLastMove && <div className="absolute inset-0 bg-amber-400/25 z-10" />}
+                          {isLastMove && <div className="absolute inset-[4%] rounded-[4px] bg-amber-300/20 z-10" />}
                           {rightClickHighlights.has(square) && <div className="absolute inset-0 bg-red-500/50 z-[4]" />}
-                          {isSelected && <div className="absolute inset-0 bg-emerald-400/30 z-10" />}
+                          {isSelected && <div className="absolute inset-[6%] rounded-[4px] ring-[3px] ring-white/95 bg-white/12 z-10 shadow-[0_0_14px_rgba(255,255,255,0.45)]" />}
                           {isHint && <div className="absolute inset-0 bg-sky-400/35 z-10 animate-pulse" />}
                           {isWrongMoveSource && <div className="absolute inset-0 bg-red-500/45 z-20 animate-pulse" />}
 
                           {showLegalMoves && isLegal && !hasPiece && (
-                            <div className="absolute z-20 w-[26%] h-[26%] rounded-full bg-[var(--text-primary)] opacity-20" />
+                            <div className="absolute z-20 h-[25%] w-[25%] rounded-full bg-white/45 shadow-[0_0_10px_rgba(255,255,255,0.35)]" />
                           )}
                           {showLegalMoves && isLegal && hasPiece && (
-                            <div className="absolute z-20 inset-0 border-[3px] border-[var(--text-primary)] opacity-20 rounded-full" />
+                            <div className="absolute z-20 inset-[10%] rounded-full border-[6px] border-white/40" />
                           )}
 
                           {piece && (
@@ -1747,7 +1744,7 @@ function SolverInner() {
                   </>
                 )}
                 {phase === "solved" && (
-                  <span className="text-emerald-400 flex items-center gap-1.5">
+                  <span className="text-[var(--text-primary)] flex items-center gap-1.5">
                     <Check className="w-4 h-4" />
                     Puzzle Solved!
                   </span>
@@ -1763,13 +1760,32 @@ function SolverInner() {
             <div className="w-full lg:w-[300px] flex flex-col gap-4">
               {renderDescriptionBox("hidden lg:block")}
 
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all text-[13px] font-semibold"
-              >
-                <Settings className="w-4 h-4" />
-                Settings
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all text-[13px] font-semibold"
+                >
+                  <Settings className="w-4 h-4" />
+                  Settings
+                </button>
+                <button
+                  onClick={() => {
+                    const next = !autoNext;
+                    setAutoNext(next);
+                    const preferences = loadClientPreferences();
+                    preferences.puzzle.autoNext = next;
+                    saveClientPreferences(preferences);
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border transition-all text-[13px] font-semibold ${
+                    autoNext
+                      ? "border-[var(--cta-bg)] bg-[var(--cta-bg)]/10 text-[var(--cta-bg)] hover:bg-[var(--cta-bg)]/20"
+                      : "border-[var(--border)] bg-[var(--surface-alt)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)]"
+                  }`}
+                >
+                  <Zap className="w-4 h-4" />
+                  Auto-Next: {autoNext ? "ON" : "OFF"}
+                </button>
+              </div>
 
               {phase === "playing" && (
                 <div className="grid grid-cols-2 gap-3">
@@ -1829,11 +1845,11 @@ function SolverInner() {
 
               {phase === "solved" && (mode === "standard" || mode === "daily" || mode === "review") && (
                 <div
-                  className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5"
+                  className="rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-5"
                 >
                   <div className="flex items-center gap-2 mb-3">
-                    <Check className="w-5 h-5 text-emerald-400" />
-                    <span className="text-[16px] font-bold text-emerald-400">Correct!</span>
+                    <Check className="w-5 h-5 text-[var(--text-primary)]" />
+                    <span className="text-[16px] font-bold text-[var(--text-primary)]">Correct!</span>
                   </div>
                   <div className="mb-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] p-3">
                     <p className="mb-2 text-[12px] font-semibold text-[var(--text-muted)]">Free move navigation</p>

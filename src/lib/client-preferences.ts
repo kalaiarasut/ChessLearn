@@ -73,6 +73,7 @@ export type PuzzleClientPreferences = {
   puzzleThemeStats: Record<string, PuzzleThemeStat>;
   ratingHistory: { date: string; rating: number }[];
   recentActivity: PuzzleActivityEntry[];
+  autoNext: boolean;
 };
 
 export type ClientPreferences = {
@@ -123,6 +124,7 @@ export const DEFAULT_CLIENT_PREFERENCES: ClientPreferences = {
     puzzleThemeStats: {},
     ratingHistory: [],
     recentActivity: [],
+    autoNext: true,
   },
 };
 
@@ -382,5 +384,6 @@ function normalizePuzzlePreferences(value: Partial<PuzzleClientPreferences> | un
     puzzleThemeStats: themeStats,
     ratingHistory,
     recentActivity,
+    autoNext: value.autoNext !== false,
   };
 }
