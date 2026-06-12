@@ -104,7 +104,7 @@ export async function signup(_state: AuthFormState, formData: FormData): Promise
     };
   }
 
-  redirect("/");
+  redirect("/onboarding");
 }
 
 export async function logout() {

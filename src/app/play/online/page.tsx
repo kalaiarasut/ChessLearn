@@ -12,6 +12,10 @@ import { SettingsModalLayout, BoardPiecesSettingsTab } from "@/components/settin
 import { Tooltip } from "@/components/ui/Tooltip";
 import Link from "next/link";
 import { generateChess960BackRank } from "../computer/page";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useRealtimeMatch } from "@/hooks/useRealtimeMatch";
+import { findOrCreateMatch, createFriendMatch, joinFriendMatch, syncGameState } from "@/app/actions/match";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const VARIANTS = [
   { id: "chess960", label: "Chess960", desc: "Randomized back rank starting position." },
@@ -152,7 +156,40 @@ const TIME_CONTROLS: TimeControlCategory[] = [
 ];
 
 export default function PlayOnlinePage() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">Loading...</div>}>
+      <PlayOnlineContent />
+    </React.Suspense>
+  );
+}
+
+function PlayOnlineContent() {
   const { isDark, toggleTheme } = useTheme();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const matchId = searchParams.get("matchId");
+  
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    createSupabaseBrowserClient().auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        router.push("/login");
+      } else {
+        setUserId(data.user.id);
+      }
+    });
+  }, [router]);
+
+  const { gameState, isLoading: isMatchLoading, error: matchError, sendMove } = useRealtimeMatch(matchId);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Auto-join invite matches if we're not the creator
+  useEffect(() => {
+    if (matchId && gameState.status === "invite_only" && userId && gameState.whitePlayerId !== userId && gameState.blackPlayerId !== userId) {
+      joinFriendMatch(matchId).catch(console.error);
+    }
+  }, [matchId, gameState.status, userId, gameState.whitePlayerId, gameState.blackPlayerId]);
 
   // Board State
   const [game, setGame] = useState(new Chess());
@@ -160,6 +197,18 @@ export default function PlayOnlinePage() {
     const g = new Chess();
     return g.board().map(row => row.map(p => p ? `${p.color}${p.type}` : null));
   });
+
+  // Sync network state to local board
+  useEffect(() => {
+    if (gameState.pgn && gameState.pgn !== game.pgn()) {
+      try {
+        const newGame = new Chess();
+        newGame.loadPgn(gameState.pgn);
+        setGame(newGame);
+        setBoardState(newGame.board().map(row => row.map(p => p ? `${p.color}${p.type}` : null)));
+      } catch (e) { console.error("Invalid incoming PGN", e); }
+    }
+  }, [gameState.pgn, game]);
   
   const [isBoardFlipped, setIsBoardFlipped] = useState(false);
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
@@ -394,6 +443,16 @@ export default function PlayOnlinePage() {
           if (soundEnabled) {
             // In a real app we'd play audio here
           }
+          if (matchId) {
+            const pgn = game.pgn();
+            sendMove(pgn);
+            const isGameOver = game.isGameOver();
+            let winnerId = null;
+            if (isGameOver && !game.isDraw()) {
+              winnerId = game.turn() === 'b' ? gameState.whitePlayerId : gameState.blackPlayerId;
+            }
+            syncGameState(matchId, pgn, isGameOver ? 'finished' : 'in_progress', winnerId);
+          }
         }
       }
     } catch (e) {
@@ -401,7 +460,17 @@ export default function PlayOnlinePage() {
     }
   };
 
+  const isMyTurn = () => {
+    if (!matchId) return true; // Local play allows both sides
+    if (gameState.status !== "in_progress") return false;
+    if (game.turn() === 'w' && userId !== gameState.whitePlayerId) return false;
+    if (game.turn() === 'b' && userId !== gameState.blackPlayerId) return false;
+    return true;
+  };
+
   const handleSquareClick = (square: Square) => {
+    if (!isMyTurn()) return;
+
     if (selectedSquare === square) {
       setSelectedSquare(null);
       setLegalTargets([]);
@@ -425,6 +494,10 @@ export default function PlayOnlinePage() {
   };
 
   const handleDragStart = (e: React.DragEvent, square: Square) => {
+    if (!isMyTurn()) {
+      e.preventDefault();
+      return;
+    }
     const piece = game.get(square);
     if (piece && piece.color === game.turn()) {
       setDraggedSquare(square);
@@ -597,9 +670,54 @@ export default function PlayOnlinePage() {
             {activeTab === "new_game" && (
               <div className="flex flex-col lg:flex-row h-full gap-4">
                 
-                {/* Left Column: Time Controls & Play */}
+                {/* Left Column: Match Info OR Time Controls & Play */}
                 <div className="flex flex-col flex-1 lg:w-[350px]">
-                  {/* Time Controls Selector container */}
+                  {matchId ? (
+                    <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-6 mb-4 flex flex-col items-center justify-center flex-1">
+                      <div className="w-16 h-16 rounded-full bg-[var(--cta-bg)] flex items-center justify-center mb-4">
+                        <Handshake className="w-8 h-8 text-white" />
+                      </div>
+                      <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">
+                        {gameState.status === 'invite_only' ? 'Invite a Friend' : 'Match Found!'}
+                      </h2>
+                      {gameState.status === 'invite_only' && (
+                        <p className="text-sm text-[var(--text-secondary)] text-center mb-6">
+                          Share this link with your friend to play:<br/>
+                          <span className="font-mono text-[var(--cta-bg)] break-all select-all mt-2 block p-2 bg-[var(--surface-alt)] rounded border border-[var(--border)]">
+                            {typeof window !== 'undefined' ? `${window.location.origin}/play/online?matchId=${matchId}` : ''}
+                          </span>
+                        </p>
+                      )}
+                      {gameState.status === 'in_progress' && (
+                        <p className="text-sm text-[var(--text-secondary)] text-center mb-6">
+                          The game has started. Good luck!
+                        </p>
+                      )}
+                      {gameState.status === 'waiting' && (
+                        <p className="text-sm text-[var(--text-secondary)] text-center mb-6">
+                          Waiting for opponent to join...
+                        </p>
+                      )}
+                      
+                      <div className="w-full flex items-center justify-between p-4 bg-[var(--surface-alt)] rounded-lg border border-[var(--border)]">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-3 h-3 rounded-full ${gameState.opponentOnline ? 'bg-green-500' : 'bg-red-500'}`} />
+                          <span className="text-sm font-semibold text-[var(--text-primary)]">
+                            {gameState.opponentOnline ? 'Opponent Connected' : 'Opponent Disconnected'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={() => router.push("/play/online")}
+                        className="mt-6 text-[var(--text-muted)] hover:text-[var(--text-primary)] font-semibold text-sm transition-colors"
+                      >
+                        Leave Match
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Time Controls Selector container */}
                   <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 mb-4">
                     
                     {/* Rated Toggle */}
@@ -659,13 +777,44 @@ export default function PlayOnlinePage() {
                   </div>
 
                   {/* Primary Action */}
-                  <button className="w-full bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-white text-[28px] font-[900] py-4 rounded-xl shadow-[0_6px_0_var(--cta-shadow)] active:translate-y-[6px] active:shadow-none transition-all tracking-wide">
-                    Play
+                  <button 
+                    onClick={async () => {
+                      if (!userId) return router.push("/login");
+                      try {
+                        setIsSearching(true);
+                        const result = await findOrCreateMatch();
+                        if (result.error === "needs_onboarding") {
+                          router.push("/onboarding");
+                        } else if (result.matchId) {
+                          router.push(`/play/online?matchId=${result.matchId}`);
+                        }
+                      } catch (err) {
+                        console.error(err);
+                      } finally {
+                        setIsSearching(false);
+                      }
+                    }}
+                    disabled={isSearching || !!matchId}
+                    className={`w-full text-white text-[28px] font-[900] py-4 rounded-xl transition-all tracking-wide ${isSearching || matchId ? 'bg-gray-500 cursor-not-allowed opacity-70' : 'bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] shadow-[0_6px_0_var(--cta-shadow)] active:translate-y-[6px] active:shadow-none'}`}
+                  >
+                    {isSearching ? "Searching..." : matchId ? "In Game" : "Play"}
                   </button>
 
                   {/* Secondary Actions */}
                   <div className="flex flex-col space-y-3 mt-6">
-                    <button className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl py-4 flex items-center justify-center space-x-3 transition-colors shadow-sm">
+                    <button 
+                      onClick={async () => {
+                        if (!userId) return router.push("/login");
+                        try {
+                          const result = await createFriendMatch();
+                          router.push(`/play/online?matchId=${result.matchId}`);
+                        } catch (err) {
+                          console.error(err);
+                        }
+                      }}
+                      disabled={!!matchId}
+                      className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl py-4 flex items-center justify-center space-x-3 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       <Handshake className="w-5 h-5 text-[#D4A373] dark:text-[#E6B981]" />
                       <span className="text-lg font-bold text-[var(--text-primary)]">Play a Friend</span>
                     </button>
@@ -675,6 +824,8 @@ export default function PlayOnlinePage() {
                       <span className="text-lg font-bold text-[var(--text-primary)]">Play Bots</span>
                     </Link>
                   </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Right Column: Custom Challenges */}
