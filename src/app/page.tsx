@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, Puzzle } from "lucide-react";
+import { Bot, Puzzle, Swords } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useTheme } from "@/lib/theme-context";
@@ -144,9 +144,9 @@ export default function Home() {
                   Solve Puzzles
                 </Link>
 
-                <Link href="/play/computer" className="w-full sm:w-auto flex items-center justify-center px-10 py-5 max-[480px]:px-6 max-[480px]:py-4 bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-secondary)] rounded-full font-bold text-xl max-[480px]:text-lg hover:bg-[var(--surface-hover)] transition-colors shadow-lg">
-                  <Bot className="w-6 h-6 mr-3 text-[var(--text-muted)]" />
-                  Play Bots
+                <Link href="/play/online" className="w-full sm:w-auto flex items-center justify-center px-10 py-5 max-[480px]:px-6 max-[480px]:py-4 bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-secondary)] rounded-full font-bold text-xl max-[480px]:text-lg hover:bg-[var(--surface-hover)] transition-colors shadow-lg">
+                  <Swords className="w-6 h-6 mr-3 text-[var(--text-muted)]" />
+                  Play
                 </Link>
               </div>
             </motion.div>

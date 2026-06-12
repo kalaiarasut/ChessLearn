@@ -10,12 +10,14 @@ import {
   Search,
   BookOpen,
   Check,
+  Settings,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   ChevronsLeft,
   ChevronsRight,
+  Lightbulb,
   Star,
   ThumbsUp,
   X,
@@ -74,7 +76,7 @@ const MOVE_REVIEW_TONES: Record<
     label: "Book",
     symbol: "",
     icon: "book",
-    badgeColor: "#d6a16f",
+    badgeColor: "#d19a66",
     badgeTextColor: "#fff",
     fromFill: "rgba(214,161,111,0.22)",
     toFill: "rgba(214,161,111,0.38)",
@@ -84,7 +86,7 @@ const MOVE_REVIEW_TONES: Record<
     label: "Brilliant",
     symbol: "!!",
     icon: "text",
-    badgeColor: "#42dcca",
+    badgeColor: "#2bc7b4",
     badgeTextColor: "#fff",
     fromFill: "rgba(66,220,202,0.34)",
     toFill: "rgba(66,220,202,0.56)",
@@ -94,7 +96,7 @@ const MOVE_REVIEW_TONES: Record<
     label: "Great Move",
     symbol: "!",
     icon: "text",
-    badgeColor: "#7ea7d9",
+    badgeColor: "#7fa6d9",
     badgeTextColor: "#fff",
     fromFill: "rgba(126,167,217,0.28)",
     toFill: "rgba(126,167,217,0.5)",
@@ -104,7 +106,7 @@ const MOVE_REVIEW_TONES: Record<
     label: "Best",
     symbol: "★",
     icon: "star",
-    badgeColor: "#95cf62",
+    badgeColor: "#81b64c",
     badgeTextColor: "#fff",
     fromFill: "rgba(149,207,98,0.24)",
     toFill: "rgba(149,207,98,0.42)",
@@ -114,7 +116,7 @@ const MOVE_REVIEW_TONES: Record<
     label: "Excellent",
     symbol: "",
     icon: "thumbs-up",
-    badgeColor: "#95cf62",
+    badgeColor: "#81b64c",
     badgeTextColor: "#fff",
     fromFill: "rgba(149,207,98,0.22)",
     toFill: "rgba(149,207,98,0.36)",
@@ -124,7 +126,7 @@ const MOVE_REVIEW_TONES: Record<
     label: "Good",
     symbol: "",
     icon: "check",
-    badgeColor: "#7fba68",
+    badgeColor: "#81b64c",
     badgeTextColor: "#fff",
     fromFill: "rgba(127,186,104,0.2)",
     toFill: "rgba(127,186,104,0.32)",
@@ -134,7 +136,7 @@ const MOVE_REVIEW_TONES: Record<
     label: "Inaccuracy",
     symbol: "?!",
     icon: "text",
-    badgeColor: "#f4c542",
+    badgeColor: "#f5c242",
     badgeTextColor: "#fff",
     fromFill: "rgba(240,173,94,0.26)",
     toFill: "rgba(240,173,94,0.42)",
@@ -144,7 +146,7 @@ const MOVE_REVIEW_TONES: Record<
     label: "Mistake",
     symbol: "?",
     icon: "text",
-    badgeColor: "#f0a35e",
+    badgeColor: "#ffa459",
     badgeTextColor: "#fff",
     fromFill: "rgba(255,138,101,0.26)",
     toFill: "rgba(255,138,101,0.42)",
@@ -154,7 +156,7 @@ const MOVE_REVIEW_TONES: Record<
     label: "Miss",
     symbol: "X",
     icon: "x",
-    badgeColor: "#fa6b5f",
+    badgeColor: "#fa5b4b",
     badgeTextColor: "#fff",
     fromFill: "rgba(250,107,95,0.22)",
     toFill: "rgba(250,107,95,0.42)",
@@ -164,7 +166,7 @@ const MOVE_REVIEW_TONES: Record<
     label: "Blunder",
     symbol: "??",
     icon: "text",
-    badgeColor: "#ef5350",
+    badgeColor: "#fa412d",
     badgeTextColor: "#fff",
     fromFill: "rgba(239,83,80,0.24)",
     toFill: "rgba(239,83,80,0.46)",
@@ -217,6 +219,93 @@ const getSquareCenter = (sq: string) => {
 
 const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
+
+const cpToWhiteWinPercent = (scoreCp: number | null) => {
+  const cp = clamp(scoreCp ?? 0, -1000, 1000);
+  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+};
+
+const getMoveAccuracy = (review: ReviewedMove) => {
+  const beforeWhite = cpToWhiteWinPercent(review.beforeScoreCp);
+  const afterWhite = cpToWhiteWinPercent(review.afterScoreCp);
+  const before = review.mover === "w" ? beforeWhite : 100 - beforeWhite;
+  const after = review.mover === "w" ? afterWhite : 100 - afterWhite;
+  const winPercentLoss = Math.max(0, before - after);
+  return clamp(103.1668 * Math.exp(-0.04354 * winPercentLoss) - 3.1669, 0, 100);
+};
+
+const getCategoryFromAccuracy = (accuracy: number): MoveReviewCategory => {
+  if (accuracy >= 98) return "great";
+  if (accuracy >= 90) return "excellent";
+  if (accuracy >= 80) return "good";
+  if (accuracy >= 65) return "inaccuracy";
+  if (accuracy >= 45) return "mistake";
+  if (accuracy >= 25) return "miss";
+  return "blunder";
+};
+
+const getPhaseLabel = (plyIndex: number, totalPlies: number) => {
+  if (plyIndex <= Math.min(16, totalPlies)) return "Opening";
+  if (totalPlies > 32 && plyIndex > totalPlies - 16) return "Endgame";
+  return "Middlegame";
+};
+
+const formatEval = (scoreCp: number | null) => {
+  const pawns = (scoreCp ?? 0) / 100;
+  return `${pawns >= 0 ? "+" : ""}${pawns.toFixed(2)}`;
+};
+
+const getReviewHeadline = (review: ReviewedMove) => {
+  const tone = MOVE_REVIEW_TONES[review.category];
+  const label =
+    review.category === "book"
+      ? "is a book move"
+      : `is ${tone.label.toLowerCase()}`;
+  return `${review.san} ${label}`;
+};
+
+const getReviewExplanation = (review: ReviewedMove) => {
+  if (review.category === "book") {
+    return review.mover === "w"
+      ? "Solid opening choice. You are developing normally and keeping central control."
+      : "Your opponent is following known opening play, so the position is still in book.";
+  }
+  if (review.category === "brilliant") {
+    return "This move finds a difficult tactical idea and keeps the position working in your favor.";
+  }
+  if (review.category === "great") {
+    return "This is a strong move that improves the position and avoids the main tactical problems.";
+  }
+  if (review.category === "best") {
+    return review.bestMoveSan
+      ? `This matches the engine's top choice: ${review.bestMoveSan}.`
+      : "This keeps the position at its best according to the engine.";
+  }
+  if (review.category === "excellent") {
+    return "This is a clean move that keeps your advantage or holds the position well.";
+  }
+  if (review.category === "good") {
+    return "This is playable and does not change the evaluation much.";
+  }
+  if (review.category === "inaccuracy") {
+    return review.bestMoveSan
+      ? `This gives up a little. ${review.bestMoveSan} was more precise.`
+      : "This gives up a little accuracy, but the position remains playable.";
+  }
+  if (review.category === "mistake") {
+    return review.bestMoveSan
+      ? `This loses ground. The stronger move was ${review.bestMoveSan}.`
+      : "This changes the position in your opponent's favor.";
+  }
+  if (review.category === "miss") {
+    return review.bestMoveSan
+      ? `This misses a better chance. The engine preferred ${review.bestMoveSan}.`
+      : "This misses a chance to improve the position.";
+  }
+  return review.bestMoveSan
+    ? `This is a major swing. ${review.bestMoveSan} was the best move.`
+    : "This is a major swing in the evaluation.";
+};
 
 function ReviewSymbol({
   category,
@@ -350,6 +439,39 @@ function AnalysisContent() {
   const currentTone = currentReview
     ? MOVE_REVIEW_TONES[currentReview.category]
     : null;
+  const reviewRows = useMemo(() => {
+    const rows: Array<{
+      moveNumber: number;
+      white: { san: string; ply: number; review: ReviewedMove | null } | null;
+      black: { san: string; ply: number; review: ReviewedMove | null } | null;
+    }> = [];
+
+    for (let index = 0; index < sanHistory.length; index += 2) {
+      const whitePly = index + 1;
+      const blackPly = index + 2;
+      rows.push({
+        moveNumber: Math.floor(index / 2) + 1,
+        white: sanHistory[index]
+          ? {
+              san: sanHistory[index],
+              ply: whitePly,
+              review: reviews[whitePly] ?? null,
+            }
+          : null,
+        black: sanHistory[index + 1]
+          ? {
+              san: sanHistory[index + 1],
+              ply: blackPly,
+              review: reviews[blackPly] ?? null,
+            }
+          : null,
+      });
+    }
+
+    return rows;
+  }, [reviews, sanHistory]);
+  const reviewMoveAccuracy = currentReview ? getMoveAccuracy(currentReview) : null;
+  const reviewEvalLabel = currentReview ? formatEval(currentReview.afterScoreCp) : "+0.00";
 
   useEffect(() => {
     celebTimers.current.forEach(clearTimeout);
@@ -416,8 +538,7 @@ function AnalysisContent() {
     const calcAcc = (side: "w" | "b") => {
       const sr = Object.values(reviews).filter((r) => r.mover === side);
       if (!sr.length) return 0;
-      const avgLoss = sr.reduce((s, r) => s + (r.lossCp || 0), 0) / sr.length;
-      return Math.max(0, Math.min(100, 100 * Math.exp(-0.003 * avgLoss)));
+      return sr.reduce((sum, review) => sum + getMoveAccuracy(review), 0) / sr.length;
     };
     return { counts, accW: calcAcc("w"), accB: calcAcc("b") };
   }, [reviews]);
@@ -432,22 +553,92 @@ function AnalysisContent() {
   const graphPoints = useMemo(() => {
     if (status !== "ready") return [];
 
-    return sanHistory.map((_, index) => {
-      const ply = index + 1;
-      const review = reviews[ply];
-      const score = clamp(review?.afterScoreCp ?? 0, -700, 700);
+    const points = [
+      {
+        ply: 0,
+        score: Object.values(reviews).find((review) => review.beforeScoreCp !== null)
+          ?.beforeScoreCp ?? 0,
+        color: "rgba(148,163,184,0.9)",
+      },
+      ...sanHistory.map((_, index) => {
+        const ply = index + 1;
+        const review = reviews[ply];
+        return {
+          ply,
+          score: review?.afterScoreCp ?? review?.beforeScoreCp ?? 0,
+          color: review
+            ? MOVE_REVIEW_TONES[review.category].badgeColor
+            : "rgba(148,163,184,0.9)",
+        };
+      }),
+    ];
+
+    return points.map((point, index) => {
+      const score = clamp(point.score, -1000, 1000);
+      const review = index === 0 ? null : reviews[index];
+      const isNotable =
+        !!review &&
+        (review.category === "brilliant" ||
+          review.category === "great" ||
+          review.category === "inaccuracy" ||
+          review.category === "mistake" ||
+          review.category === "miss" ||
+          review.category === "blunder" ||
+          (review.category === "best" &&
+            (review.isCheck || review.isCapture || review.isSacrifice)));
       return {
-        x: ((ply - 0.5) / Math.max(1, sanHistory.length)) * 100,
-        y: 50 - (score / 700) * 39,
-        color: review
-          ? MOVE_REVIEW_TONES[review.category].badgeColor
-          : "rgba(148,163,184,0.8)",
+        x: (index / Math.max(1, points.length - 1)) * 100,
+        y: 21 - (score / 1000) * 18,
+        color: point.color,
+        review,
+        isNotable,
       };
     });
   }, [reviews, sanHistory, status]);
   const graphPath = graphPoints
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
     .join(" ");
+  const reversedGraphPath = [...graphPoints]
+    .reverse()
+    .map((point) => `L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+    .join(" ");
+  const graphDarkAreaPath =
+    graphPoints.length > 0
+      ? `M 0 0 H 100 V ${graphPoints[graphPoints.length - 1].y.toFixed(2)} ${reversedGraphPath} Z`
+      : "";
+  const graphLightAreaPath =
+    graphPoints.length > 0
+      ? `M 0 42 H 100 V ${graphPoints[graphPoints.length - 1].y.toFixed(2)} ${reversedGraphPath} Z`
+      : "";
+  const graphMarks = graphPoints.filter((point) => point.isNotable);
+  const phaseSummaries = useMemo(() => {
+    const phaseLabels = ["Opening", "Middlegame", "Endgame"] as const;
+    return phaseLabels.map((phase) => {
+      const sideSummary = (side: "w" | "b") => {
+        const phaseReviews = Object.values(reviews).filter(
+          (review) =>
+            review.mover === side &&
+            getPhaseLabel(review.plyIndex, sanHistory.length) === phase
+        );
+        if (!phaseReviews.length) {
+          return { accuracy: null as number | null, category: "good" as MoveReviewCategory };
+        }
+        const accuracy =
+          phaseReviews.reduce((sum, review) => sum + getMoveAccuracy(review), 0) /
+          phaseReviews.length;
+        return {
+          accuracy,
+          category: getCategoryFromAccuracy(accuracy),
+        };
+      };
+
+      return {
+        label: phase,
+        w: sideSummary("w"),
+        b: sideSummary("b"),
+      };
+    });
+  }, [reviews, sanHistory.length]);
 
   // Board rendering
   let boardObj: Chess;
@@ -474,7 +665,7 @@ function AnalysisContent() {
   const handleFirstMove = () => {
     setHasStartedReview(true);
     setIsPlayingHistory(false);
-    setCurrentMoveIndex(0);
+    setCurrentMoveIndex(1);
   };
   const handlePrevMove = () => {
     setHasStartedReview(true);
@@ -494,12 +685,18 @@ function AnalysisContent() {
   const togglePlayback = () => {
     if (isAnalyzing) return;
     setHasStartedReview(true);
-    if (currentMoveIndex >= history.length - 1) {
-      setCurrentMoveIndex(0);
+    if (currentMoveIndex <= 0 || currentMoveIndex >= history.length - 1) {
+      setCurrentMoveIndex(1);
       setIsPlayingHistory(true);
       return;
     }
     setIsPlayingHistory((prev) => !prev);
+  };
+  const startReview = () => {
+    if (isAnalyzing) return;
+    setHasStartedReview(true);
+    setIsPlayingHistory(false);
+    setCurrentMoveIndex(1);
   };
 
   if (loading) {
@@ -809,6 +1006,208 @@ function AnalysisContent() {
             </div>
           </div>
 
+          {hasStartedReview && status === "ready" ? (
+            <div className="flex min-h-[720px] flex-col bg-[#262522] text-white">
+              <div className="flex items-center justify-between border-b border-black/30 px-4 py-3">
+                <div className="flex items-center gap-4 text-white/80">
+                  <button
+                    type="button"
+                    onClick={() => setHasStartedReview(false)}
+                    className="rounded-md p-1 hover:bg-white/10"
+                    aria-label="Back to review summary"
+                  >
+                    <ChevronLeft size={24} />
+                  </button>
+                  <Settings size={21} />
+                </div>
+                <div className="text-lg font-black">Game Review</div>
+                <div className="flex items-center gap-4 text-white/80">
+                  <Volume2 size={20} />
+                  <Search size={20} />
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="mb-4 flex items-start gap-3">
+                  <div className="mt-3 flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-white/10 bg-[#ede8dc] text-sm font-black text-[#24231f]">
+                    AI
+                  </div>
+                  <div className="relative flex-1 rounded-xl bg-white px-4 py-3 text-[#111] shadow-lg before:absolute before:left-[-10px] before:top-10 before:h-0 before:w-0 before:border-y-[10px] before:border-r-[12px] before:border-y-transparent before:border-r-white">
+                    {currentReview && currentTone ? (
+                      <>
+                        <div className="mb-1 flex items-center justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-2 text-[17px] font-black">
+                            <ReviewSymbol
+                              category={currentReview.category}
+                              className="h-7 w-7 shrink-0 text-[12px]"
+                              iconClassName="h-4 w-4"
+                            />
+                            <span className="truncate">{getReviewHeadline(currentReview)}</span>
+                          </div>
+                          <a
+                            href="https://support.chess.com/article/656-what-do-the-computer-evaluation-numbers-mean-like-225"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded bg-[#2b2b2b] px-2.5 py-1 text-sm font-black text-white"
+                          >
+                            {reviewEvalLabel}
+                          </a>
+                        </div>
+                        <p className="text-[15px] font-semibold leading-snug">
+                          {getReviewExplanation(currentReview)}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-[15px] font-semibold">
+                        Select a move to begin the review.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mb-3 grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    className="flex items-center justify-center gap-2 rounded-md border border-black/40 bg-gradient-to-b from-[#45433f] to-[#34322f] px-3 py-3 text-sm font-black shadow-inner"
+                  >
+                    {currentReview?.bestMoveSan ? (
+                      <>
+                        <ReviewSymbol
+                          category="best"
+                          className="h-6 w-6 text-[11px]"
+                          iconClassName="h-3.5 w-3.5"
+                        />
+                        <span>{currentReview.bestMoveSan}</span>
+                      </>
+                    ) : (
+                      <>
+                        <ReviewSymbol
+                          category="best"
+                          className="h-6 w-6 text-[11px]"
+                          iconClassName="h-3.5 w-3.5"
+                        />
+                        <span>Best</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="flex items-center justify-center gap-2 rounded-md border border-black/40 bg-gradient-to-b from-[#45433f] to-[#34322f] px-3 py-3 text-sm font-black shadow-inner"
+                    title={currentReview ? `Move accuracy: ${reviewMoveAccuracy?.toFixed(1)}` : undefined}
+                  >
+                    <Lightbulb size={18} fill="currentColor" />
+                    Explain
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNextMove}
+                    disabled={displayMoveIndex >= finalMoveIndex}
+                    className="flex items-center justify-center gap-2 rounded-md border border-[#4f8d2d] bg-gradient-to-b from-[#8dcc58] to-[#67a642] px-3 py-3 text-sm font-black text-white shadow disabled:opacity-50"
+                  >
+                    <ChevronRight size={22} strokeWidth={4} />
+                    Next
+                  </button>
+                </div>
+
+                <div className="mb-3 max-h-56 overflow-y-auto border-y border-white/5 text-sm font-bold">
+                  {reviewRows.map((row) => (
+                    <div
+                      key={row.moveNumber}
+                      className="grid grid-cols-[48px_1fr_1fr] items-center border-b border-white/5 odd:bg-white/[0.035] even:bg-black/10"
+                    >
+                      <div className="px-3 py-2 text-white/65">{row.moveNumber}.</div>
+                      {[row.white, row.black].map((move) => {
+                        if (!move) {
+                          return <div key="empty" className="px-3 py-2" />;
+                        }
+                        const isCurrent = move.ply === displayMoveIndex;
+                        return (
+                          <button
+                            key={move.ply}
+                            type="button"
+                            onClick={() => {
+                              setHasStartedReview(true);
+                              setIsPlayingHistory(false);
+                              setCurrentMoveIndex(move.ply);
+                            }}
+                            className={`flex items-center gap-1.5 px-3 py-2 text-left transition-colors ${
+                              isCurrent
+                                ? "bg-white/12 text-white"
+                                : "text-white/85 hover:bg-white/10"
+                            }`}
+                          >
+                            {move.review && (
+                              <ReviewSymbol
+                                category={move.review.category}
+                                className="h-5 w-5 shrink-0 text-[9px]"
+                                iconClassName="h-3 w-3"
+                              />
+                            )}
+                            <span className={isCurrent ? "rounded bg-white/20 px-1" : ""}>
+                              {move.san}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="overflow-hidden rounded-md border border-black/40 bg-[#3b3935]">
+                  <svg
+                    viewBox="0 0 100 42"
+                    className="h-24 w-full"
+                    preserveAspectRatio="none"
+                    aria-label="Evaluation graph"
+                  >
+                    <rect x="0" y="0" width="100" height="42" fill="#ffffff" />
+                    {graphLightAreaPath && <path d={graphLightAreaPath} fill="#f7f7f2" />}
+                    {graphDarkAreaPath && <path d={graphDarkAreaPath} fill="#3b3935" />}
+                    <line x1="0" y1="21" x2="100" y2="21" stroke="rgba(126,126,118,0.55)" strokeWidth="0.55" />
+                    {graphPath && (
+                      <path
+                        d={graphPath}
+                        fill="none"
+                        stroke="#24231f"
+                        strokeWidth="1.15"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    )}
+                    {graphMarks.map((point, index) => (
+                      <circle
+                        key={`${point.x}-${index}`}
+                        cx={point.x}
+                        cy={point.y}
+                        r="1.35"
+                        fill={point.color}
+                        stroke="rgba(255,255,255,0.95)"
+                        strokeWidth="0.7"
+                      />
+                    ))}
+                  </svg>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-5 gap-2 border-t border-black/30 bg-[#1f1e1b] p-3">
+                <button onClick={handleFirstMove} className="rounded-lg bg-gradient-to-b from-[#3f3d39] to-[#2b2926] py-4 text-white/85 shadow">
+                  <ChevronsLeft className="mx-auto" size={28} />
+                </button>
+                <button onClick={handlePrevMove} className="rounded-lg bg-gradient-to-b from-[#3f3d39] to-[#2b2926] py-4 text-white/85 shadow">
+                  <ChevronLeft className="mx-auto" size={28} />
+                </button>
+                <button onClick={togglePlayback} className="rounded-lg bg-gradient-to-b from-[#3f3d39] to-[#2b2926] py-4 text-white/85 shadow">
+                  <span className="block text-center text-2xl">{isPlayingHistory ? "⏸" : "▶"}</span>
+                </button>
+                <button onClick={handleNextMove} className="rounded-lg bg-gradient-to-b from-[#3f3d39] to-[#2b2926] py-4 text-white/85 shadow">
+                  <ChevronRight className="mx-auto" size={28} />
+                </button>
+                <button onClick={handleLastMove} className="rounded-lg bg-gradient-to-b from-[#3f3d39] to-[#2b2926] py-4 text-white/85 shadow">
+                  <ChevronsRight className="mx-auto" size={28} />
+                </button>
+              </div>
+            </div>
+          ) : (
+          <>
           <div className="p-4 flex flex-col flex-1 overflow-y-auto">
 
             {/* Coach Message */}
@@ -865,28 +1264,41 @@ function AnalysisContent() {
                 preserveAspectRatio="none"
                 aria-label="Evaluation graph"
               >
-                <rect x="0" y="0" width="100" height="21" fill="rgba(255,255,255,0.78)" />
-                <rect x="0" y="21" width="100" height="21" fill="rgba(31,31,29,0.88)" />
-                <line x1="0" y1="21" x2="100" y2="21" stroke="rgba(120,120,120,0.55)" strokeWidth="0.6" />
+                <rect x="0" y="0" width="100" height="42" fill="#ffffff" />
+                {status === "ready" && graphLightAreaPath && (
+                  <path d={graphLightAreaPath} fill="#f7f7f2" />
+                )}
+                {status === "ready" && graphDarkAreaPath && (
+                  <path d={graphDarkAreaPath} fill="#3b3935" />
+                )}
+                <line x1="0" y1="21" x2="100" y2="21" stroke="rgba(126,126,118,0.55)" strokeWidth="0.55" />
+                <line x1="0" y1="10.5" x2="100" y2="10.5" stroke="rgba(255,255,255,0.16)" strokeWidth="0.35" />
+                <line x1="0" y1="31.5" x2="100" y2="31.5" stroke="rgba(40,40,36,0.12)" strokeWidth="0.35" />
                 {status === "ready" && graphPath && (
                   <path
                     d={graphPath}
                     fill="none"
-                    stroke="rgba(18,18,17,0.88)"
-                    strokeWidth="1.6"
+                    stroke="#24231f"
+                    strokeWidth="1.15"
                     vectorEffect="non-scaling-stroke"
                   />
                 )}
-                {graphPoints.map((point, index) => (
+                {graphMarks.map((point, index) => (
                   <circle
                     key={`${point.x}-${index}`}
                     cx={point.x}
                     cy={point.y}
-                    r="1.2"
+                    r="1.35"
                     fill={point.color}
-                    stroke="rgba(255,255,255,0.65)"
-                    strokeWidth="0.35"
-                  />
+                    stroke="rgba(255,255,255,0.95)"
+                    strokeWidth="0.7"
+                  >
+                    <title>
+                      {point.review
+                        ? `${point.review.moveNumber}. ${point.review.san} • ${MOVE_REVIEW_TONES[point.review.category].label}`
+                        : "Evaluation mark"}
+                    </title>
+                  </circle>
                 ))}
               </svg>
             </div>
@@ -989,13 +1401,7 @@ function AnalysisContent() {
 
             {/* Phase Evaluation */}
             <div className="flex flex-col space-y-3 mb-6 bg-[var(--bg-alt)] p-3 rounded-md border border-[var(--border)]">
-              {(
-                [
-                  { label: "Opening", wSymbol: "!", bSymbol: "!", wColor: "#7ea7d9", bColor: "#7ea7d9" },
-                  { label: "Middlegame", wSymbol: "👍", bSymbol: "✓", wColor: "#95cf62", bColor: "#66cdaa" },
-                  { label: "Endgame", wSymbol: "?!", bSymbol: "!", wColor: "#ff8a65", bColor: "#7ea7d9" },
-                ] as const
-              ).map(({ label, wSymbol, bSymbol, wColor, bColor }) => (
+              {phaseSummaries.map(({ label, w, b }) => (
                 <div
                   key={label}
                   className="flex items-center justify-between text-sm font-semibold"
@@ -1003,16 +1409,38 @@ function AnalysisContent() {
                   <span className="text-[var(--text-secondary)]">{label}</span>
                   <div className="flex space-x-8">
                     <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white"
-                      style={{ backgroundColor: wColor }}
+                      title={`${label} Accuracy: ${
+                        w.accuracy === null ? "No moves" : w.accuracy.toFixed(1)
+                      }`}
                     >
-                      {wSymbol}
+                      {w.accuracy === null ? (
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--surface-alt)] text-xs text-[var(--text-muted)]">
+                          -
+                        </span>
+                      ) : (
+                        <ReviewSymbol
+                          category={w.category}
+                          className="h-7 w-7 text-[12px]"
+                          iconClassName="h-4 w-4"
+                        />
+                      )}
                     </div>
                     <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white"
-                      style={{ backgroundColor: bColor }}
+                      title={`${label} Accuracy: ${
+                        b.accuracy === null ? "No moves" : b.accuracy.toFixed(1)
+                      }`}
                     >
-                      {bSymbol}
+                      {b.accuracy === null ? (
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--surface-alt)] text-xs text-[var(--text-muted)]">
+                          -
+                        </span>
+                      ) : (
+                        <ReviewSymbol
+                          category={b.category}
+                          className="h-7 w-7 text-[12px]"
+                          iconClassName="h-4 w-4"
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1029,11 +1457,7 @@ function AnalysisContent() {
               New Game
             </Link>
             <button
-              onClick={() => {
-                setHasStartedReview(true);
-                setCurrentMoveIndex(0);
-                setIsPlayingHistory(true);
-              }}
+              onClick={startReview}
               disabled={isAnalyzing}
               className="w-full py-3 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] font-bold text-lg rounded-md shadow-md transition-colors border-none disabled:opacity-50"
             >
@@ -1044,6 +1468,8 @@ function AnalysisContent() {
                   : "Start Review"}
             </button>
           </div>
+          </>
+          )}
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Menu, X, Sun, Moon } from "lucide-react";
+import { Menu, X, Sun, Moon, Swords } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "@/lib/theme-context";
 import { AuthMenu } from "@/components/auth-menu";
@@ -20,13 +20,9 @@ export default function Navbar() {
         <nav className="hidden lg:flex items-center space-x-10 text-[14px] font-medium text-[var(--text-secondary)]">
           <Link href="/puzzles" className="hover:text-[var(--text-primary)] transition-colors">Puzzles</Link>
           <Link href="/learn" className="hover:text-[var(--text-primary)] transition-colors">Learn</Link>
-          <Link href="/play/computer" className="hover:text-[var(--text-primary)] transition-colors">Play Bot</Link>
+          <Link href="/play/online" className="hover:text-[var(--text-primary)] transition-colors">Play</Link>
           <Link href="/leaderboard" className="hover:text-[var(--text-primary)] transition-colors">Leaderboard</Link>
           <Link href="/whats-new" className="hover:text-[var(--text-primary)] transition-colors">What&apos;s New</Link>
-          <div className="flex items-center space-x-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors">
-            <span>More</span>
-            <ChevronDown className="w-4 h-4 ml-[2px]" strokeWidth={2.5} />
-          </div>
         </nav>
 
         <div className="flex items-center space-x-5 text-[14px] font-medium max-[1024px]:space-x-3">
@@ -53,7 +49,7 @@ export default function Navbar() {
           <nav className="flex flex-col space-y-6 text-xl font-medium text-[var(--text-primary)]">
             <Link href="/puzzles" onClick={() => setIsMobileMenuOpen(false)}>Puzzles</Link>
             <Link href="/learn" onClick={() => setIsMobileMenuOpen(false)}>Learn</Link>
-            <Link href="/play/computer" onClick={() => setIsMobileMenuOpen(false)}>Play Bot</Link>
+            <Link href="/play/online" onClick={() => setIsMobileMenuOpen(false)}>Play</Link>
             <Link href="/leaderboard" onClick={() => setIsMobileMenuOpen(false)}>Leaderboard</Link>
             <Link href="/whats-new" onClick={() => setIsMobileMenuOpen(false)}>What&apos;s New</Link>
           </nav>
