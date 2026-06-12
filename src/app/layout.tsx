@@ -13,6 +13,8 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+import GlobalInviteListener from "@/components/ui/GlobalInviteListener";
+
 export const metadata: Metadata = {
   title: "ChessLearn",
   description: "A premium chess platform for players of all levels",
@@ -47,6 +49,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col font-sans">
         <ThemeProvider>
+          <GlobalInviteListener />
           {children}
         </ThemeProvider>
       </body>

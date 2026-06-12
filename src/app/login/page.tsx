@@ -158,7 +158,7 @@ function LoginForm() {
 
         <p className="text-center mt-8 text-[var(--text-muted)] text-[14px] font-medium">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-[var(--text-primary)] hover:underline underline-offset-4 transition-all">
+          <Link href={`/signup${nextPath !== "/" ? `?next=${encodeURIComponent(nextPath)}` : ""}`} className="text-[var(--text-primary)] hover:underline underline-offset-4 transition-all">
             Create account
           </Link>
         </p>

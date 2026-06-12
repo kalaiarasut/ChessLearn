@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useActionState, useState, useMemo } from "react";
 import { Mail, Lock, User, ArrowRight, Eye, EyeOff, ChevronLeft, Sun, Moon } from "lucide-react";
 import { signup } from "@/app/actions/auth";
 import { useTheme } from "@/lib/theme-context";
 
 export default function SignupPage() {
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -15,6 +17,11 @@ export default function SignupPage() {
   const hasPasswordInput = password.length > 0;
   const isPasswordValid = password.length >= 8;
   const { toggleTheme, isDark } = useTheme();
+
+  const nextPath = useMemo(() => {
+    const next = searchParams.get("next");
+    return next && next.startsWith("/") ? next : "/";
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[var(--bg)]">
@@ -49,6 +56,7 @@ export default function SignupPage() {
           <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[var(--gradient-line)] to-transparent opacity-50" />
 
           <form action={formAction} className="space-y-4">
+            <input type="hidden" name="next" value={nextPath} />
             <div className="space-y-1.5 text-left">
               <label htmlFor="username" className="text-[12px] font-semibold text-[var(--text-muted)] uppercase tracking-wider pl-1">
                 Username

@@ -9,6 +9,7 @@ import {
 import themeManifest from "@/data/themeManifest.json";
 import { useTheme } from "@/lib/theme-context";
 import { SettingsModalLayout, BoardPiecesSettingsTab } from "@/components/settings-layout";
+import PlayersTab from "@/components/ui/PlayersTab";
 import { Tooltip } from "@/components/ui/Tooltip";
 import Link from "next/link";
 import { generateChess960BackRank } from "../computer/page";
@@ -174,7 +175,8 @@ function PlayOnlineContent() {
   useEffect(() => {
     createSupabaseBrowserClient().auth.getUser().then(({ data }) => {
       if (!data.user) {
-        router.push("/login");
+        const currentUrl = window.location.pathname + window.location.search;
+        router.push(`/login?next=${encodeURIComponent(currentUrl)}`);
       } else {
         setUserId(data.user.id);
       }
@@ -223,7 +225,9 @@ function PlayOnlineContent() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<"boards" | "pieces">("boards");
   
-  const [activeTab, setActiveTab] = useState<"new_game" | "games" | "players">("new_game");
+  const [activeTab, setActiveTab] = useState<"new_game" | "games" | "players">(
+    (searchParams.get("tab") as any) || "new_game"
+  );
   const [selectedTimeControl, setSelectedTimeControl] = useState("10min");
   const [showMoreControls, setShowMoreControls] = useState(false);
   const [isRated, setIsRated] = useState(true);
@@ -725,9 +729,9 @@ function PlayOnlineContent() {
                       <span className="text-[var(--text-primary)] font-bold text-lg">Rated</span>
                       <button 
                         onClick={() => setIsRated(!isRated)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isRated ? 'bg-[var(--cta-bg)]' : 'bg-[var(--surface-alt)] border border-[var(--border)]'}`}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isRated ? 'bg-[var(--cta-bg)]' : 'bg-gray-300 dark:bg-gray-600'}`}
                       >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isRated ? 'translate-x-6' : 'translate-x-1'}`} />
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${isRated ? 'translate-x-6' : 'translate-x-1'}`} />
                       </button>
                     </div>
 
@@ -803,15 +807,7 @@ function PlayOnlineContent() {
                   {/* Secondary Actions */}
                   <div className="flex flex-col space-y-3 mt-6">
                     <button 
-                      onClick={async () => {
-                        if (!userId) return router.push("/login");
-                        try {
-                          const result = await createFriendMatch();
-                          router.push(`/play/online?matchId=${result.matchId}`);
-                        } catch (err) {
-                          console.error(err);
-                        }
-                      }}
+                      onClick={() => setActiveTab("players")}
                       disabled={!!matchId}
                       className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl py-4 flex items-center justify-center space-x-3 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -859,6 +855,48 @@ function PlayOnlineContent() {
                 </div>
 
               </div>
+            )}
+            {activeTab === "players" && (
+              <PlayersTab 
+                currentUserId={userId} 
+                onInviteFriend={async (friend) => {
+                  try {
+                    // Create an invite-only match
+                    const { createFriendMatch } = await import('@/app/actions/match');
+                    const result = await createFriendMatch();
+                    
+                    // Broadcast the invite to the friend's personal channel
+                    const supabase = createSupabaseBrowserClient();
+                    
+                    // Fetch current user's profile to send to friend
+                    const { data: myProfile } = await supabase.from('profiles').select('*').eq('id', userId).single();
+                    
+                    if (myProfile) {
+                      const channel = supabase.channel(`invites:${friend.id}`);
+                      channel.subscribe((status) => {
+                        if (status === 'SUBSCRIBED') {
+                          channel.send({
+                            type: 'broadcast',
+                            event: 'game_invite',
+                            payload: {
+                              inviterId: userId,
+                              inviterUsername: myProfile.username,
+                              inviterRating: Math.round(myProfile.rating),
+                              matchId: result.matchId,
+                              timeControl: "10 min" // Defaulting to Rapid for now, could be dynamic
+                            }
+                          });
+                        }
+                      });
+                    }
+                    
+                    // Redirect myself to the match
+                    router.push(`/play/online?matchId=${result.matchId}`);
+                  } catch (err) {
+                    console.error("Failed to invite friend", err);
+                  }
+                }} 
+              />
             )}
           </div>
           
