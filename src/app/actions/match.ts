@@ -36,7 +36,7 @@ export async function findOrCreateMatch() {
 /**
  * Creates an invite-only match to play with a friend.
  */
-export async function createFriendMatch() {
+export async function createFriendMatch(initialPgn: string = "") {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -44,7 +44,8 @@ export async function createFriendMatch() {
 
   const { data: match, error } = await supabase.from("matches").insert({
     white_player_id: user.id,
-    status: "invite_only"
+    status: "invite_only",
+    pgn: initialPgn
   }).select("id").single();
 
   if (error) throw new Error("Failed to create friend match.");

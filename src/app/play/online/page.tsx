@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Navbar from "@/components/ui/Navbar";
 import { Chess, type Square } from "chess.js";
 import { 
-  Rocket, Zap, Clock, Sun, Settings, ArrowLeft, Moon, LayoutGrid, Users, Handshake, Bot, Info, ChevronDown, ChevronUp
+  Rocket, Zap, Clock, Sun, Settings, ArrowLeft, Moon, LayoutGrid, Users, Handshake, Bot, Info, ChevronDown, ChevronUp, Bomb, Swords, Flag
 } from "lucide-react";
 import themeManifest from "@/data/themeManifest.json";
 import { useTheme } from "@/lib/theme-context";
@@ -22,11 +22,27 @@ const VARIANTS = [
   { id: "chess960", label: "Chess960", desc: "Randomized back rank starting position." },
   { id: "kingOfTheHill", label: "King of the Hill", desc: "Bring your king to the center squares (d4, d5, e4, e5) to win." },
   { id: "crazyhouse", label: "Crazyhouse", desc: "Captured pieces can be dropped back onto the board." },
+  { id: "bughouse", label: "Bughouse", desc: "Team variant where captured pieces are passed to your partner." },
   { id: "3check", label: "3-Check", desc: "Check the opponent's king 3 times to win." },
   { id: "atomic", label: "Atomic", desc: "Captures cause explosions that destroy surrounding pieces." },
   { id: "horde", label: "Horde", desc: "Black has a normal army, White has 36 pawns." },
   { id: "racingKings", label: "Racing Kings", desc: "Race your king to the 8th rank to win." },
+  { id: "custom", label: "Custom Position / Odds", desc: "Play from a custom starting position or with material odds." },
+
 ];
+
+const VARIANT_ICONS: Record<string, { file?: string, Icon?: any, color: string }> = {
+  standard: { file: "standard.svg", color: "#a3a3a3" },
+  chess960: { file: "chess960.svg", color: "#f97316" },
+  bughouse: { file: "bughouse.svg", color: "#84cc16" },
+  custom: { file: "custom.svg", color: "#64748b" },
+  "3check": { file: "three-check.svg", color: "#14b8a6" },
+  crazyhouse: { file: "crazyhouse.svg", color: "#0ea5e9" },
+  kingOfTheHill: { file: "king-of-the-hill.svg", color: "#b45309" },
+  atomic: { Icon: Bomb, color: "#ef4444" },
+  horde: { Icon: Swords, color: "#8b5cf6" },
+  racingKings: { Icon: Flag, color: "#ec4899" }
+};
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 const AVAILABLE_BOARD_THEMES = themeManifest.boardThemes;
@@ -80,9 +96,15 @@ const BoardImage = ({ src, className, children }: { src: string; className?: str
 
 const getPieceIcon = (code: string | null, pieceTheme: string) => {
   if (!code) return null;
+  // Convert FEN piece symbols (e.g., 'P', 'k') to image filename format (e.g., 'wp', 'bk')
+  let fileName = code;
+  if (code.length === 1) {
+    const isWhite = code === code.toUpperCase();
+    fileName = `${isWhite ? 'w' : 'b'}${code.toLowerCase()}`;
+  }
   return (
     <PieceImage
-      src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${code}.png`}
+      src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${fileName}.png`}
       alt={code}
     />
   );
@@ -207,12 +229,30 @@ function PlayOnlineContent() {
         const newGame = new Chess();
         newGame.loadPgn(gameState.pgn);
         setGame(newGame);
-        setBoardState(newGame.board().map(row => row.map(p => p ? `${p.color}${p.type}` : null)));
+        setBoardState(newGame.board().map(row => row.map(p => p ? (p.color === 'w' ? p.type.toUpperCase() : p.type) : null)));
       } catch (e) { console.error("Invalid incoming PGN", e); }
     }
   }, [gameState.pgn, game]);
   
   const [isBoardFlipped, setIsBoardFlipped] = useState(false);
+  
+  // Auto-flip for black player
+  useEffect(() => {
+    if (userId && gameState.blackPlayerId === userId) {
+      setIsBoardFlipped(true);
+    } else {
+      setIsBoardFlipped(false);
+    }
+  }, [userId, gameState.blackPlayerId]);
+
+  // When matchId is present, we must ensure we show the match UI
+  useEffect(() => {
+    if (matchId) {
+      setActiveTab("new_game");
+      setIsSearching(false);
+    }
+  }, [matchId, searchParams]);
+
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [draggedSquare, setDraggedSquare] = useState<Square | null>(null);
   const [legalTargets, setLegalTargets] = useState<Square[]>([]);
@@ -228,6 +268,17 @@ function PlayOnlineContent() {
   const [activeTab, setActiveTab] = useState<"new_game" | "games" | "players">(
     (searchParams.get("tab") as any) || "new_game"
   );
+
+  useEffect(() => {
+    if (matchId) {
+      setActiveTab("new_game");
+    } else {
+      const tab = searchParams.get("tab");
+      if (tab === "players" || tab === "games" || tab === "new_game") {
+        setActiveTab(tab as any);
+      }
+    }
+  }, [matchId, searchParams]);
   const [selectedTimeControl, setSelectedTimeControl] = useState("10min");
   const [showMoreControls, setShowMoreControls] = useState(false);
   const [isRated, setIsRated] = useState(true);
@@ -235,12 +286,27 @@ function PlayOnlineContent() {
   // Variant Preview State
   const [previewVariant, setPreviewVariant] = useState<string | null>(null);
   const [previewBoardState, setPreviewBoardState] = useState<(string | null)[][] | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState("standard");
+  const [customFen, setCustomFen] = useState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+  const [customEditorPiece, setCustomEditorPiece] = useState<string | "erase" | null>(null);
 
   useEffect(() => {
-    if (!previewVariant) {
+    if (previewVariant === null && selectedVariant === "standard") {
       setPreviewBoardState(null);
       return;
     }
+    
+    let variantToPreview = previewVariant || selectedVariant;
+    if (variantToPreview === "custom") {
+      try {
+        const game = new Chess(customFen);
+        setPreviewBoardState(game.board().map(r => r.map(p => p ? p.color === 'w' ? p.type.toUpperCase() : p.type : null)));
+      } catch (e) {
+        setPreviewBoardState(null);
+      }
+      return;
+    }
+
 
     const parseFenToBoard = (fen: string): (string | null)[][] => {
       const [boardPart] = fen.split(" ");
@@ -250,9 +316,7 @@ function PlayOnlineContent() {
           if (!isNaN(parseInt(char))) {
             for (let i = 0; i < parseInt(char); i++) parsedRow.push(null);
           } else {
-            const color = char === char.toLowerCase() ? 'b' : 'w';
-            const type = char.toLowerCase();
-            parsedRow.push(`${color}${type}`);
+            parsedRow.push(char);
           }
         }
         return parsedRow;
@@ -269,16 +333,16 @@ function PlayOnlineContent() {
       atomic: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
     };
 
-    if (previewVariant === "chess960") {
+    if (variantToPreview === "chess960") {
       const whiteBackRank = generateChess960BackRank();
       const blackBackRank = whiteBackRank.toLowerCase();
       initialBoard = Array(8).fill(null).map(() => Array(8).fill(null));
-      for (let i = 0; i < 8; i++) initialBoard[0][i] = `b${blackBackRank[i]}`;
-      for (let i = 0; i < 8; i++) initialBoard[1][i] = `bp`;
-      for (let i = 0; i < 8; i++) initialBoard[6][i] = `wp`;
-      for (let i = 0; i < 8; i++) initialBoard[7][i] = `w${whiteBackRank[i]}`;
+      for (let i = 0; i < 8; i++) initialBoard[0][i] = blackBackRank[i];
+      for (let i = 0; i < 8; i++) initialBoard[1][i] = "p";
+      for (let i = 0; i < 8; i++) initialBoard[6][i] = "P";
+      for (let i = 0; i < 8; i++) initialBoard[7][i] = whiteBackRank[i];
     } else {
-      initialBoard = parseFenToBoard(FEN_SETUPS[previewVariant] || FEN_SETUPS.kingOfTheHill);
+      initialBoard = parseFenToBoard(FEN_SETUPS[variantToPreview] || FEN_SETUPS.kingOfTheHill);
     }
 
     setPreviewBoardState(initialBoard);
@@ -289,14 +353,14 @@ function PlayOnlineContent() {
       setPreviewBoardState(prev => {
         if (!prev) return prev;
 
-        if (previewVariant === "chess960") {
+        if (variantToPreview === "chess960") {
           const whiteBackRank = generateChess960BackRank();
           const blackBackRank = whiteBackRank.toLowerCase();
           const newBoard = Array(8).fill(null).map(() => Array(8).fill(null));
-          for (let i = 0; i < 8; i++) newBoard[0][i] = `b${blackBackRank[i]}`;
-          for (let i = 0; i < 8; i++) newBoard[1][i] = `bp`;
-          for (let i = 0; i < 8; i++) newBoard[6][i] = `wp`;
-          for (let i = 0; i < 8; i++) newBoard[7][i] = `w${whiteBackRank[i]}`;
+          for (let i = 0; i < 8; i++) newBoard[0][i] = blackBackRank[i];
+          for (let i = 0; i < 8; i++) newBoard[1][i] = "p";
+          for (let i = 0; i < 8; i++) newBoard[6][i] = "P";
+          for (let i = 0; i < 8; i++) newBoard[7][i] = whiteBackRank[i];
           return newBoard;
         }
 
@@ -329,7 +393,7 @@ function PlayOnlineContent() {
             {from: [6, 4], to: [4, 4]}, // e4
             {from: [1, 3], to: [3, 3]}, // d5
             {from: [4, 4], to: [3, 3]}, // exd5
-            {from: "drop_bp", to: [4, 4]} // P@e4
+            {from: "drop_p", to: [4, 4]} // P@e4
           ],
           "3check": [
             {from: [6, 4], to: [4, 4]}, // e4
@@ -353,7 +417,7 @@ function PlayOnlineContent() {
           ]
         };
 
-        const sequence = moves[previewVariant] || moves.kingOfTheHill;
+        const sequence = moves[variantToPreview] || moves.kingOfTheHill;
         
         if (moveIndex >= sequence.length) {
           // Reset after sequence
@@ -373,7 +437,7 @@ function PlayOnlineContent() {
         }
 
         // Atomic explosion simulation
-        if (previewVariant === "atomic" && moveIndex === sequence.length - 1) {
+        if (variantToPreview === "atomic" && moveIndex === sequence.length - 1) {
            const [r, c] = move.to;
            for (let dr = -1; dr <= 1; dr++) {
              for (let dc = -1; dc <= 1; dc++) {
@@ -387,10 +451,10 @@ function PlayOnlineContent() {
         moveIndex++;
         return nextBoard;
       });
-    }, previewVariant === "chess960" ? 1500 : 1200);
+    }, variantToPreview === "chess960" ? 1500 : 1200);
 
     return () => clearInterval(interval);
-  }, [previewVariant]);
+  }, [previewVariant, selectedVariant, customFen]);
 
   useEffect(() => {
     try {
@@ -428,7 +492,7 @@ function PlayOnlineContent() {
   };
 
   const updateBoard = (g: Chess) => {
-    setBoardState(g.board().map(row => row.map(p => p ? `${p.color}${p.type}` : null)));
+    setBoardState(g.board().map(row => row.map(p => p ? (p.color === 'w' ? p.type.toUpperCase() : p.type) : null)));
   };
 
   const makeMove = (from: Square, to: Square) => {
@@ -584,7 +648,21 @@ function PlayOnlineContent() {
                         return (
                           <div
                             key={square}
-                            onClick={() => handleSquareClick(square)}
+                            onClick={() => {
+                              if (selectedVariant === "custom" && !matchId && customEditorPiece) {
+                                try {
+                                  const g = new Chess(customFen);
+                                  if (customEditorPiece === "erase") {
+                                    g.remove(square);
+                                  } else {
+                                    g.put({ type: customEditorPiece.toLowerCase() as any, color: customEditorPiece === customEditorPiece.toUpperCase() ? 'w' : 'b' }, square);
+                                  }
+                                  setCustomFen(g.fen());
+                                } catch (e) { console.error(e); }
+                                return;
+                              }
+                              handleSquareClick(square);
+                            }}
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={(e) => handleDrop(e, square)}
                             className="relative flex items-center justify-center cursor-pointer"
@@ -630,6 +708,63 @@ function PlayOnlineContent() {
                     )}
                   </div>
                 </BoardImage>
+
+                {/* Setup Tools Overlay (only for Custom Variant) */}
+                {selectedVariant === "custom" && !matchId && (
+                  <div className="absolute top-[calc(100%+16px)] left-0 w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col pointer-events-auto">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-subtle)] bg-[var(--surface-alt)]">
+                      <span className="text-[13px] font-bold text-[var(--text-primary)]">Setup Tools</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setCustomEditorPiece((current) => current === "erase" ? null : "erase")}
+                          className={`flex h-8 w-8 items-center justify-center rounded border transition-colors ${customEditorPiece === "erase" ? "border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--bg)]" : "border-[var(--border-subtle)] bg-[var(--surface-alt)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"}`}
+                          title="Erase squares"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCustomFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")}
+                          className="flex h-8 w-8 items-center justify-center rounded border border-[var(--border-subtle)] bg-[var(--surface-alt)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                          title="Reset to standard"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCustomFen("8/8/8/8/8/8/8/8 w - - 0 1")}
+                          className="flex h-8 w-8 items-center justify-center rounded border border-[var(--border-subtle)] bg-[var(--surface-alt)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                          title="Clear board"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5 p-2">
+                      {["P", "N", "B", "R", "Q", "K", "p", "n", "b", "r", "q", "k"].map((pieceCode) => (
+                        <button
+                          key={pieceCode}
+                          type="button"
+                          onClick={() => setCustomEditorPiece((current) => current === pieceCode ? null : pieceCode)}
+                          className={`aspect-square min-h-9 rounded border bg-[var(--surface-alt)] p-0.5 transition-colors hover:bg-[var(--surface-hover)] ${customEditorPiece === pieceCode ? "border-[var(--text-primary)] ring-1 ring-[var(--text-primary)]" : "border-[var(--border-subtle)]"}`}
+                          title={`Place ${pieceCode}`}
+                        >
+                          {getPieceIcon(pieceCode, pieceTheme)}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="p-2 border-t border-[var(--border-subtle)]">
+                      <input
+                        type="text"
+                        value={customFen}
+                        onChange={(e) => setCustomFen(e.target.value)}
+                        placeholder="Paste FEN here"
+                        className="w-full bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)] rounded px-2 py-1.5 text-xs font-mono outline-none focus:border-[var(--cta-bg)]"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Player Bottom Panel Placeholder Removed */}
@@ -684,18 +819,44 @@ function PlayOnlineContent() {
                       <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">
                         {gameState.status === 'invite_only' ? 'Invite a Friend' : 'Match Found!'}
                       </h2>
-                      {gameState.status === 'invite_only' && (
-                        <p className="text-sm text-[var(--text-secondary)] text-center mb-6">
-                          Share this link with your friend to play:<br/>
-                          <span className="font-mono text-[var(--cta-bg)] break-all select-all mt-2 block p-2 bg-[var(--surface-alt)] rounded border border-[var(--border)]">
-                            {typeof window !== 'undefined' ? `${window.location.origin}/play/online?matchId=${matchId}` : ''}
-                          </span>
-                        </p>
-                      )}
+
                       {gameState.status === 'in_progress' && (
-                        <p className="text-sm text-[var(--text-secondary)] text-center mb-6">
-                          The game has started. Good luck!
-                        </p>
+                        <div className="flex flex-col items-center justify-center w-full mb-6 gap-3">
+                          <p className="text-lg font-bold text-[var(--text-primary)] text-center">
+                            The game has started. Good luck!
+                          </p>
+                          <div className="flex w-full gap-3 mt-2">
+                            <button 
+                              onClick={() => {
+                                if (matchId) {
+                                  syncGameState(matchId, game.pgn(), 'finished', null); // null winner for draw (simplified for now)
+                                }
+                              }}
+                              className="flex-1 py-3 bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl font-bold text-[var(--text-primary)] transition-colors">
+                              ½ Draw
+                            </button>
+                            <button 
+                              onClick={() => {
+                                if (matchId) {
+                                  const opponentId = userId === gameState.whitePlayerId ? gameState.blackPlayerId : gameState.whitePlayerId;
+                                  syncGameState(matchId, game.pgn(), 'finished', opponentId);
+                                }
+                              }}
+                              className="flex-1 py-3 bg-[var(--error-bg)] hover:bg-[#ff5555] border border-[var(--error-border)] rounded-xl font-bold text-white transition-colors">
+                              Resign
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {gameState.status === 'finished' && (
+                        <div className="flex flex-col items-center justify-center w-full mb-6">
+                          <p className="text-xl font-bold text-[var(--cta-bg)] text-center mb-2">
+                            Game Over
+                          </p>
+                          <p className="text-sm font-semibold text-[var(--text-primary)]">
+                            {gameState.winnerId ? (gameState.winnerId === userId ? "You won!" : "Opponent won!") : "It's a draw."}
+                          </p>
+                        </div>
                       )}
                       {gameState.status === 'waiting' && (
                         <p className="text-sm text-[var(--text-secondary)] text-center mb-6">
@@ -707,7 +868,9 @@ function PlayOnlineContent() {
                         <div className="flex items-center gap-3">
                           <div className={`w-3 h-3 rounded-full ${gameState.opponentOnline ? 'bg-green-500' : 'bg-red-500'}`} />
                           <span className="text-sm font-semibold text-[var(--text-primary)]">
-                            {gameState.opponentOnline ? 'Opponent Connected' : 'Opponent Disconnected'}
+                            {gameState.status === 'invite_only' || gameState.status === 'waiting' 
+                              ? 'Waiting for connection...' 
+                              : (gameState.opponentOnline ? 'Opponent Connected' : 'Opponent Disconnected')}
                           </span>
                         </div>
                       </div>
@@ -725,14 +888,48 @@ function PlayOnlineContent() {
                   <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 mb-4">
                     
                     {/* Rated Toggle */}
-                    <div className="flex justify-between items-center mb-6">
-                      <span className="text-[var(--text-primary)] font-bold text-lg">Rated</span>
-                      <button 
-                        onClick={() => setIsRated(!isRated)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isRated ? 'bg-[var(--cta-bg)]' : 'bg-gray-300 dark:bg-gray-600'}`}
-                      >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${isRated ? 'translate-x-6' : 'translate-x-1'}`} />
-                      </button>
+                    <div className="flex flex-col mb-6">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[var(--text-primary)] font-bold text-lg">Rated</span>
+                        <button 
+                          onClick={() => setIsRated(!isRated)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isRated ? 'bg-[var(--cta-bg)]' : 'bg-gray-300 dark:bg-gray-600'}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${isRated ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+
+                      {/* Rating Range Selection */}
+                      {isRated && (
+                        <div className="mt-4 flex flex-col transition-all duration-300 animate-in fade-in slide-in-from-top-2">
+                          <span className="text-sm font-semibold text-[var(--text-primary)] mb-2">Rating Range</span>
+                          <div className="flex items-center space-x-3">
+                            <div className="relative flex-1">
+                              <select className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-primary)] rounded-lg px-3 py-2.5 outline-none appearance-none font-bold text-sm cursor-pointer transition-colors">
+                                <option value="any">Any</option>
+                                <option value="-25">-25</option>
+                                <option value="-50">-50</option>
+                                <option value="-100">-100</option>
+                                <option value="-200">-200</option>
+                              </select>
+                              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] pointer-events-none" />
+                            </div>
+                            
+                            <span className="text-[15px] font-[900] text-[var(--cta-bg)] px-1">557</span>
+                            
+                            <div className="relative flex-1">
+                              <select className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-primary)] rounded-lg px-3 py-2.5 outline-none appearance-none font-bold text-sm cursor-pointer transition-colors">
+                                <option value="any">Any</option>
+                                <option value="+25">+25</option>
+                                <option value="+50">+50</option>
+                                <option value="+100">+100</option>
+                                <option value="+200">+200</option>
+                              </select>
+                              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] pointer-events-none" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Categories */}
@@ -827,29 +1024,71 @@ function PlayOnlineContent() {
                 {/* Right Column: Custom Challenges */}
                 <div className="flex flex-col lg:w-[280px]">
                   <div className="flex flex-col bg-[var(--surface-alt)] border border-[var(--border)] rounded-xl shadow-sm z-10 h-full">
-                    <div className="w-full py-4 flex items-center justify-center space-x-3 border-b border-[var(--border)] px-4">
+                    <div className="w-full py-4 flex items-center justify-center gap-2 border-b border-[var(--border)] px-4">
                       <Settings className="w-5 h-5 text-[var(--text-muted)]" />
-                      <span className="text-lg font-bold text-[var(--text-primary)] flex-1 text-center">Custom Challenge</span>
+                      <span className="text-lg font-bold text-[var(--text-primary)]">Custom Challenge</span>
                     </div>
                     
                     <div className="p-2 flex flex-col gap-1 bg-[var(--surface)] rounded-b-xl flex-1">
-                      {VARIANTS.map(variant => (
+                      <div className="w-full">
+                        <button 
+                          onClick={() => setSelectedVariant("standard")}
+                          className={`w-full text-left px-4 py-3 rounded-lg hover:bg-[var(--surface-hover)] transition-colors flex items-center group ${selectedVariant === "standard" ? "bg-[var(--surface-hover)]" : ""}`}
+                        >
+                          <div 
+                            className="w-5 h-5 mr-3 shrink-0 opacity-90 group-hover:opacity-100 transition-opacity" 
+                            style={{
+                              WebkitMaskImage: `url('/custom games/standard.svg')`,
+                              WebkitMaskSize: 'contain',
+                              WebkitMaskRepeat: 'no-repeat',
+                              WebkitMaskPosition: 'center',
+                              backgroundColor: VARIANT_ICONS.standard.color
+                            }}
+                          />
+                          <span className={`text-[15px] font-semibold transition-colors ${selectedVariant === "standard" ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]"}`}>
+                            Standard
+                          </span>
+                        </button>
+                      </div>
+                      
+                      {VARIANTS.map(variant => {
+                        const iconData = VARIANT_ICONS[variant.id] || VARIANT_ICONS.standard;
+                        return (
                         <div 
                           key={variant.id}
+                          className="w-full relative"
                           onMouseEnter={() => setPreviewVariant(variant.id)}
                           onMouseLeave={() => setPreviewVariant(null)}
-                          className="w-full"
                         >
-                          <Tooltip content={variant.desc} position="top">
-                            <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-[var(--surface-hover)] transition-colors flex items-center group">
-                              <div className={`w-1.5 h-1.5 rounded-full bg-[var(--cta-bg)] mr-3 transition-opacity ${previewVariant === variant.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`} />
-                              <span className={`text-[15px] font-semibold transition-colors ${previewVariant === variant.id ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]"}`}>
+                          <Tooltip content={variant.desc} side="left" sideOffset={10}>
+                            <button 
+                              onClick={() => setSelectedVariant(variant.id)}
+                              className={`w-full text-left px-4 py-3 rounded-lg hover:bg-[var(--surface-hover)] transition-colors flex items-center group ${selectedVariant === variant.id ? "bg-[var(--surface-hover)]" : ""}`}
+                            >
+                              {iconData.Icon ? (
+                                <iconData.Icon 
+                                  className="w-5 h-5 mr-3 shrink-0 opacity-90 group-hover:opacity-100 transition-opacity" 
+                                  style={{ color: iconData.color }} 
+                                />
+                              ) : (
+                                <div 
+                                  className="w-5 h-5 mr-3 shrink-0 opacity-90 group-hover:opacity-100 transition-opacity" 
+                                  style={{
+                                    WebkitMaskImage: `url('/custom games/${iconData.file}')`,
+                                    WebkitMaskSize: 'contain',
+                                    WebkitMaskRepeat: 'no-repeat',
+                                    WebkitMaskPosition: 'center',
+                                    backgroundColor: iconData.color
+                                  }}
+                                />
+                              )}
+                              <span className={`text-[15px] font-semibold transition-colors ${selectedVariant === variant.id || previewVariant === variant.id ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]"}`}>
                                 {variant.label}
                               </span>
                             </button>
                           </Tooltip>
                         </div>
-                      ))}
+                      )})}
                     </div>
                   </div>
                 </div>
@@ -861,9 +1100,16 @@ function PlayOnlineContent() {
                 currentUserId={userId} 
                 onInviteFriend={async (friend) => {
                   try {
+                    let initialPgn = "";
+                    if (selectedVariant === "custom") {
+                      initialPgn = `[Variant "From Position"]\n[FEN "${customFen}"]\n[SetUp "1"]\n\n`;
+                    } else if (selectedVariant !== "standard") {
+                      initialPgn = `[Variant "${selectedVariant}"]\n\n`;
+                    }
+
                     // Create an invite-only match
                     const { createFriendMatch } = await import('@/app/actions/match');
-                    const result = await createFriendMatch();
+                    const result = await createFriendMatch(initialPgn);
                     
                     // Broadcast the invite to the friend's personal channel
                     const supabase = createSupabaseBrowserClient();
