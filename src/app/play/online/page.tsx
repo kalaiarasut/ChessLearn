@@ -1,127 +1,439 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "@/components/ui/Navbar";
-import { Tooltip } from "@/components/ui/Tooltip";
+import { Chess, type Square } from "chess.js";
 import { 
-  Clock, 
-  Timer, 
-  Zap, 
-  Rocket, 
-  Flame,
-  Shuffle,
-  RefreshCw,
-  Users,
-  LayoutGrid,
-  Bomb,
-  ChevronDown,
-  Play,
-  Settings,
-  Handshake,
-  Trophy,
-  Check
+  Rocket, Zap, Clock, Sun, Settings, ArrowLeft, Moon, LayoutGrid, Users, Handshake, Bot, Info, ChevronDown, ChevronUp
 } from "lucide-react";
+import themeManifest from "@/data/themeManifest.json";
+import { useTheme } from "@/lib/theme-context";
+import { SettingsModalLayout, BoardPiecesSettingsTab } from "@/components/settings-layout";
+import { Tooltip } from "@/components/ui/Tooltip";
+import Link from "next/link";
 
-interface GameMode {
+const VARIANTS = [
+  { id: "chess960", label: "Chess960", desc: "Randomized back rank starting position." },
+  { id: "kingOfTheHill", label: "King of the Hill", desc: "Bring your king to the center squares (d4, d5, e4, e5) to win." },
+  { id: "crazyhouse", label: "Crazyhouse", desc: "Captured pieces can be dropped back onto the board." },
+  { id: "3check", label: "3-Check", desc: "Check the opponent's king 3 times to win." },
+  { id: "atomic", label: "Atomic", desc: "Captures cause explosions that destroy surrounding pieces." },
+  { id: "horde", label: "Horde", desc: "Black has a normal army, White has 36 pawns." },
+  { id: "racingKings", label: "Racing Kings", desc: "Race your king to the 8th rank to win." },
+];
+
+const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
+const AVAILABLE_BOARD_THEMES = themeManifest.boardThemes;
+const AVAILABLE_PIECE_THEMES = themeManifest.pieceThemes;
+const BOARD_THEME_ASSETS = themeManifest.boardAssets as Record<string, string>;
+const PIECE_THEME_ASSETS = themeManifest.pieceAssets as Record<string, string>;
+
+const toSquare = (rowIndex: number, columnIndex: number) =>
+  `${FILES[columnIndex]}${8 - rowIndex}` as Square;
+
+const PieceImage = ({ src, alt, className }: { src: string; alt: string; className?: string; skeletonClassName?: string }) => {
+  return (
+    <div className={`relative w-full h-full flex items-center justify-center`}>
+      <img
+        src={src}
+        alt={alt}
+        draggable={false}
+        className={`select-none pointer-events-none ${className || "w-full h-full scale-[1.03] object-contain drop-shadow-[0_6px_8px_rgba(0,0,0,0.55)]"}`}
+      />
+    </div>
+  );
+};
+
+const BoardImage = ({ src, className, children }: { src: string; className?: string; children?: React.ReactNode }) => {
+  return (
+    <div className={`relative ${className || ""}`}>
+      {/* Fallback color while image loads */}
+      <div className="absolute inset-0 w-full h-full grid grid-cols-8 grid-rows-8">
+        {Array.from({ length: 64 }).map((_, i) => {
+          const row = Math.floor(i / 8);
+          const col = i % 8;
+          return (
+            <div
+              key={i}
+              className={(row + col) % 2 === 0 ? 'bg-[#e6ca9a]' : 'bg-[#b07b46]'}
+            />
+          );
+        })}
+      </div>
+      <img
+        src={src}
+        alt="Board Theme"
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+      <div className="relative z-10 w-full h-full">
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const getPieceIcon = (code: string | null, pieceTheme: string) => {
+  if (!code) return null;
+  return (
+    <PieceImage
+      src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${code}.png`}
+      alt={code}
+    />
+  );
+};
+
+type TimeControlItem = {
   id: string;
-  name: string;
-  description: string;
-  icon: React.ElementType;
-  category: "Traditional" | "Variant";
-}
+  label: string;
+  expandedOnly?: boolean;
+};
 
-const allModes: GameMode[] = [
+type TimeControlCategory = {
+  category: string;
+  icon: React.ElementType;
+  iconColor: string;
+  hasInfo?: boolean;
+  items: TimeControlItem[];
+};
+
+const TIME_CONTROLS: TimeControlCategory[] = [
   {
-    id: "rapid",
-    name: "10 min (Rapid)",
-    description: "Games where each player has between 10 and 60 minutes. It offers a balance between deep calculation and game speed.",
-    icon: Timer,
-    category: "Traditional",
-  },
-  {
-    id: "blitz",
-    name: "3 min (Blitz)",
-    description: "Fast-paced games where each player has 10 minutes or less for the entire game.",
-    icon: Zap,
-    category: "Traditional",
-  },
-  {
-    id: "bullet",
-    name: "1 min (Bullet)",
-    description: "The fastest format, usually featuring one to two minutes per player. Relies on speed and intuition.",
+    category: "Bullet",
     icon: Rocket,
-    category: "Traditional",
+    iconColor: "text-[#D4A373] dark:text-[#E6B981]",
+    items: [
+      { id: "1min", label: "1 min" },
+      { id: "1|1", label: "1 | 1" },
+      { id: "2|1", label: "2 | 1" },
+      { id: "30s", label: "30 sec", expandedOnly: true },
+      { id: "20s", label: "20 sec ...", expandedOnly: true },
+    ]
   },
   {
-    id: "classical",
-    name: "Classical",
-    description: "The slowest format, giving each player 90 minutes or more for the first 40 moves.",
+    category: "Blitz",
+    icon: Zap,
+    iconColor: "text-yellow-400",
+    items: [
+      { id: "3min", label: "3 min" },
+      { id: "3|2", label: "3 | 2" },
+      { id: "5min", label: "5 min" },
+      { id: "5|5", label: "5 | 5", expandedOnly: true },
+      { id: "5|2", label: "5 | 2", expandedOnly: true },
+    ]
+  },
+  {
+    category: "Rapid",
     icon: Clock,
-    category: "Traditional",
+    iconColor: "text-[#81B64C]",
+    items: [
+      { id: "10min", label: "10 min" },
+      { id: "15|10", label: "15 | 10" },
+      { id: "30min", label: "30 min" },
+      { id: "10|5", label: "10 | 5", expandedOnly: true },
+      { id: "20min", label: "20 min", expandedOnly: true },
+      { id: "60min", label: "60 min", expandedOnly: true },
+    ]
   },
   {
-    id: "armageddon",
-    name: "Armageddon",
-    description: "A tie-break game where White gets slightly more time than Black but must win to advance.",
-    icon: Flame,
-    category: "Traditional",
-  },
-  {
-    id: "chess960",
-    name: "Chess960",
-    description: "Pieces are randomized on the back rank, requiring players to think on their feet.",
-    icon: Shuffle,
-    category: "Variant",
-  },
-  {
-    id: "crazyhouse",
-    name: "Crazyhouse",
-    description: "Captured pieces can be dropped back onto the board as your own.",
-    icon: RefreshCw,
-    category: "Variant",
-  },
-  {
-    id: "bughouse",
-    name: "Bughouse",
-    description: "A chaotic team variant (2 vs. 2) where captured pieces are passed to your partner.",
-    icon: Users,
-    category: "Variant",
-  },
-  {
-    id: "four-player",
-    name: "4-Player Chess",
-    description: "An adapted, larger board allows four individuals or two teams to play simultaneously.",
-    icon: LayoutGrid,
-    category: "Variant",
-  },
-  {
-    id: "atomic",
-    name: "Atomic",
-    description: "Captured pieces cause an explosive blast, removing all adjacent pieces except pawns.",
-    icon: Bomb,
-    category: "Variant",
-  },
+    category: "Daily",
+    icon: Sun,
+    iconColor: "text-yellow-500",
+    hasInfo: true,
+    items: [
+      { id: "1d", label: "1 day" },
+      { id: "3d", label: "3 days" },
+      { id: "7d", label: "7 days" },
+      { id: "2d", label: "2 days", expandedOnly: true },
+      { id: "5d", label: "5 days", expandedOnly: true },
+      { id: "14d", label: "14 days", expandedOnly: true },
+    ]
+  }
 ];
 
 export default function PlayOnlinePage() {
-  const [selectedMode, setSelectedMode] = useState<GameMode>(allModes[0]);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"new_game" | "games" | "players">("new_game");
+  const { isDark, toggleTheme } = useTheme();
 
-  const handleSelectMode = (mode: GameMode) => {
-    setSelectedMode(mode);
-    setDropdownOpen(false);
+  // Board State
+  const [game, setGame] = useState(new Chess());
+  const [boardState, setBoardState] = useState<(string | null)[][]>(() => {
+    const g = new Chess();
+    return g.board().map(row => row.map(p => p ? `${p.color}${p.type}` : null));
+  });
+  
+  const [isBoardFlipped, setIsBoardFlipped] = useState(false);
+  const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
+  const [draggedSquare, setDraggedSquare] = useState<Square | null>(null);
+  const [legalTargets, setLegalTargets] = useState<Square[]>([]);
+  const [displayLastMove, setDisplayLastMove] = useState<{from: string, to: string} | null>(null);
+
+  // Settings & Preferences
+  const [boardTheme, setBoardTheme] = useState(themeManifest.defaultBoardTheme || "green");
+  const [pieceTheme, setPieceTheme] = useState(themeManifest.defaultPieceTheme || "neo");
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"boards" | "pieces">("boards");
+  
+  // UI State
+  const [activeTab, setActiveTab] = useState<"new_game" | "games" | "players">("new_game");
+  const [selectedTimeControl, setSelectedTimeControl] = useState("10min");
+  const [showMoreControls, setShowMoreControls] = useState(false);
+  const [isRated, setIsRated] = useState(true);
+  const [isCustomExpanded, setIsCustomExpanded] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("ChessThemeSettings");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.boardTheme) setBoardTheme(parsed.boardTheme);
+        if (parsed.pieceTheme) setPieceTheme(parsed.pieceTheme);
+        if (typeof parsed.soundEnabled === "boolean") setSoundEnabled(parsed.soundEnabled);
+      }
+    } catch (e) {}
+  }, []);
+
+  const saveSettings = (updates: { boardTheme?: string, pieceTheme?: string, soundEnabled?: boolean }) => {
+    try {
+      const stored = localStorage.getItem("ChessThemeSettings");
+      const current = stored ? JSON.parse(stored) : {};
+      localStorage.setItem("ChessThemeSettings", JSON.stringify({ ...current, ...updates }));
+    } catch (e) {}
   };
 
-  const SelectedIcon = selectedMode.icon;
+  const handleBoardThemeChange = (theme: string) => {
+    setBoardTheme(theme);
+    saveSettings({ boardTheme: theme });
+  };
+
+  const handlePieceThemeChange = (theme: string) => {
+    setPieceTheme(theme);
+    saveSettings({ pieceTheme: theme });
+  };
+
+  const handleSoundEnabledChange = (enabled: boolean) => {
+    setSoundEnabled(enabled);
+    saveSettings({ soundEnabled: enabled });
+  };
+
+  const updateBoard = (g: Chess) => {
+    setBoardState(g.board().map(row => row.map(p => p ? `${p.color}${p.type}` : null)));
+  };
+
+  const makeMove = (from: Square, to: Square) => {
+    try {
+      const moves = game.moves({ verbose: true });
+      const move = moves.find(m => m.from === from && m.to === to);
+      
+      if (move) {
+        // Auto-promote to Queen for simplicity
+        const moveResult = game.move({ from, to, promotion: 'q' });
+        if (moveResult) {
+          updateBoard(game);
+          setDisplayLastMove({ from, to });
+          setSelectedSquare(null);
+          setLegalTargets([]);
+          if (soundEnabled) {
+            // In a real app we'd play audio here
+          }
+        }
+      }
+    } catch (e) {
+      // Invalid move
+    }
+  };
+
+  const handleSquareClick = (square: Square) => {
+    if (selectedSquare === square) {
+      setSelectedSquare(null);
+      setLegalTargets([]);
+      return;
+    }
+
+    if (selectedSquare && legalTargets.includes(square)) {
+      makeMove(selectedSquare, square);
+      return;
+    }
+
+    const piece = game.get(square);
+    if (piece && piece.color === game.turn()) {
+      setSelectedSquare(square);
+      const moves = game.moves({ square, verbose: true });
+      setLegalTargets(moves.map(m => m.to as Square));
+    } else {
+      setSelectedSquare(null);
+      setLegalTargets([]);
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, square: Square) => {
+    const piece = game.get(square);
+    if (piece && piece.color === game.turn()) {
+      setDraggedSquare(square);
+      const moves = game.moves({ square, verbose: true });
+      setLegalTargets(moves.map(m => m.to as Square));
+      
+      // Create empty drag image
+      const dragImg = new Image(0, 0);
+      dragImg.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+      e.dataTransfer.setDragImage(dragImg, 0, 0);
+    } else {
+      e.preventDefault();
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, square: Square) => {
+    if (draggedSquare) {
+      if (legalTargets.includes(square)) {
+        makeMove(draggedSquare, square);
+      }
+    }
+    setDraggedSquare(null);
+    setSelectedSquare(null);
+    setLegalTargets([]);
+  };
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] transition-colors duration-300 font-sans flex flex-col items-center">
+    <main className="min-h-screen bg-[var(--bg)] transition-colors duration-300 font-sans flex flex-col items-center overflow-x-hidden">
       <Navbar />
       
-      <div className="flex-1 w-full flex items-center justify-center pt-24 pb-12 px-4 max-[480px]:px-2">
-        {/* Main Hub Container */}
-        <div className="w-full max-w-md bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="flex-1 w-full max-w-[1280px] flex flex-col lg:flex-row items-stretch lg:items-start justify-center pt-24 pb-12 px-4 gap-6">
+        
+        {/* Left Side: The Board */}
+        <div className="w-full lg:w-[65%] flex-1 flex flex-col items-center lg:items-start justify-center lg:justify-end bg-[var(--bg-alt)] p-2 sm:p-4 lg:p-0 relative rounded-2xl border lg:border-none border-[var(--border)] lg:bg-transparent">
+          <div className={`flex flex-col items-center justify-start max-w-[100%] sm:max-w-[95%] lg:max-w-[75%] lg:min-w-[500px] w-full relative shrink-0 lg:ml-auto lg:mr-20 lg:mt-12 h-[70vh] max-h-[640px]`}>
+            
+            <div className="w-full lg:w-auto flex justify-end lg:absolute lg:-top-2 lg:-right-[52px] flex-row lg:flex-col gap-2 sm:gap-3 z-50 mb-2 lg:mb-0 px-1 lg:px-0 items-center">
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center"
+                title="Settings"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setIsBoardFlipped((current) => !current)}
+                className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center flex-col gap-[2px]"
+                title="Flip Board"
+              >
+                <ArrowLeft className="w-[14px] h-[14px] -ml-1" />
+                <ArrowLeft className="w-[14px] h-[14px] -mr-1 rotate-180" />
+              </button>
+            </div>
+
+            <div className="w-full h-full flex flex-col justify-center gap-1 md:gap-3 relative">
+              
+              {/* Opponent Top Panel Placeholder */}
+              <div className="w-full flex items-center justify-between mb-2 bg-[var(--surface)] px-2.5 py-1 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-[var(--skeleton)] border border-[var(--border)] flex items-center justify-center shrink-0">
+                     <Users className="w-4 h-4 text-[var(--text-secondary)]" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-[12px] text-[var(--text-primary)] tracking-wide">Opponent</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="px-2 py-0.5 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[14px] text-[var(--text-primary)] shadow-inner w-[68px] text-center">
+                    10:00
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 aspect-square relative shrink-0">
+                <BoardImage
+                  src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`}
+                  className="w-full h-full shadow-[0_15px_35px_rgba(0,0,0,0.15)] rounded-sm overflow-hidden border border-[var(--border)]"
+                >
+                  <div className="w-full h-full grid grid-cols-8 grid-rows-8 relative" onContextMenu={(e) => e.preventDefault()}>
+                    {(isBoardFlipped
+                      ? [...boardState].reverse().map(r => [...r].reverse())
+                      : boardState
+                    ).map((row, visRowIndex) =>
+                      row.map((pieceCode, visColIndex) => {
+                        const logicalRow = isBoardFlipped ? 7 - visRowIndex : visRowIndex;
+                        const logicalCol = isBoardFlipped ? 7 - visColIndex : visColIndex;
+                        const square = toSquare(logicalRow, logicalCol);
+                        
+                        const isLightSquare = (logicalRow + logicalCol) % 2 === 0;
+                        const isSelectedSquare = selectedSquare === square;
+                        const isLegalTarget = legalTargets.includes(square);
+                        const isLastMoveSquare = displayLastMove?.from === square || displayLastMove?.to === square;
+                        const isDraggedSquare = draggedSquare === square;
+
+                        return (
+                          <div
+                            key={square}
+                            onClick={() => handleSquareClick(square)}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => handleDrop(e, square)}
+                            className="relative flex items-center justify-center cursor-pointer"
+                          >
+                            {isLastMoveSquare && (
+                              <div className="absolute inset-[4%] rounded-[4px] bg-amber-300/30" />
+                            )}
+                            {isSelectedSquare && (
+                              <div className="absolute inset-[6%] rounded-[4px] ring-[3px] ring-white/95 bg-white/12 z-[6] shadow-[0_0_14px_rgba(255,255,255,0.45)]" />
+                            )}
+                            {isLegalTarget && (
+                              <div
+                                className={
+                                  pieceCode
+                                    ? "absolute inset-[10%] rounded-full border-[6px] border-black/20 dark:border-white/40"
+                                    : "absolute h-[25%] w-[25%] rounded-full bg-black/20 dark:bg-white/45 shadow-[0_0_10px_rgba(0,0,0,0.15)] dark:shadow-[0_0_10px_rgba(255,255,255,0.35)]"
+                                }
+                              />
+                            )}
+
+                            {visColIndex === 0 && (
+                              <span className={`absolute top-0.5 left-1 text-[13px] font-[700] ${isLightSquare ? "text-[#b07b46]" : "text-[#e6ca9a]"} select-none`}>
+                                {8 - logicalRow}
+                              </span>
+                            )}
+                            {visRowIndex === 7 && (
+                              <span className={`absolute bottom-0 right-1 text-[13px] font-[700] ${isLightSquare ? "text-[#b07b46]" : "text-[#e6ca9a]"} select-none`}>
+                                {FILES[logicalCol]}
+                              </span>
+                            )}
+
+                            <div
+                              draggable={Boolean(pieceCode)}
+                              onDragStart={(e) => handleDragStart(e, square)}
+                              onDragEnd={() => setDraggedSquare(null)}
+                              className={`relative z-10 h-full w-full p-[2.75%] ${isDraggedSquare ? "opacity-30" : "opacity-100"}`}
+                            >
+                              {getPieceIcon(pieceCode, pieceTheme)}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </BoardImage>
+              </div>
+
+              {/* Player Bottom Panel Placeholder */}
+              <div className="w-full flex items-center justify-between mt-2 bg-[var(--surface)] px-2.5 py-1 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-[var(--skeleton)] border border-[var(--border)] flex items-center justify-center shrink-0">
+                     <Users className="w-4 h-4 text-[var(--text-secondary)]" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-[12px] text-[var(--text-primary)] tracking-wide">You</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="px-2 py-0.5 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[14px] text-[var(--text-primary)] shadow-inner w-[68px] text-center">
+                    10:00
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: Matchmaking Hub */}
+        <div className="w-full lg:w-[400px] bg-[var(--surface-alt)] lg:bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-xl flex flex-col overflow-hidden shrink-0 mt-4 lg:mt-0">
           
           {/* Header Tabs */}
           <div className="flex border-b border-[var(--border)] bg-[var(--surface-alt)]">
@@ -129,9 +441,9 @@ export default function PlayOnlinePage() {
               onClick={() => setActiveTab("new_game")}
               className={`flex-1 py-4 flex flex-col items-center justify-center transition-colors relative ${activeTab === "new_game" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
             >
-              <div className="w-6 h-6 mb-1 rounded bg-[var(--border)] flex items-center justify-center text-[10px] font-bold">+</div>
+              <div className="w-6 h-6 mb-1 rounded border-2 border-current flex items-center justify-center text-[14px] font-bold">+</div>
               <span className="text-xs font-semibold">New Game</span>
-              {activeTab === "new_game" && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[var(--text-primary)]"></div>}
+              {activeTab === "new_game" && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[var(--text-primary)]"></div>}
             </button>
             <button 
               onClick={() => setActiveTab("games")}
@@ -139,7 +451,7 @@ export default function PlayOnlinePage() {
             >
               <LayoutGrid className="w-6 h-6 mb-1 opacity-80" />
               <span className="text-xs font-semibold">Games</span>
-              {activeTab === "games" && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[var(--text-primary)]"></div>}
+              {activeTab === "games" && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[var(--text-primary)]"></div>}
             </button>
             <button 
               onClick={() => setActiveTab("players")}
@@ -147,96 +459,204 @@ export default function PlayOnlinePage() {
             >
               <Users className="w-6 h-6 mb-1 opacity-80" />
               <span className="text-xs font-semibold">Players</span>
-              {activeTab === "players" && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[var(--text-primary)]"></div>}
+              {activeTab === "players" && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[var(--text-primary)]"></div>}
             </button>
           </div>
 
           {/* Body Content */}
-          <div className="p-6 flex flex-col space-y-4">
-            
-            {/* Custom Dropdown */}
-            <div className="relative">
-              <Tooltip content={selectedMode.description} position="top">
-                <button 
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl py-4 px-5 flex items-center justify-between transition-colors shadow-sm"
-                >
-                  <div className="flex items-center space-x-3">
-                    <SelectedIcon className="w-6 h-6 text-[var(--cta-bg)]" />
-                    <span className="text-lg font-bold text-[var(--text-primary)] tracking-wide">{selectedMode.name}</span>
+          <div className="flex flex-col flex-1 overflow-y-auto bg-[var(--bg)] p-4">
+            {activeTab === "new_game" && (
+              <div className="flex flex-col h-full">
+                
+                {/* Time Controls Selector container */}
+                <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 mb-4">
+                  
+                  {/* Rated Toggle */}
+                  <div className="flex justify-between items-center mb-6">
+                    <span className="text-[var(--text-primary)] font-bold text-lg">Rated</span>
+                    <button 
+                      onClick={() => setIsRated(!isRated)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isRated ? 'bg-[var(--cta-bg)]' : 'bg-[var(--surface-alt)] border border-[var(--border)]'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-[var(--text-primary)] transition-transform ${isRated ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
                   </div>
-                  <ChevronDown className={`w-5 h-5 text-[var(--text-muted)] transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
-              </Tooltip>
 
-              {/* Dropdown Menu */}
-              {dropdownOpen && (
-                <div className="absolute top-full left-0 w-full mt-2 bg-[var(--surface-alt)] border border-[var(--border)] rounded-xl shadow-2xl z-50 max-h-[300px] overflow-y-auto">
-                  <div className="px-4 py-2 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider sticky top-0 bg-[var(--surface-alt)]">Traditional</div>
-                  {allModes.filter(m => m.category === "Traditional").map((mode) => {
-                    const Icon = mode.icon;
-                    return (
-                      <button 
-                        key={mode.id}
-                        onClick={() => handleSelectMode(mode)}
-                        className="w-full px-4 py-3 flex items-center justify-between hover:bg-[var(--surface-hover)] transition-colors group"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <Icon className="w-5 h-5 text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]" />
-                          <span className={`text-[15px] font-medium ${selectedMode.id === mode.id ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>{mode.name}</span>
+                  {/* Categories */}
+                  <div className="space-y-6">
+                    {TIME_CONTROLS.map((category) => {
+                      const Icon = category.icon;
+                      const visibleItems = category.items.filter(item => showMoreControls || !item.expandedOnly);
+                      
+                      return (
+                        <div key={category.category} className="flex flex-col">
+                          <div className="flex items-center space-x-2 mb-3">
+                            <Icon className={`w-4 h-4 ${category.iconColor}`} />
+                            <span className="text-[var(--text-primary)] font-bold text-sm tracking-wide">{category.category}</span>
+                            {category.hasInfo && <Info className="w-4 h-4 text-[var(--text-muted)] ml-1" />}
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            {visibleItems.map(item => (
+                              <button
+                                key={item.id}
+                                onClick={() => setSelectedTimeControl(item.id)}
+                                className={`py-3 px-1 rounded-lg text-sm font-semibold transition-all border ${
+                                  selectedTimeControl === item.id 
+                                    ? 'bg-[var(--surface-hover)] text-[var(--text-primary)] border-[var(--cta-bg)] shadow-[0_0_0_1px_var(--cta-bg)]' 
+                                    : 'bg-[var(--surface-alt)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] border-[var(--border-subtle)]'
+                                }`}
+                              >
+                                {item.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        {selectedMode.id === mode.id && <Check className="w-4 h-4 text-[var(--text-primary)]" />}
-                      </button>
-                    )
-                  })}
-                  <div className="px-4 py-2 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider sticky top-0 bg-[var(--surface-alt)] border-t border-[var(--border)]">Variants</div>
-                  {allModes.filter(m => m.category === "Variant").map((mode) => {
-                    const Icon = mode.icon;
-                    return (
-                      <button 
-                        key={mode.id}
-                        onClick={() => handleSelectMode(mode)}
-                        className="w-full px-4 py-3 flex items-center justify-between hover:bg-[var(--surface-hover)] transition-colors group"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <Icon className="w-5 h-5 text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]" />
-                          <span className={`text-[15px] font-medium ${selectedMode.id === mode.id ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>{mode.name}</span>
-                        </div>
-                        {selectedMode.id === mode.id && <Check className="w-4 h-4 text-[var(--text-primary)]" />}
-                      </button>
-                    )
-                  })}
+                      );
+                    })}
+                  </div>
+
+                  {/* More Time Controls Toggle */}
+                  <div className="mt-5 pt-4 flex justify-center">
+                    <button 
+                      onClick={() => setShowMoreControls(!showMoreControls)}
+                      className="flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] font-bold text-sm transition-colors"
+                    >
+                      <span>{showMoreControls ? 'Less Time Controls' : 'More Time Controls'}</span>
+                      {showMoreControls ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
+                    </button>
+                  </div>
+
                 </div>
-              )}
-            </div>
 
-            {/* Huge Start Button */}
-            <button className="w-full bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] font-extrabold text-2xl py-6 rounded-xl shadow-[0_10px_0_0_rgba(0,0,0,0.2)] hover:shadow-[0_6px_0_0_rgba(0,0,0,0.2)] hover:translate-y-1 transition-all active:shadow-[0_0px_0_0_rgba(0,0,0,0.2)] active:translate-y-[10px]">
-              Start Game
-            </button>
+                {/* Huge Start Button */}
+                <button className="w-full bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] font-extrabold text-3xl py-5 rounded-xl shadow-lg transition-all mb-6">
+                  Play
+                </button>
 
-            {/* Secondary Actions */}
-            <div className="pt-4 flex flex-col space-y-3">
-              <button className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl py-4 flex items-center justify-center space-x-3 transition-colors shadow-sm">
-                <Settings className="w-5 h-5 text-[var(--text-muted)]" />
-                <span className="text-lg font-bold text-[var(--text-primary)]">Custom Challenge</span>
-              </button>
-              
-              <button className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl py-4 flex items-center justify-center space-x-3 transition-colors shadow-sm">
-                <Handshake className="w-5 h-5 text-[#D4A373] dark:text-[#E6B981]" />
-                <span className="text-lg font-bold text-[var(--text-primary)]">Play a Friend</span>
-              </button>
-              
-              <button className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl py-4 flex items-center justify-center space-x-3 transition-colors shadow-sm">
-                <Trophy className="w-5 h-5 text-[#FFD700]" />
-                <span className="text-lg font-bold text-[var(--text-primary)]">Tournaments</span>
-              </button>
-            </div>
+                {/* Secondary Actions */}
+                <div className="flex flex-col space-y-3">
+                  <div className="flex flex-col bg-[var(--surface-alt)] border border-[var(--border)] rounded-xl shadow-sm z-10">
+                    <button 
+                      onClick={() => setIsCustomExpanded(!isCustomExpanded)}
+                      className="w-full hover:bg-[var(--surface-hover)] py-4 flex items-center justify-center space-x-3 transition-colors px-4 rounded-xl"
+                    >
+                      <Settings className="w-5 h-5 text-[var(--text-muted)]" />
+                      <span className="text-lg font-bold text-[var(--text-primary)] flex-1 text-center">Custom Challenge</span>
+                      {isCustomExpanded ? <ChevronUp className="w-4 h-4 text-[var(--text-muted)]" /> : <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />}
+                    </button>
+                    
+                    {isCustomExpanded && (
+                      <div className="p-2 border-t border-[var(--border)] flex flex-col gap-1 bg-[var(--surface)] rounded-b-xl">
+                        {VARIANTS.map(variant => (
+                          <Tooltip key={variant.id} content={variant.desc} position="left">
+                            <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-[var(--surface-hover)] transition-colors flex items-center group">
+                              <div className="w-1.5 h-1.5 rounded-full bg-[var(--cta-bg)] mr-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              <span className="text-[15px] font-semibold text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">
+                                {variant.label}
+                              </span>
+                            </button>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <button className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl py-4 flex items-center justify-center space-x-3 transition-colors shadow-sm">
+                    <Handshake className="w-5 h-5 text-[#D4A373] dark:text-[#E6B981]" />
+                    <span className="text-lg font-bold text-[var(--text-primary)]">Play a Friend</span>
+                  </button>
+                  
+                  <Link href="/play/computer" className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl py-4 flex items-center justify-center space-x-3 transition-colors shadow-sm">
+                    <Bot className="w-5 h-5 text-[var(--text-muted)]" />
+                    <span className="text-lg font-bold text-[var(--text-primary)]">Play Bots</span>
+                  </Link>
+                </div>
 
+              </div>
+            )}
           </div>
           
         </div>
       </div>
+
+      {/* Settings Modal Component */}
+      {isSettingsOpen && (
+        <SettingsModalLayout
+          open={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          activeTabId="board"
+          onTabChange={() => {}}
+          loading={false}
+          error={null}
+          tabs={[
+            {
+              id: "board",
+              icon: <LayoutGrid className="w-[18px] h-[18px]" />,
+              label: "Board & Pieces",
+              title: "Board & Pieces",
+              description: "Customize the look and feel of your chess set.",
+              content: (
+                <BoardPiecesSettingsTab
+                  activeSettingsTab={activeSettingsTab}
+                  setActiveSettingsTab={setActiveSettingsTab}
+                  boardTheme={boardTheme}
+                  pieceTheme={pieceTheme}
+                  boardThemes={AVAILABLE_BOARD_THEMES}
+                  pieceThemes={AVAILABLE_PIECE_THEMES}
+                  boardAssets={BOARD_THEME_ASSETS}
+                  pieceAssets={PIECE_THEME_ASSETS}
+                  soundEnabled={soundEnabled}
+                  onBoardThemeChange={handleBoardThemeChange}
+                  onPieceThemeChange={handlePieceThemeChange}
+                  onSoundEnabledChange={handleSoundEnabledChange}
+                  onPreviewSound={() => {}}
+                  boardPreviewNode={
+                    <div className="w-full aspect-square relative shadow-xl rounded-sm overflow-hidden border border-[var(--border)]">
+                      <BoardImage src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`} className="w-full h-full">
+                        <div className="w-full h-full grid grid-cols-3 grid-rows-3 relative">
+                          {Array.from({ length: 9 }).map((_, i) => {
+                            const row = Math.floor(i / 3);
+                            const col = i % 3;
+
+                            let piece = null;
+                            if (row === 0 && col === 0) piece = "bb";
+                            if (row === 0 && col === 1) piece = "bq";
+                            if (row === 0 && col === 2) piece = "bp";
+
+                            if (row === 2 && col === 0) piece = "wn";
+                            if (row === 2 && col === 1) piece = "wk";
+                            if (row === 2 && col === 2) piece = "wr";
+
+                            const isLightSquare = (row + col) % 2 === 0;
+
+                            return (
+                              <div key={i} className="flex items-center justify-center relative p-1 md:p-2">
+                                {col === 0 && (
+                                  <span className={`absolute top-1 left-1.5 text-[14px] font-bold ${isLightSquare ? "text-[#b07b46]" : "text-[#e6ca9a]"} select-none`}>
+                                    {8 - row}
+                                  </span>
+                                )}
+                                {piece && (
+                                  <PieceImage
+                                    src={`${PIECE_THEME_ASSETS[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${piece}.png`}
+                                    alt={piece}
+                                    className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] flex items-center justify-center"
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </BoardImage>
+                    </div>
+                  }
+                />
+              ),
+            }
+          ]}
+        />
+      )}
+
     </main>
   );
 }
