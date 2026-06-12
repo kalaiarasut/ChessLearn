@@ -226,7 +226,7 @@ const shuffleArray = <T,>(values: T[]) => {
   return shuffled;
 };
 
-const generateChess960BackRank = () => {
+export const generateChess960BackRank = () => {
   const rank = Array<string>(8).fill("");
   const lightSquares = [1, 3, 5, 7];
   const darkSquares = [0, 2, 4, 6];

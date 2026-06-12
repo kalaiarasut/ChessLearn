@@ -11,6 +11,7 @@ import { useTheme } from "@/lib/theme-context";
 import { SettingsModalLayout, BoardPiecesSettingsTab } from "@/components/settings-layout";
 import { Tooltip } from "@/components/ui/Tooltip";
 import Link from "next/link";
+import { generateChess960BackRank } from "../computer/page";
 
 const VARIANTS = [
   { id: "chess960", label: "Chess960", desc: "Randomized back rank starting position." },
@@ -173,12 +174,170 @@ export default function PlayOnlinePage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<"boards" | "pieces">("boards");
   
-  // UI State
   const [activeTab, setActiveTab] = useState<"new_game" | "games" | "players">("new_game");
   const [selectedTimeControl, setSelectedTimeControl] = useState("10min");
   const [showMoreControls, setShowMoreControls] = useState(false);
   const [isRated, setIsRated] = useState(true);
-  const [isCustomExpanded, setIsCustomExpanded] = useState(false);
+
+  // Variant Preview State
+  const [previewVariant, setPreviewVariant] = useState<string | null>(null);
+  const [previewBoardState, setPreviewBoardState] = useState<(string | null)[][] | null>(null);
+
+  useEffect(() => {
+    if (!previewVariant) {
+      setPreviewBoardState(null);
+      return;
+    }
+
+    const parseFenToBoard = (fen: string): (string | null)[][] => {
+      const [boardPart] = fen.split(" ");
+      return boardPart.split("/").map(row => {
+        const parsedRow: (string | null)[] = [];
+        for (const char of row) {
+          if (!isNaN(parseInt(char))) {
+            for (let i = 0; i < parseInt(char); i++) parsedRow.push(null);
+          } else {
+            const color = char === char.toLowerCase() ? 'b' : 'w';
+            const type = char.toLowerCase();
+            parsedRow.push(`${color}${type}`);
+          }
+        }
+        return parsedRow;
+      });
+    };
+
+    let initialBoard: (string | null)[][];
+    const FEN_SETUPS: Record<string, string> = {
+      horde: "rnbqkbnr/pppppppp/8/1PP5/PPPPPPPP/PPPPPPPP/PPPPPPPP/PPPPPPPP w kq - 0 1",
+      racingKings: "8/8/8/8/8/8/krbnNBRK/qrbnNBRQ w - - 0 1",
+      kingOfTheHill: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      crazyhouse: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "3check": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      atomic: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+    };
+
+    if (previewVariant === "chess960") {
+      const whiteBackRank = generateChess960BackRank();
+      const blackBackRank = whiteBackRank.toLowerCase();
+      initialBoard = Array(8).fill(null).map(() => Array(8).fill(null));
+      for (let i = 0; i < 8; i++) initialBoard[0][i] = `b${blackBackRank[i]}`;
+      for (let i = 0; i < 8; i++) initialBoard[1][i] = `bp`;
+      for (let i = 0; i < 8; i++) initialBoard[6][i] = `wp`;
+      for (let i = 0; i < 8; i++) initialBoard[7][i] = `w${whiteBackRank[i]}`;
+    } else {
+      initialBoard = parseFenToBoard(FEN_SETUPS[previewVariant] || FEN_SETUPS.kingOfTheHill);
+    }
+
+    setPreviewBoardState(initialBoard);
+
+    // Simple Walkthrough Animation Loop
+    let moveIndex = 0;
+    const interval = setInterval(() => {
+      setPreviewBoardState(prev => {
+        if (!prev) return prev;
+
+        if (previewVariant === "chess960") {
+          const whiteBackRank = generateChess960BackRank();
+          const blackBackRank = whiteBackRank.toLowerCase();
+          const newBoard = Array(8).fill(null).map(() => Array(8).fill(null));
+          for (let i = 0; i < 8; i++) newBoard[0][i] = `b${blackBackRank[i]}`;
+          for (let i = 0; i < 8; i++) newBoard[1][i] = `bp`;
+          for (let i = 0; i < 8; i++) newBoard[6][i] = `wp`;
+          for (let i = 0; i < 8; i++) newBoard[7][i] = `w${whiteBackRank[i]}`;
+          return newBoard;
+        }
+
+        const nextBoard = prev.map(row => [...row]);
+        
+        // Define accurate move sequences for visualization
+        const moves: Record<string, {from: [number, number] | string, to: [number, number]}[]> = {
+          horde: [
+            {from: [4, 4], to: [3, 4]}, // e4-e5
+            {from: [0, 1], to: [2, 2]}, // Nc6
+            {from: [4, 3], to: [3, 3]}, // d4-d5
+            {from: [2, 2], to: [3, 4]}  // Nxe5
+          ],
+          racingKings: [
+            {from: [6, 7], to: [5, 6]}, // Kh2-g3
+            {from: [6, 0], to: [5, 1]}, // Ka2-b3
+            {from: [5, 6], to: [4, 5]}, // Kg3-f4
+            {from: [5, 1], to: [4, 2]}  // Kb3-c4
+          ],
+          kingOfTheHill: [
+            {from: [6, 4], to: [4, 4]}, // e4
+            {from: [1, 4], to: [3, 4]}, // e5
+            {from: [7, 4], to: [6, 4]}, // Ke2
+            {from: [0, 4], to: [1, 4]}, // Ke7
+            {from: [6, 4], to: [5, 3]}, // Kd3
+            {from: [1, 4], to: [2, 3]}, // Kd6
+            {from: [5, 3], to: [4, 3]}  // Kd4 (White reaches center!)
+          ],
+          crazyhouse: [
+            {from: [6, 4], to: [4, 4]}, // e4
+            {from: [1, 3], to: [3, 3]}, // d5
+            {from: [4, 4], to: [3, 3]}, // exd5
+            {from: "drop_bp", to: [4, 4]} // P@e4
+          ],
+          "3check": [
+            {from: [6, 4], to: [4, 4]}, // e4
+            {from: [1, 4], to: [2, 4]}, // e6
+            {from: [7, 5], to: [3, 1]}, // Bb5+ (1st)
+            {from: [1, 2], to: [2, 2]}, // c6
+            {from: [3, 1], to: [4, 2]}, // Ba4
+            {from: [1, 3], to: [3, 3]}, // d5
+            {from: [4, 2], to: [3, 1]}, // Bb5+ (2nd)
+            {from: [0, 1], to: [2, 2]}, // Nc6
+            {from: [3, 1], to: [2, 2]}  // Bxc6+ (3rd!)
+          ],
+          atomic: [
+            {from: [6, 4], to: [4, 4]}, // e4
+            {from: [1, 5], to: [2, 5]}, // f6
+            {from: [7, 6], to: [5, 5]}, // Nf3
+            {from: [1, 4], to: [2, 4]}, // e6
+            {from: [5, 5], to: [3, 4]}, // Ne5
+            {from: [0, 6], to: [1, 4]}, // Ne7
+            {from: [3, 4], to: [1, 5]}  // Nxf7 (Boom!)
+          ]
+        };
+
+        const sequence = moves[previewVariant] || moves.kingOfTheHill;
+        
+        if (moveIndex >= sequence.length) {
+          // Reset after sequence
+          moveIndex = 0;
+          return initialBoard;
+        }
+
+        const move = sequence[moveIndex];
+        
+        if (typeof move.from === "string") {
+           // Handle Crazyhouse piece drops
+           const [color, type] = move.from.replace("drop_", "").split("");
+           nextBoard[move.to[0]][move.to[1]] = move.from.replace("drop_", "");
+        } else {
+           nextBoard[move.to[0]][move.to[1]] = nextBoard[move.from[0]][move.from[1]];
+           nextBoard[move.from[0]][move.from[1]] = null;
+        }
+
+        // Atomic explosion simulation
+        if (previewVariant === "atomic" && moveIndex === sequence.length - 1) {
+           const [r, c] = move.to;
+           for (let dr = -1; dr <= 1; dr++) {
+             for (let dc = -1; dc <= 1; dc++) {
+               if (r+dr >= 0 && r+dr <= 7 && c+dc >= 0 && c+dc <= 7) {
+                 nextBoard[r+dr][c+dc] = null;
+               }
+             }
+           }
+        }
+
+        moveIndex++;
+        return nextBoard;
+      });
+    }, previewVariant === "chess960" ? 1500 : 1200);
+
+    return () => clearInterval(interval);
+  }, [previewVariant]);
 
   useEffect(() => {
     try {
@@ -296,11 +455,11 @@ export default function PlayOnlinePage() {
     <main className="min-h-screen bg-[var(--bg)] transition-colors duration-300 font-sans flex flex-col items-center overflow-x-hidden">
       <Navbar />
       
-      <div className="flex-1 w-full max-w-[1280px] flex flex-col lg:flex-row items-stretch lg:items-start justify-center pt-24 pb-12 px-4 gap-6">
+      <div className="flex-1 w-full max-w-[1536px] flex flex-col lg:flex-row items-stretch lg:items-start justify-center pt-24 pb-12 px-4 gap-6">
         
         {/* Left Side: The Board */}
         <div className="w-full lg:w-[65%] flex-1 flex flex-col items-center lg:items-start justify-center lg:justify-end bg-[var(--bg-alt)] p-2 sm:p-4 lg:p-0 relative rounded-2xl border lg:border-none border-[var(--border)] lg:bg-transparent">
-          <div className={`flex flex-col items-center justify-start max-w-[100%] sm:max-w-[95%] lg:max-w-[75%] lg:min-w-[500px] w-full relative shrink-0 lg:ml-auto lg:mr-20 lg:mt-12 h-[70vh] max-h-[640px]`}>
+          <div className={`flex flex-col items-center justify-start max-w-[100%] sm:max-w-[95%] lg:max-w-[70%] lg:min-w-[500px] w-full relative shrink-0 lg:ml-auto lg:mr-16 lg:mt-12 h-[75vh] max-h-[640px]`}>
             
             <div className="w-full lg:w-auto flex justify-end lg:absolute lg:-top-2 lg:-right-[52px] flex-row lg:flex-col gap-2 sm:gap-3 z-50 mb-2 lg:mb-0 px-1 lg:px-0 items-center">
               <button
@@ -322,22 +481,7 @@ export default function PlayOnlinePage() {
 
             <div className="w-full h-full flex flex-col justify-center gap-1 md:gap-3 relative">
               
-              {/* Opponent Top Panel Placeholder */}
-              <div className="w-full flex items-center justify-between mb-2 bg-[var(--surface)] px-2.5 py-1 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-[var(--skeleton)] border border-[var(--border)] flex items-center justify-center shrink-0">
-                     <Users className="w-4 h-4 text-[var(--text-secondary)]" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-[12px] text-[var(--text-primary)] tracking-wide">Opponent</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="px-2 py-0.5 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[14px] text-[var(--text-primary)] shadow-inner w-[68px] text-center">
-                    10:00
-                  </div>
-                </div>
-              </div>
+              {/* Opponent Top Panel Placeholder Removed */}
 
               <div className="flex-1 aspect-square relative shrink-0">
                 <BoardImage
@@ -346,8 +490,8 @@ export default function PlayOnlinePage() {
                 >
                   <div className="w-full h-full grid grid-cols-8 grid-rows-8 relative" onContextMenu={(e) => e.preventDefault()}>
                     {(isBoardFlipped
-                      ? [...boardState].reverse().map(r => [...r].reverse())
-                      : boardState
+                      ? [...(previewBoardState || boardState)].reverse().map(r => [...r].reverse())
+                      : (previewBoardState || boardState)
                     ).map((row, visRowIndex) =>
                       row.map((pieceCode, visColIndex) => {
                         const logicalRow = isBoardFlipped ? 7 - visRowIndex : visRowIndex;
@@ -411,35 +555,20 @@ export default function PlayOnlinePage() {
                 </BoardImage>
               </div>
 
-              {/* Player Bottom Panel Placeholder */}
-              <div className="w-full flex items-center justify-between mt-2 bg-[var(--surface)] px-2.5 py-1 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-[var(--skeleton)] border border-[var(--border)] flex items-center justify-center shrink-0">
-                     <Users className="w-4 h-4 text-[var(--text-secondary)]" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-[12px] text-[var(--text-primary)] tracking-wide">You</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="px-2 py-0.5 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[14px] text-[var(--text-primary)] shadow-inner w-[68px] text-center">
-                    10:00
-                  </div>
-                </div>
-              </div>
+              {/* Player Bottom Panel Placeholder Removed */}
 
             </div>
           </div>
         </div>
 
         {/* Right Side: Matchmaking Hub */}
-        <div className="w-full lg:w-[400px] bg-[var(--surface-alt)] lg:bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-xl flex flex-col overflow-hidden shrink-0 mt-4 lg:mt-0">
+        <div className="w-full lg:w-[650px] bg-[var(--surface-alt)] lg:bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-xl flex flex-col overflow-hidden shrink-0 mt-4 lg:mt-0">
           
           {/* Header Tabs */}
           <div className="flex border-b border-[var(--border)] bg-[var(--surface-alt)]">
             <button 
               onClick={() => setActiveTab("new_game")}
-              className={`flex-1 py-4 flex flex-col items-center justify-center transition-colors relative ${activeTab === "new_game" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
+              className={`flex-1 py-4 px-6 flex flex-col items-center justify-center transition-colors relative ${activeTab === "new_game" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
             >
               <div className="w-6 h-6 mb-1 rounded border-2 border-current flex items-center justify-center text-[14px] font-bold">+</div>
               <span className="text-xs font-semibold">New Game</span>
@@ -447,7 +576,7 @@ export default function PlayOnlinePage() {
             </button>
             <button 
               onClick={() => setActiveTab("games")}
-              className={`flex-1 py-4 flex flex-col items-center justify-center transition-colors relative ${activeTab === "games" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
+              className={`flex-1 py-4 px-6 flex flex-col items-center justify-center transition-colors relative ${activeTab === "games" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
             >
               <LayoutGrid className="w-6 h-6 mb-1 opacity-80" />
               <span className="text-xs font-semibold">Games</span>
@@ -455,7 +584,7 @@ export default function PlayOnlinePage() {
             </button>
             <button 
               onClick={() => setActiveTab("players")}
-              className={`flex-1 py-4 flex flex-col items-center justify-center transition-colors relative ${activeTab === "players" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
+              className={`flex-1 py-4 px-6 flex flex-col items-center justify-center transition-colors relative ${activeTab === "players" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
             >
               <Users className="w-6 h-6 mb-1 opacity-80" />
               <span className="text-xs font-semibold">Players</span>
@@ -466,110 +595,116 @@ export default function PlayOnlinePage() {
           {/* Body Content */}
           <div className="flex flex-col flex-1 overflow-y-auto bg-[var(--bg)] p-4">
             {activeTab === "new_game" && (
-              <div className="flex flex-col h-full">
+              <div className="flex flex-col lg:flex-row h-full gap-4">
                 
-                {/* Time Controls Selector container */}
-                <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 mb-4">
-                  
-                  {/* Rated Toggle */}
-                  <div className="flex justify-between items-center mb-6">
-                    <span className="text-[var(--text-primary)] font-bold text-lg">Rated</span>
-                    <button 
-                      onClick={() => setIsRated(!isRated)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isRated ? 'bg-[var(--cta-bg)]' : 'bg-[var(--surface-alt)] border border-[var(--border)]'}`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-[var(--text-primary)] transition-transform ${isRated ? 'translate-x-6' : 'translate-x-1'}`} />
-                    </button>
-                  </div>
+                {/* Left Column: Time Controls & Play */}
+                <div className="flex flex-col flex-1 lg:w-[350px]">
+                  {/* Time Controls Selector container */}
+                  <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 mb-4">
+                    
+                    {/* Rated Toggle */}
+                    <div className="flex justify-between items-center mb-6">
+                      <span className="text-[var(--text-primary)] font-bold text-lg">Rated</span>
+                      <button 
+                        onClick={() => setIsRated(!isRated)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isRated ? 'bg-[var(--cta-bg)]' : 'bg-[var(--surface-alt)] border border-[var(--border)]'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isRated ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
 
-                  {/* Categories */}
-                  <div className="space-y-6">
-                    {TIME_CONTROLS.map((category) => {
-                      const Icon = category.icon;
-                      const visibleItems = category.items.filter(item => showMoreControls || !item.expandedOnly);
-                      
-                      return (
-                        <div key={category.category} className="flex flex-col">
-                          <div className="flex items-center space-x-2 mb-3">
-                            <Icon className={`w-4 h-4 ${category.iconColor}`} />
-                            <span className="text-[var(--text-primary)] font-bold text-sm tracking-wide">{category.category}</span>
-                            {category.hasInfo && <Info className="w-4 h-4 text-[var(--text-muted)] ml-1" />}
+                    {/* Categories */}
+                    <div className="space-y-6">
+                      {TIME_CONTROLS.map((category) => {
+                        const Icon = category.icon;
+                        const visibleItems = category.items.filter(item => showMoreControls || !item.expandedOnly);
+                        
+                        return (
+                          <div key={category.category} className="flex flex-col">
+                            <div className="flex items-center space-x-2 mb-3">
+                              <Icon className={`w-4 h-4 ${category.iconColor}`} />
+                              <span className="text-[var(--text-primary)] font-bold text-sm tracking-wide">{category.category}</span>
+                              {category.hasInfo && <Info className="w-4 h-4 text-[var(--text-muted)] ml-1" />}
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              {visibleItems.map(item => (
+                                <button
+                                  key={item.id}
+                                  onClick={() => setSelectedTimeControl(item.id)}
+                                  className={`py-3 px-1 rounded-lg text-sm font-semibold transition-all border ${
+                                    selectedTimeControl === item.id 
+                                      ? 'bg-[var(--surface-hover)] text-[var(--text-primary)] border-[var(--cta-bg)] shadow-[0_0_0_1px_var(--cta-bg)]' 
+                                      : 'bg-[var(--surface-alt)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] border-[var(--border-subtle)]'
+                                  }`}
+                                >
+                                  {item.label}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            {visibleItems.map(item => (
-                              <button
-                                key={item.id}
-                                onClick={() => setSelectedTimeControl(item.id)}
-                                className={`py-3 px-1 rounded-lg text-sm font-semibold transition-all border ${
-                                  selectedTimeControl === item.id 
-                                    ? 'bg-[var(--surface-hover)] text-[var(--text-primary)] border-[var(--cta-bg)] shadow-[0_0_0_1px_var(--cta-bg)]' 
-                                    : 'bg-[var(--surface-alt)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] border-[var(--border-subtle)]'
-                                }`}
-                              >
-                                {item.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+
+                    {/* More Time Controls Toggle */}
+                    <div className="mt-5 pt-4 flex justify-center">
+                      <button 
+                        onClick={() => setShowMoreControls(!showMoreControls)}
+                        className="flex items-center space-x-1 text-[13px] font-bold text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                      >
+                        <span>{showMoreControls ? "Less Time Controls" : "More Time Controls"}</span>
+                        {showMoreControls ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
 
-                  {/* More Time Controls Toggle */}
-                  <div className="mt-5 pt-4 flex justify-center">
-                    <button 
-                      onClick={() => setShowMoreControls(!showMoreControls)}
-                      className="flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] font-bold text-sm transition-colors"
-                    >
-                      <span>{showMoreControls ? 'Less Time Controls' : 'More Time Controls'}</span>
-                      {showMoreControls ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
-                    </button>
-                  </div>
+                  {/* Primary Action */}
+                  <button className="w-full bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-white text-[28px] font-[900] py-4 rounded-xl shadow-[0_6px_0_var(--cta-shadow)] active:translate-y-[6px] active:shadow-none transition-all tracking-wide">
+                    Play
+                  </button>
 
-                </div>
-
-                {/* Huge Start Button */}
-                <button className="w-full bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] font-extrabold text-3xl py-5 rounded-xl shadow-lg transition-all mb-6">
-                  Play
-                </button>
-
-                {/* Secondary Actions */}
-                <div className="flex flex-col space-y-3">
-                  <div className="flex flex-col bg-[var(--surface-alt)] border border-[var(--border)] rounded-xl shadow-sm z-10">
-                    <button 
-                      onClick={() => setIsCustomExpanded(!isCustomExpanded)}
-                      className="w-full hover:bg-[var(--surface-hover)] py-4 flex items-center justify-center space-x-3 transition-colors px-4 rounded-xl"
-                    >
-                      <Settings className="w-5 h-5 text-[var(--text-muted)]" />
-                      <span className="text-lg font-bold text-[var(--text-primary)] flex-1 text-center">Custom Challenge</span>
-                      {isCustomExpanded ? <ChevronUp className="w-4 h-4 text-[var(--text-muted)]" /> : <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />}
+                  {/* Secondary Actions */}
+                  <div className="flex flex-col space-y-3 mt-6">
+                    <button className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl py-4 flex items-center justify-center space-x-3 transition-colors shadow-sm">
+                      <Handshake className="w-5 h-5 text-[#D4A373] dark:text-[#E6B981]" />
+                      <span className="text-lg font-bold text-[var(--text-primary)]">Play a Friend</span>
                     </button>
                     
-                    {isCustomExpanded && (
-                      <div className="p-2 border-t border-[var(--border)] flex flex-col gap-1 bg-[var(--surface)] rounded-b-xl">
-                        {VARIANTS.map(variant => (
-                          <Tooltip key={variant.id} content={variant.desc} position="left">
+                    <Link href="/play/computer" className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl py-4 flex items-center justify-center space-x-3 transition-colors shadow-sm">
+                      <Bot className="w-5 h-5 text-[var(--text-muted)]" />
+                      <span className="text-lg font-bold text-[var(--text-primary)]">Play Bots</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Right Column: Custom Challenges */}
+                <div className="flex flex-col lg:w-[280px]">
+                  <div className="flex flex-col bg-[var(--surface-alt)] border border-[var(--border)] rounded-xl shadow-sm z-10 h-full">
+                    <div className="w-full py-4 flex items-center justify-center space-x-3 border-b border-[var(--border)] px-4">
+                      <Settings className="w-5 h-5 text-[var(--text-muted)]" />
+                      <span className="text-lg font-bold text-[var(--text-primary)] flex-1 text-center">Custom Challenge</span>
+                    </div>
+                    
+                    <div className="p-2 flex flex-col gap-1 bg-[var(--surface)] rounded-b-xl flex-1">
+                      {VARIANTS.map(variant => (
+                        <div 
+                          key={variant.id}
+                          onMouseEnter={() => setPreviewVariant(variant.id)}
+                          onMouseLeave={() => setPreviewVariant(null)}
+                          className="w-full"
+                        >
+                          <Tooltip content={variant.desc} position="top">
                             <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-[var(--surface-hover)] transition-colors flex items-center group">
-                              <div className="w-1.5 h-1.5 rounded-full bg-[var(--cta-bg)] mr-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              <span className="text-[15px] font-semibold text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">
+                              <div className={`w-1.5 h-1.5 rounded-full bg-[var(--cta-bg)] mr-3 transition-opacity ${previewVariant === variant.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`} />
+                              <span className={`text-[15px] font-semibold transition-colors ${previewVariant === variant.id ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]"}`}>
                                 {variant.label}
                               </span>
                             </button>
                           </Tooltip>
-                        ))}
-                      </div>
-                    )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  
-                  <button className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl py-4 flex items-center justify-center space-x-3 transition-colors shadow-sm">
-                    <Handshake className="w-5 h-5 text-[#D4A373] dark:text-[#E6B981]" />
-                    <span className="text-lg font-bold text-[var(--text-primary)]">Play a Friend</span>
-                  </button>
-                  
-                  <Link href="/play/computer" className="w-full bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl py-4 flex items-center justify-center space-x-3 transition-colors shadow-sm">
-                    <Bot className="w-5 h-5 text-[var(--text-muted)]" />
-                    <span className="text-lg font-bold text-[var(--text-primary)]">Play Bots</span>
-                  </Link>
                 </div>
 
               </div>
