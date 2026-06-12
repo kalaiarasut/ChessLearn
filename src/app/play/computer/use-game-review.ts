@@ -13,6 +13,7 @@ export type MoveReviewCategory =
   | "good"
   | "inaccuracy"
   | "mistake"
+  | "miss"
   | "blunder";
 
 export type ReviewedMove = {
@@ -173,6 +174,9 @@ const classifyMove = ({
   if (lossCp <= 260) {
     return "mistake";
   }
+  if (lossCp <= 520) {
+    return "miss";
+  }
   return "blunder";
 };
 
@@ -206,15 +210,18 @@ const buildReviews = (history: string[], sanHistory: string[], evaluations: Eval
       const materialBefore = getSideMaterial(beforeFen, mover);
       const materialAfter = getSideMaterial(afterFen, mover);
       const isSacrifice = materialAfter < materialBefore;
-      const category = classifyMove({
-        mover,
-        isBest,
-        lossCp,
-        numericBefore: beforeEvaluation.numericScore,
-        numericAfter: afterEvaluation.numericScore,
-        isSacrifice,
-        isCheck: move.san.includes("+") || move.san.includes("#"),
-      });
+      const isOpeningBookLike = index < 8 && lossCp <= 25;
+      const category = isOpeningBookLike
+        ? "book"
+        : classifyMove({
+            mover,
+            isBest,
+            lossCp,
+            numericBefore: beforeEvaluation.numericScore,
+            numericAfter: afterEvaluation.numericScore,
+            isSacrifice,
+            isCheck: move.san.includes("+") || move.san.includes("#"),
+          });
 
       nextReviews[index + 1] = {
         plyIndex: index + 1,

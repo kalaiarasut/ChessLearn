@@ -2,6 +2,7 @@
 
 import type { DragEvent, MouseEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { Chess, type Square } from "chess.js";
 import { ArrowLeft, Settings, Play, Pause, Bot, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, ChevronUp, MoreHorizontal, Monitor, User, Gamepad2, MessageSquare, GraduationCap, Bell, CreditCard, Accessibility, LayoutGrid, Users, Sun, Moon, Crosshair, Crown, Info, LoaderCircle, CheckCircle2, AlertCircle, MousePointer2, Eraser, Trash2 } from "lucide-react";
@@ -667,15 +668,15 @@ const MOVE_REVIEW_TONES: Record<
   book: {
     label: "Book",
     symbol: "\uE03D", // Book symbol from chessglyph
-    badgeColor: "#6bbf59",
+    badgeColor: "#d6a16f",
     badgeTextColor: "#ffffff",
-    bubbleTextColor: "#5ba84d",
-    fromFill: "rgba(107, 191, 89, 0.22)",
-    toFill: "rgba(107, 191, 89, 0.38)",
-    moveBg: "rgba(107, 191, 89, 0.12)",
-    moveBorder: "rgba(107, 191, 89, 0.34)",
-    moveText: "#c9f0bf",
-    glow: "rgba(107, 191, 89, 0.42)",
+    bubbleTextColor: "#c1844e",
+    fromFill: "rgba(214, 161, 111, 0.22)",
+    toFill: "rgba(214, 161, 111, 0.38)",
+    moveBg: "rgba(214, 161, 111, 0.12)",
+    moveBorder: "rgba(214, 161, 111, 0.34)",
+    moveText: "#f2c697",
+    glow: "rgba(214, 161, 111, 0.42)",
   },
   brilliant: {
     label: "Brilliant",
@@ -767,6 +768,19 @@ const MOVE_REVIEW_TONES: Record<
     moveBorder: "rgba(255, 138, 101, 0.38)",
     moveText: "#ffc2b1",
     glow: "rgba(255, 138, 101, 0.45)",
+  },
+  miss: {
+    label: "Miss",
+    symbol: "X",
+    badgeColor: "#fa6b5f",
+    badgeTextColor: "#ffffff",
+    bubbleTextColor: "#ff9f99",
+    fromFill: "rgba(250, 107, 95, 0.22)",
+    toFill: "rgba(250, 107, 95, 0.42)",
+    moveBg: "rgba(250, 107, 95, 0.13)",
+    moveBorder: "rgba(250, 107, 95, 0.38)",
+    moveText: "#ffb9b4",
+    glow: "rgba(250, 107, 95, 0.45)",
   },
   blunder: {
     label: "Blunder",
@@ -1239,6 +1253,7 @@ const MiniBoardPreview = ({
 };
 
 export default function PlayComputerPage() {
+  const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   // Settings state
@@ -1338,6 +1353,9 @@ export default function PlayComputerPage() {
   const [hasAutoStartedGameReview, setHasAutoStartedGameReview] = useState(false);
   const [reviewPreviewPlyIndex, setReviewPreviewPlyIndex] = useState<number | null>(null);
   const [reviewCelebrationPly, setReviewCelebrationPly] = useState<number | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importPgnText, setImportPgnText] = useState("");
+  const importFileInputRef = useRef<HTMLInputElement>(null);
   const [reviewCelebrationPhase, setReviewCelebrationPhase] = useState<"hidden" | "center" | "corner">("hidden");
   const [showReviewCelebrationLabel, setShowReviewCelebrationLabel] = useState(false);
   const [rightClickHighlights, setRightClickHighlights] = useState<Set<Square>>(new Set());
@@ -2033,12 +2051,12 @@ export default function PlayComputerPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !replayArchiveLoaded) {
       return;
     }
 
     window.localStorage.setItem(REPLAY_ARCHIVE_STORAGE_KEY, JSON.stringify(replayArchive));
-  }, [replayArchive]);
+  }, [replayArchive, replayArchiveLoaded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3492,6 +3510,74 @@ export default function PlayComputerPage() {
     downloadReplayPgnDocument(replayArchive, `ChessLearn-replays-${new Date().toISOString().slice(0, 10)}.pgn`);
   };
 
+  const handleImportPgn = (pgn: string) => {
+    try {
+      const g = new Chess();
+      g.loadPgn(pgn);
+      
+      const historyMoves = g.history();
+      
+      const replayGame = new Chess();
+      const fenHistory = [replayGame.fen()];
+      const sanMoves: string[] = [];
+      
+      for (const move of historyMoves) {
+        const res = replayGame.move(move);
+        fenHistory.push(replayGame.fen());
+        sanMoves.push(res.san);
+      }
+      
+      const header = g.header();
+      
+      const entry: ReplayArchiveEntry = {
+        id: createReplaySessionId(),
+        createdAt: new Date().toISOString(),
+        finalFen: replayGame.fen(),
+        fenHistory,
+        sanMoves,
+        moveCount: sanMoves.length,
+        timeControlMinutes: 10,
+        playerSide: "w",
+        opponentLabel: header.Black || "Black",
+        outcome: g.isCheckmate() ? "loss" : (g.isDraw() ? "draw" : "win"),
+        outcomeLabel: "Imported",
+        title: "Imported Game",
+        reason: "Imported from PGN",
+        resultTag: header.Result === "1-0" || header.Result === "0-1" || header.Result === "1/2-1/2" ? header.Result : "1/2-1/2",
+        whiteLabel: header.White || "White",
+        blackLabel: header.Black || "Black",
+      };
+
+      setReplayArchive((prev) => {
+        const nextArchive = [entry, ...prev.filter((item) => item.id !== entry.id)].slice(0, REPLAY_ARCHIVE_MAX_ITEMS);
+        window.localStorage.setItem(REPLAY_ARCHIVE_STORAGE_KEY, JSON.stringify(nextArchive));
+        return nextArchive;
+      });
+      setShowImportModal(false);
+      setImportPgnText("");
+      router.push(`/analysis?id=${entry.id}`);
+    } catch (e) {
+      alert("Failed to parse PGN.");
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const content = evt.target?.result as string;
+      if (content) {
+        handleImportPgn(content);
+      }
+    };
+    reader.readAsText(file);
+    if (importFileInputRef.current) {
+      importFileInputRef.current.value = "";
+    }
+  };
+
   const deleteReplayEntry = (entryId: string) => {
     setReplayArchive((previous) => previous.filter((entry) => entry.id !== entryId));
     archivedGameIdsRef.current.delete(entryId);
@@ -3780,10 +3866,10 @@ export default function PlayComputerPage() {
                         width: 28px;
                         border-radius: 50%;
                         background: #fff;
-                        border: 4px solid #10b981;
+                        border: 4px solid var(--text-primary);
                         margin-top: -9px;
                         cursor: pointer;
-                        box-shadow: 0 4px 12px rgba(16,185,129,0.4);
+                        box-shadow: 0 4px 12px var(--skeleton);
                         transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
                       }
                       input[type=range].elo-slider:hover::-webkit-slider-thumb {
@@ -3800,9 +3886,9 @@ export default function PlayComputerPage() {
                         width: 24px;
                         border-radius: 50%;
                         background: #fff;
-                        border: 4px solid #10b981;
+                        border: 4px solid var(--text-primary);
                         cursor: pointer;
-                        box-shadow: 0 4px 12px rgba(16,185,129,0.4);
+                        box-shadow: 0 4px 12px var(--skeleton);
                         transition: transform 0.15s;
                       }
                       input[type=range].elo-slider:hover::-moz-range-thumb {
@@ -3878,7 +3964,7 @@ export default function PlayComputerPage() {
                         step="1"
                         value={beginnerEloIndex}
                         onChange={(event) => setBeginnerEloIndex(Number(event.target.value))}
-                        className="elo-slider w-full"
+                        className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-[var(--text-primary)] bg-[var(--border)]"
                       />
                       <div className="flex justify-between text-[13px] font-bold text-[var(--text-muted)]">
                         <span>Est. {BEGINNER_ELO_MIN}</span>
@@ -3908,7 +3994,7 @@ export default function PlayComputerPage() {
                         step="1"
                         value={skillLevel}
                         onChange={(event) => setSkillLevel(Number(event.target.value))}
-                        className="elo-slider w-full"
+                        className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-[var(--text-primary)] bg-[var(--border)]"
                       />
                       <div className="flex justify-between text-[13px] font-bold text-[var(--text-muted)]">
                         <span>0 (Beginner)</span>
@@ -5313,16 +5399,16 @@ export default function PlayComputerPage() {
       {/* Game Replay Section */}
       {gameState === "setup" ? (
         <section className="w-full bg-[var(--bg-alt)] border-t border-[var(--border)] py-16 px-6 lg:px-12 flex flex-col items-center justify-center shrink-0">
-          <div className="max-w-6xl w-full flex flex-col gap-10">
+          <div className="max-w-7xl w-full flex flex-col gap-10">
 
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
               <div className="flex items-center gap-5">
-                <div className="w-14 h-14 rounded-2xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center shadow-sm shrink-0">
                   <Monitor className="w-6 h-6 text-[var(--text-primary)]" />
                 </div>
                 <div className="flex flex-col gap-1">
                   <h2 className="text-[28px] font-serif font-medium text-[var(--text-primary)] tracking-tight leading-none">Game Replay Archive</h2>
-                  <span className="text-[15px] font-medium text-[var(--text-muted)]">
+                  <span className="text-[15px] font-medium text-[var(--text-muted)] whitespace-nowrap">
                     {replayArchive.length > 0
                       ? `${replayArchive.length} saved ${replayArchive.length === 1 ? "game" : "games"} ready for review`
                       : "Your completed games will appear here automatically"}
@@ -5330,8 +5416,8 @@ export default function PlayComputerPage() {
                 </div>
               </div>
 
-              <div className="flex gap-3 flex-wrap">
-                <div className="inline-flex items-center gap-2 rounded-xl bg-[var(--surface)] border border-[var(--border)] p-1 shadow-sm">
+              <div className="flex gap-3 items-center flex-wrap lg:flex-nowrap justify-end">
+                <div className="inline-flex items-center gap-2 rounded-xl bg-[var(--surface)] border border-[var(--border)] p-1 shadow-sm shrink-0">
                   {replayFilters.map((filterOption) => (
                     <button
                       key={filterOption.value}
@@ -5349,7 +5435,7 @@ export default function PlayComputerPage() {
                 <button
                   onClick={clearReplayArchive}
                   disabled={replayArchive.length === 0}
-                  className="px-5 py-2.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl text-[14px] font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl text-[14px] font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all shadow-sm shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Clear Archive
                 </button>
@@ -5357,9 +5443,15 @@ export default function PlayComputerPage() {
                 <button
                   onClick={exportReplayArchive}
                   disabled={replayArchive.length === 0}
-                  className="px-5 py-2.5 bg-[var(--text-primary)] hover:bg-[var(--text-primary)]/90 text-[var(--bg)] border border-transparent rounded-xl text-[14px] font-bold transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2.5 bg-[var(--text-primary)] hover:bg-[var(--text-primary)]/90 text-[var(--bg)] border border-transparent rounded-xl text-[14px] font-bold transition-all shadow-md shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Export PGN
+                </button>
+                <button
+                  onClick={() => setShowImportModal(true)}
+                  className="px-5 py-2.5 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] border border-transparent rounded-xl text-[14px] font-bold transition-all shadow-md shrink-0"
+                >
+                  Import PGN
                 </button>
               </div>
             </div>
@@ -5522,6 +5614,14 @@ export default function PlayComputerPage() {
                               Delete
                             </button>
 
+                            <Link
+                              href={`/analysis?id=${replay.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="px-3 py-1.5 rounded-lg border border-[var(--cta-bg)] bg-[var(--cta-bg)]/10 text-[12px] font-bold text-[var(--cta-bg)] hover:bg-[var(--cta-bg)]/20 transition-colors ml-auto mr-4"
+                            >
+                              Analyze
+                            </Link>
+
                             <button
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -5562,6 +5662,55 @@ export default function PlayComputerPage() {
           </div>
         </section>
       ) : null}
+
+      {showImportModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] shadow-2xl p-6 w-full max-w-lg flex flex-col gap-4">
+            <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Import Game (PGN)</h2>
+            
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-[var(--text-secondary)]">Select PGN File</label>
+              <input 
+                type="file" 
+                accept=".pgn"
+                ref={importFileInputRef}
+                onChange={handleFileUpload}
+                className="w-full text-sm text-[var(--text-secondary)] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[var(--surface-alt)] file:text-[var(--text-primary)] hover:file:bg-[var(--surface-hover)] cursor-pointer"
+              />
+            </div>
+            
+            <div className="flex items-center gap-4 my-2">
+              <div className="flex-1 h-px bg-[var(--border)]"></div>
+              <span className="text-sm text-[var(--text-secondary)] font-medium uppercase tracking-wider">or paste text</span>
+              <div className="flex-1 h-px bg-[var(--border)]"></div>
+            </div>
+
+            <textarea 
+              value={importPgnText}
+              onChange={(e) => setImportPgnText(e.target.value)}
+              placeholder="[Event &quot;Live Chess&quot;]..."
+              className="w-full h-32 bg-[var(--bg)] border border-[var(--border)] rounded-lg p-3 text-sm font-mono text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--cta-bg)] transition-colors resize-none"
+            />
+
+            <div className="flex justify-end gap-3 mt-4">
+              <button 
+                onClick={() => setShowImportModal(false)}
+                className="px-5 py-2.5 rounded-xl border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--surface-alt)] transition-colors font-semibold"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => handleImportPgn(importPgnText)}
+                disabled={!importPgnText.trim()}
+                className="px-5 py-2.5 rounded-xl bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] font-bold transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
