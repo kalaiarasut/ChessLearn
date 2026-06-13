@@ -504,7 +504,7 @@ function PlayOnlineContent() {
   // Settings & Preferences
   const [boardTheme, setBoardTheme] = useState(themeManifest.defaultBoardTheme || "green");
   const [pieceTheme, setPieceTheme] = useState(themeManifest.defaultPieceTheme || "neo");
-  const [activeSettingsTab, setActiveSettingsTab] = useState("display");
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"boards" | "pieces">("boards");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSettingsModalTab, setActiveSettingsModalTab] = useState("board");
   
