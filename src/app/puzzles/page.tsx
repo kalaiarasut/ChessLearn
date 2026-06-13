@@ -1,6 +1,8 @@
 import PuzzlesClientPage from "./puzzles-client-page";
 import { getDailyPuzzle } from "@/lib/puzzle-service";
 
+export const dynamic = "force-dynamic";
+
 export default async function PuzzlesPage() {
   let dailyPuzzle = null;
 

@@ -10,6 +10,7 @@ import themeManifest from "@/data/themeManifest.json";
 import { useTheme } from "@/lib/theme-context";
 import { SettingsModalLayout, BoardPiecesSettingsTab } from "@/components/settings-layout";
 import PlayersTab from "@/components/ui/PlayersTab";
+import GamesHistory from "@/components/ui/GamesHistory";
 import { Tooltip } from "@/components/ui/Tooltip";
 import Link from "next/link";
 import { generateChess960BackRank } from "../computer/page";
@@ -225,7 +226,7 @@ function PlayOnlineContent() {
     });
   }, [router]);
 
-  const { gameState, isLoading: isMatchLoading, error: matchError, sendMove, chatMessages, sendChatMessage } = useRealtimeMatch(matchId, userId);
+  const { gameState, isLoading: isMatchLoading, error: matchError, sendMove, chatMessages, sendChatMessage, drawOfferReceived, setDrawOfferReceived, sendDrawOffer, declineDrawOffer } = useRealtimeMatch(matchId, userId);
   const [isSearching, setIsSearching] = useState(false);
   const [moveTimes, setMoveTimes] = useState<number[]>([]);
   const [lastMoveTimestamp, setLastMoveTimestamp] = useState<number>(Date.now());
@@ -252,12 +253,18 @@ function PlayOnlineContent() {
 
   // ── Clocks ───────────────────────────────────────────────────────────────────
   const parseTimeControl = useCallback((tc: string | null): number => {
-    if (!tc) return 10 * 60;
-    const minMatch = tc.match(/^(\d+)min$/);    if (minMatch) return parseInt(minMatch[1]) * 60;
-    const incMatch = tc.match(/^(\d+)\|(\d+)$/); if (incMatch) return parseInt(incMatch[1]) * 60;
-    const secMatch = tc.match(/^(\d+)s$/);       if (secMatch) return parseInt(secMatch[1]);
-    const dayMatch = tc.match(/^(\d+)d$/);       if (dayMatch) return parseInt(dayMatch[1]) * 86400;
-    return 10 * 60;
+    if (!tc) return 10 * 60 * 1000;
+    const minMatch = tc.match(/^(\d+)min$/);    if (minMatch) return parseInt(minMatch[1]) * 60 * 1000;
+    const incMatch = tc.match(/^(\d+)\|(\d+)$/); if (incMatch) return parseInt(incMatch[1]) * 60 * 1000;
+    const secMatch = tc.match(/^(\d+)s$/);       if (secMatch) return parseInt(secMatch[1]) * 1000;
+    const dayMatch = tc.match(/^(\d+)d$/);       if (dayMatch) return parseInt(dayMatch[1]) * 86400 * 1000;
+    return 10 * 60 * 1000;
+  }, []);
+
+  const getIncrementMs = useCallback((tc: string | null): number => {
+    if (!tc) return 0;
+    const incMatch = tc.match(/^(\d+)\|(\d+)$/); if (incMatch) return parseInt(incMatch[2]) * 1000;
+    return 0;
   }, []);
 
   const [myClock, setMyClock] = useState(() => parseTimeControl(null));
@@ -266,9 +273,9 @@ function PlayOnlineContent() {
 
   useEffect(() => {
     if (gameState.timeControl && !clockInitialized.current) {
-      const secs = parseTimeControl(gameState.timeControl);
-      setMyClock(secs);
-      setOpponentClock(secs);
+      const ms = parseTimeControl(gameState.timeControl);
+      setMyClock(ms);
+      setOpponentClock(ms);
       clockInitialized.current = true;
     }
   }, [gameState.timeControl, parseTimeControl]);
@@ -282,26 +289,21 @@ function PlayOnlineContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId, gameState.status, gameState.whitePlayerId, gameState.blackPlayerId, userId]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const formatClock = (secs: number) => {
-    if (secs >= 3600) {
-      const h = Math.floor(secs / 3600);
-      const m = Math.floor((secs % 3600) / 60);
+  const formatClock = (ms: number) => {
+    if (ms <= 0) return "0:00";
+    if (ms < 20000) {
+      return (ms / 1000).toFixed(1) + "s";
+    }
+    const totalSeconds = Math.floor(ms / 1000);
+    if (totalSeconds >= 3600) {
+      const h = Math.floor(totalSeconds / 3600);
+      const m = Math.floor((totalSeconds % 3600) / 60);
       return `${h}:${m.toString().padStart(2, "0")}:00`;
     }
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
-
-  useEffect(() => {
-    if (gameState.status !== "in_progress") return;
-    const interval = setInterval(() => {
-      if (isMyTurnFn()) setMyClock(prev => Math.max(0, prev - 1));
-      else setOpponentClock(prev => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [gameState.status, isMyTurnFn]);
 
   // ── Sound System ─────────────────────────────────────────────────────────────
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -420,6 +422,22 @@ function PlayOnlineContent() {
 
   // Board State
   const [game, setGame] = useState(new Chess());
+    
+  useEffect(() => {
+    if (gameState.status !== 'in_progress') return;
+    let lastTime = performance.now();
+    
+    const interval = setInterval(() => {
+      const now = performance.now();
+      const delta = now - lastTime;
+      lastTime = now;
+      
+      if (isMyTurnFn()) setMyClock(prev => Math.max(0, prev - delta));
+      else setOpponentClock(prev => Math.max(0, prev - delta));
+    }, 100);
+    return () => clearInterval(interval);
+  }, [gameState.status, game.turn(), gameState.whitePlayerId, gameState.blackPlayerId, userId, isMyTurnFn]);
+
   const [boardState, setBoardState] = useState<(string | null)[][]>(() => {
     const g = new Chess();
     return g.board().map(row => row.map(p => p ? `${p.color}${p.type}` : null));
@@ -428,27 +446,16 @@ function PlayOnlineContent() {
   // Sync network state to local board + play opponent move sound
   useEffect(() => {
     if (gameState.pgn && gameState.pgn !== game.pgn()) {
-      try {
-        const newGame = new Chess();
-        newGame.loadPgn(gameState.pgn);
-        const history = newGame.history({ verbose: true });
-        const lastMove = history[history.length - 1];
-        if (lastMove) {
-          setDisplayLastMove({ from: lastMove.from, to: lastMove.to });
-          // Only play sound if it's from the opponent (not our own move echoed back)
-          if (!isMyTurnFn()) {
-            if (newGame.isGameOver()) playSound("game-end");
-            else if (newGame.inCheck()) playSound("move-check");
-            else if (lastMove.captured) playSound("capture");
-            else playSound("move-self");
-          }
-        }
-        setGame(newGame);
-        setBoardState(newGame.board().map(row => row.map(p => p ? (p.color === 'w' ? p.type.toUpperCase() : p.type) : null)));
-      } catch (e) { console.error("Invalid incoming PGN", e); }
+      // Add increment if opponent made a move.
+      if (game.history().length > 0) {
+        setOpponentClock(prev => prev + getIncrementMs(gameState.timeControl));
+      }
+      
+      const newGame = new Chess();
+      newGame.loadPgn(gameState.pgn);
+      setGame(newGame);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState.pgn]);
+  }, [gameState.pgn, game, getIncrementMs, gameState.timeControl]);
   
   const [isBoardFlipped, setIsBoardFlipped] = useState(false);
   
@@ -477,6 +484,7 @@ function PlayOnlineContent() {
   // In-game transition state
   const [isInGame, setIsInGame] = useState(false);
   const [inGameTab, setInGameTab] = useState<"moves" | "chat" | "info">("moves");
+  const [unreadChat, setUnreadChat] = useState(false);
 
   // Track whether this is a friend invite match (invite_only → in_progress)
   // Detected via URL param (set by acceptor) or by seeing invite_only status (set by inviter)
@@ -504,7 +512,11 @@ function PlayOnlineContent() {
   // Settings & Preferences
   const [boardTheme, setBoardTheme] = useState(themeManifest.defaultBoardTheme || "green");
   const [pieceTheme, setPieceTheme] = useState(themeManifest.defaultPieceTheme || "neo");
+  const [showSettings, setShowSettings] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<"boards" | "pieces">("boards");
+  const [showResignConfirm, setShowResignConfirm] = useState(false);
+  const [ignoreDrawOffers, setIgnoreDrawOffers] = useState(false);
+  const [drawOfferSent, setDrawOfferSent] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSettingsModalTab, setActiveSettingsModalTab] = useState("board");
   
@@ -738,17 +750,17 @@ function PlayOnlineContent() {
     setBoardState(g.board().map(row => row.map(p => p ? (p.color === 'w' ? p.type.toUpperCase() : p.type) : null)));
   };
 
-  const makeMove = (from: Square, to: Square) => {
+  const makeMove = (sourceSquare: Square, targetSquare: Square, promotionPiece = 'q') => {
     try {
       const moves = game.moves({ verbose: true });
-      const move = moves.find(m => m.from === from && m.to === to);
+      const move = moves.find(m => m.from === sourceSquare && m.to === targetSquare);
       
       if (move) {
         // Auto-promote to Queen for simplicity
-        const moveResult = game.move({ from, to, promotion: 'q' });
+        const moveResult = game.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
         if (moveResult) {
           updateBoard(game);
-          setDisplayLastMove({ from, to });
+          setDisplayLastMove({ from: sourceSquare, to: targetSquare });
           setSelectedSquare(null);
           setLegalTargets([]);
           setArrows([]);
@@ -838,6 +850,19 @@ function PlayOnlineContent() {
     setSelectedSquare(null);
     setLegalTargets([]);
   };
+
+  useEffect(() => {
+    if (chatMessages.length > 0 && inGameTab !== "chat") {
+      setUnreadChat(true);
+    }
+  }, [chatMessages, inGameTab]);
+
+  const movesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (inGameTab === "moves") {
+      movesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [game.history().length, inGameTab]);
 
   return (
     <main className={`min-h-screen bg-[var(--bg)] transition-colors duration-700 font-sans flex flex-col items-center overflow-x-hidden ${isInGame ? 'overflow-hidden' : ''}`}>
@@ -1130,10 +1155,13 @@ function PlayOnlineContent() {
                 </button>
                 <button
                   onClick={() => setInGameTab("chat")}
-                  className={`flex-1 py-4 px-6 flex flex-col items-center justify-center transition-colors relative ${inGameTab === "chat" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
+                  className={`flex-1 py-3 px-2 flex flex-col items-center justify-center transition-colors relative ${inGameTab === "chat" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
                 >
-                  <MessageSquare className="w-6 h-6 mb-1 opacity-80" />
+                  <MessageSquare size={18} className="mb-1" />
                   <span className="text-xs font-semibold">Chat</span>
+                  {unreadChat && inGameTab !== "chat" && (
+                    <div className="absolute top-2 right-4 w-2 h-2 bg-red-500 rounded-full" />
+                  )}
                   {inGameTab === "chat" && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[var(--text-primary)]"></div>}
                 </button>
                 <button
@@ -1178,6 +1206,7 @@ function PlayOnlineContent() {
                         <p className="text-sm font-semibold">No moves yet</p>
                       </div>
                     )}
+                    <div ref={movesEndRef} />
                   </div>
                 </div>
                 {/* Game Controls */}
@@ -1189,21 +1218,42 @@ function PlayOnlineContent() {
                     <button className="p-2 rounded-md bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)] opacity-50 cursor-not-allowed"><SkipForward className="w-4 h-4" /></button>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => { if (matchId) syncGameState(matchId, game.pgn(), 'finished', null); }}
-                      className="flex-1 py-2.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl font-bold text-sm text-[var(--text-primary)] transition-colors"
-                    >½ Draw</button>
-                    <button
-                      onClick={() => {
-                        if (matchId) {
-                          const oppId = userId === gameState.whitePlayerId ? gameState.blackPlayerId : gameState.whitePlayerId;
-                          syncGameState(matchId, game.pgn(), 'finished', oppId);
-                        }
-                      }}
-                      className="flex-1 py-2.5 rounded-xl font-bold text-sm transition-colors bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center justify-center gap-2"
-                    >
-                      <Flag className="w-4 h-4 opacity-70" /> Resign
-                    </button>
+                    {gameState.status === 'in_progress' && (userId === gameState.whitePlayerId || userId === gameState.blackPlayerId) && (
+                    <>
+                      <button
+                        onClick={() => {
+                          if (drawOfferSent) return;
+                          sendDrawOffer();
+                          setDrawOfferSent(true);
+                        }}
+                        disabled={drawOfferSent}
+                        className="flex flex-col items-center justify-center p-3 rounded-xl bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] transition-colors"
+                      >
+                        <Handshake size={20} className="mb-1" />
+                        <span className="text-xs font-semibold">{drawOfferSent ? "Offer Sent" : "½ Draw"}</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (showResignConfirm) {
+                            const opponentId = userId === gameState.whitePlayerId ? gameState.blackPlayerId : gameState.whitePlayerId;
+                            syncGameState(matchId!, game.pgn(), 'finished', opponentId);
+                            setShowResignConfirm(false);
+                          } else {
+                            setShowResignConfirm(true);
+                            setTimeout(() => setShowResignConfirm(false), 3000);
+                          }
+                        }}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-colors ${
+                          showResignConfirm 
+                            ? "bg-red-500/20 text-red-500 border-red-500 hover:bg-red-500/30" 
+                            : "bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-red-500 border-[var(--border)]"
+                        }`}
+                      >
+                        <Flag size={20} className="mb-1" />
+                        <span className="text-xs font-semibold">{showResignConfirm ? "Sure?" : "Resign"}</span>
+                      </button>
+                    </>
+                  )}
                   </div>
                 </div>
               </div>
@@ -1300,11 +1350,17 @@ function PlayOnlineContent() {
               </div>
             )}
             {/* === LOBBY PANELS === */}
+            {!isInGame && activeTab === "games" && (
+              <div className="flex-1 bg-[var(--surface)] rounded-xl border border-[var(--border)] p-6 mb-4 h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar">
+                <GamesHistory userId={userId} />
+              </div>
+            )}
+            
             {!isInGame && activeTab === "new_game" && (
               <div className="flex flex-col lg:flex-row h-full gap-4">
                 
                 {/* Left Column: Match Info OR Time Controls & Play */}
-                <div className="flex flex-col flex-1 lg:w-[350px]">
+                <div className="flex flex-col flex-1 lg:w-[400px]">
                   {matchId ? (
                     <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-6 mb-4 flex flex-col items-center justify-center flex-1">
                       <div className="w-16 h-16 rounded-full bg-[var(--cta-bg)] flex items-center justify-center mb-4">
@@ -1771,6 +1827,41 @@ function PlayOnlineContent() {
             }
           ]}
         />
+      )}
+
+      {/* Draw Request Popup */}
+      {drawOfferReceived && !ignoreDrawOffers && (
+        <div className="fixed bottom-6 right-6 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-2xl p-5 w-80 z-50 animate-in fade-in slide-in-from-bottom-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-[var(--cta-bg)]/20 text-[var(--cta-bg)] flex items-center justify-center">
+              <Handshake size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-[var(--text-primary)]">Draw Offer</h3>
+              <p className="text-sm text-[var(--text-secondary)]">Opponent offered a draw</p>
+            </div>
+          </div>
+          <div className="flex gap-2 mb-3">
+            <button 
+              onClick={() => { syncGameState(matchId!, game.pgn(), 'finished', null); setDrawOfferReceived(false); }} 
+              className="flex-1 py-2 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-white rounded-lg font-bold text-sm transition-colors"
+            >
+              Accept
+            </button>
+            <button 
+              onClick={() => { declineDrawOffer(); }} 
+              className="flex-1 py-2 bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] border border-[var(--border)] rounded-lg font-bold text-sm transition-colors"
+            >
+              Decline
+            </button>
+          </div>
+          <button 
+            onClick={() => { setIgnoreDrawOffers(true); declineDrawOffer(); }} 
+            className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] w-full text-center transition-colors hover:underline"
+          >
+            Ignore future requests
+          </button>
+        </div>
       )}
 
     </main>

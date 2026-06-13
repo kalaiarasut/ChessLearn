@@ -5,6 +5,7 @@ export type MatchStatus = "waiting" | "invite_only" | "in_progress" | "finished"
 
 export interface RealtimeMatchState {
   pgn: string;
+  latestMove?: string;
   status: MatchStatus;
   opponentOnline: boolean;
   whitePlayerId: string | null;
@@ -18,6 +19,7 @@ export interface RealtimeMatchState {
 }
 
 export function useRealtimeMatch(matchId: string | null, currentUserId?: string | null) {
+  const [drawOfferReceived, setDrawOfferReceived] = useState(false);
   const [gameState, setGameState] = useState<RealtimeMatchState>({
     pgn: "",
     status: "waiting",
@@ -97,11 +99,27 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
           opponentOnline: activeUsers > 1
         }));
       })
-      .on("broadcast", { event: "move" }, ({ payload }) => {
-        if (payload.pgn) {
-          setGameState(prev => ({ ...prev, pgn: payload.pgn }));
+      .on(
+        "broadcast",
+        { event: "move" },
+        ({ payload }) => {
+          setGameState(prev => ({ 
+            ...prev, 
+            pgn: payload.pgn,
+            latestMove: payload.latestMove // Keep track of latest move to avoid loadPgn
+          }));
         }
-      })
+      )
+      .on(
+        "broadcast",
+        { event: "draw_offer" },
+        () => setDrawOfferReceived(true)
+      )
+      .on(
+        "broadcast",
+        { event: "draw_decline" },
+        () => setDrawOfferReceived(false) // Optionally we could notify the sender, but we can just clear it
+      )
       .on(
         "postgres_changes",
         {
@@ -138,18 +156,29 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
     };
   }, [matchId, supabase]);
 
-  const sendMove = useCallback((newPgn: string) => {
+  const sendMove = useCallback((newPgn: string, latestMove?: string) => {
     if (!channelRef.current) return;
     
     // Update local state instantly
-    setGameState(prev => ({ ...prev, pgn: newPgn }));
+    setGameState(prev => ({ ...prev, pgn: newPgn, latestMove }));
 
     // Broadcast to opponent instantly
     channelRef.current.send({
       type: "broadcast",
       event: "move",
-      payload: { pgn: newPgn },
+      payload: { pgn: newPgn, latestMove },
     });
+  }, []);
+
+  const sendDrawOffer = useCallback(() => {
+    if (!channelRef.current) return;
+    channelRef.current.send({ type: "broadcast", event: "draw_offer" });
+  }, []);
+
+  const declineDrawOffer = useCallback(() => {
+    if (!channelRef.current) return;
+    setDrawOfferReceived(false);
+    channelRef.current.send({ type: "broadcast", event: "draw_decline" });
   }, []);
 
   const [chatMessages, setChatMessages] = useState<{senderId: string, text: string, timestamp: number}[]>([]);
@@ -185,5 +214,16 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
     });
   }, []);
 
-  return { gameState, isLoading, error, sendMove, chatMessages, sendChatMessage };
+  return { 
+    gameState, 
+    isLoading, 
+    error, 
+    sendMove, 
+    chatMessages, 
+    sendChatMessage,
+    drawOfferReceived,
+    setDrawOfferReceived,
+    sendDrawOffer,
+    declineDrawOffer
+  };
 }
