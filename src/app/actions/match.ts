@@ -36,7 +36,7 @@ export async function findOrCreateMatch() {
 /**
  * Creates an invite-only match to play with a friend.
  */
-export async function createFriendMatch(initialPgn: string = "") {
+export async function createFriendMatch(initialPgn: string = "", timeControl?: string, variant?: string, initialFen?: string) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -45,7 +45,10 @@ export async function createFriendMatch(initialPgn: string = "") {
   const { data: match, error } = await supabase.from("matches").insert({
     white_player_id: user.id,
     status: "invite_only",
-    pgn: initialPgn
+    pgn: initialPgn,
+    time_control: timeControl,
+    variant: variant,
+    initial_fen: initialFen
   }).select("id").single();
 
   if (error) throw new Error("Failed to create friend match.");
@@ -53,20 +56,29 @@ export async function createFriendMatch(initialPgn: string = "") {
   return { matchId: match.id };
 }
 
+export async function rejectMatch(matchId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("matches").update({ status: "abandoned" }).eq("id", matchId);
+  if (error) throw new Error("Failed to reject match");
+  return { success: true };
+}
+
 /**
  * Joins an invite-only match as the black player.
  * Uses a SECURITY DEFINER Postgres function to bypass RLS.
  */
+
 export async function joinFriendMatch(matchId: string) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) throw new Error("Must be logged in.");
 
+  // Use the SECURITY DEFINER RPC to bypass RLS safely
   const { error } = await supabase.rpc("join_invite_match", { match_id: matchId });
 
   if (error) {
-    console.error("joinFriendMatch RPC error:", error);
+    console.error("joinFriendMatch error:", error);
     throw new Error("Failed to join match.");
   }
 
@@ -122,4 +134,11 @@ export async function syncGameState(matchId: string, pgn: string, status: string
       await supabase.from("profiles").update({ rating: newB.rating, rd: newB.rd, volatility: newB.vol }).eq("id", match.black_player_id);
     }
   }
+}
+
+export async function setChatStatus(matchId: string, status: "disabled" | "pending_white" | "pending_black" | "enabled") {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("matches").update({ chat_status: status }).eq("id", matchId);
+  if (error) throw new Error("Failed to update chat status.");
+  return { success: true };
 }

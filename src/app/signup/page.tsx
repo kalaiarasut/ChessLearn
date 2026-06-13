@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useActionState, useState, useMemo } from "react";
-import { Mail, Lock, User, ArrowRight, Eye, EyeOff, ChevronLeft, Sun, Moon } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Eye, EyeOff, ChevronLeft, Sun, Moon, Loader2 } from "lucide-react";
 import { signup } from "@/app/actions/auth";
 import { useTheme } from "@/lib/theme-context";
 
-export default function SignupPage() {
+import { Suspense } from "react";
+
+function SignupContent() {
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
@@ -24,7 +26,7 @@ export default function SignupPage() {
   }, [searchParams]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[var(--bg)]">
+    <>
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[var(--glow-orb)] opacity-100 blur-[140px] rounded-full mix-blend-screen pointer-events-none" />
 
       <Link href="/" className="absolute top-8 left-8 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex items-center space-x-2 group z-20">
@@ -206,6 +208,17 @@ export default function SignupPage() {
           </Link>
         </p>
       </div>
+    </>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[var(--bg)]">
+      <Suspense fallback={<div className="flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[var(--text-muted)]" /></div>}>
+        <SignupContent />
+      </Suspense>
     </div>
   );
 }
+

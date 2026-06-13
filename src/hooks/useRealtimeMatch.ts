@@ -10,6 +10,11 @@ export interface RealtimeMatchState {
   whitePlayerId: string | null;
   blackPlayerId: string | null;
   winnerId: string | null;
+  chatStatus: "disabled" | "pending_white" | "pending_black" | "enabled";
+  timeControl: string | null;
+  variant: string | null;
+  initialFen: string | null;
+  updatedAt: string | null;
 }
 
 export function useRealtimeMatch(matchId: string | null, currentUserId?: string | null) {
@@ -20,6 +25,11 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
     whitePlayerId: null,
     blackPlayerId: null,
     winnerId: null,
+    chatStatus: "disabled",
+    timeControl: null,
+    variant: null,
+    initialFen: null,
+    updatedAt: null,
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -50,6 +60,11 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
           whitePlayerId: data.white_player_id,
           blackPlayerId: data.black_player_id,
           winnerId: data.winner_id ?? null,
+          chatStatus: data.chat_status || "disabled",
+          timeControl: data.time_control,
+          variant: data.variant,
+          initialFen: data.initial_fen,
+          updatedAt: data.updated_at,
         }));
       }
       setIsLoading(false);
@@ -103,6 +118,8 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
             whitePlayerId: payload.new.white_player_id,
             blackPlayerId: payload.new.black_player_id,
             winnerId: payload.new.winner_id ?? null,
+            chatStatus: payload.new.chat_status ?? prev.chatStatus,
+            updatedAt: payload.new.updated_at ?? prev.updatedAt,
           }));
         }
       )
@@ -135,5 +152,38 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
     });
   }, []);
 
-  return { gameState, isLoading, error, sendMove };
+  const [chatMessages, setChatMessages] = useState<{senderId: string, text: string, timestamp: number}[]>([]);
+
+  useEffect(() => {
+    if (!channelRef.current) return;
+    const channel = channelRef.current;
+    
+    // We add the chat_message handler dynamically so we can access setChatMessages
+    channel.on("broadcast", { event: "chat_message" }, ({ payload }) => {
+      if (payload.text && payload.senderId) {
+        setChatMessages(prev => [...prev, {
+          senderId: payload.senderId,
+          text: payload.text,
+          timestamp: payload.timestamp || Date.now()
+        }]);
+      }
+    });
+    
+  }, [matchId]);
+
+  const sendChatMessage = useCallback((text: string, senderId: string) => {
+    if (!channelRef.current) return;
+    
+    const msg = { senderId, text, timestamp: Date.now() };
+    
+    setChatMessages(prev => [...prev, msg]);
+    
+    channelRef.current.send({
+      type: "broadcast",
+      event: "chat_message",
+      payload: msg,
+    });
+  }, []);
+
+  return { gameState, isLoading, error, sendMove, chatMessages, sendChatMessage };
 }

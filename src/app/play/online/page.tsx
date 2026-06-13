@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Navbar from "@/components/ui/Navbar";
 import { Chess, type Square } from "chess.js";
 import { 
-  Rocket, Zap, Clock, Sun, Settings, ArrowLeft, Moon, LayoutGrid, Users, Handshake, Bot, Info, ChevronDown, ChevronUp, Bomb, Swords, Flag, User, SignalHigh, SkipBack, SkipForward, ChevronLeft, ChevronRight, MessageSquare
+  Rocket, Zap, Clock, Sun, Settings, ArrowLeft, Moon, LayoutGrid, Users, Handshake, Bot, Info, ChevronDown, ChevronUp, Bomb, Swords, Flag, User, SignalHigh, SkipBack, SkipForward, ChevronLeft, ChevronRight, MessageSquare, Palette, Gamepad2, Volume2, Monitor, Shield
 } from "lucide-react";
 import themeManifest from "@/data/themeManifest.json";
 import { useTheme } from "@/lib/theme-context";
@@ -15,7 +15,7 @@ import Link from "next/link";
 import { generateChess960BackRank } from "../computer/page";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useRealtimeMatch } from "@/hooks/useRealtimeMatch";
-import { findOrCreateMatch, createFriendMatch, joinFriendMatch, syncGameState } from "@/app/actions/match";
+import { findOrCreateMatch, createFriendMatch, joinFriendMatch, syncGameState, setChatStatus } from "@/app/actions/match";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const VARIANTS = [
@@ -178,6 +178,24 @@ const TIME_CONTROLS: TimeControlCategory[] = [
   }
 ];
 
+const getOpening = (pgn: string) => {
+  if (!pgn) return "Starting Position";
+  if (pgn.startsWith("1. e4 e5 2. Nf3 Nc6 3. Bb5")) return "Ruy Lopez";
+  if (pgn.startsWith("1. e4 e5 2. Nf3 Nc6 3. Bc4")) return "Italian Game";
+  if (pgn.startsWith("1. e4 e5 2. Nf3 Nc6 3. d4")) return "Scotch Game";
+  if (pgn.startsWith("1. e4 c5")) return "Sicilian Defense";
+  if (pgn.startsWith("1. d4 d5 2. c4")) return "Queen's Gambit";
+  if (pgn.startsWith("1. d4 Nf6 2. c4 g6 3. Nc3 Bg7")) return "King's Indian Defense";
+  if (pgn.startsWith("1. e4 e6")) return "French Defense";
+  if (pgn.startsWith("1. e4 c6")) return "Caro-Kann Defense";
+  if (pgn.startsWith("1. d4 Nf6 2. c4 e6")) return "Nimzo-Indian Defense";
+  if (pgn.startsWith("1. e4")) return "King's Pawn Opening";
+  if (pgn.startsWith("1. d4")) return "Queen's Pawn Opening";
+  if (pgn.startsWith("1. c4")) return "English Opening";
+  if (pgn.startsWith("1. Nf3")) return "Réti Opening";
+  return "Custom Opening";
+};
+
 export default function PlayOnlinePage() {
   return (
     <React.Suspense fallback={<div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">Loading...</div>}>
@@ -207,8 +225,191 @@ function PlayOnlineContent() {
     });
   }, [router]);
 
-  const { gameState, isLoading: isMatchLoading, error: matchError, sendMove } = useRealtimeMatch(matchId, userId);
+  const { gameState, isLoading: isMatchLoading, error: matchError, sendMove, chatMessages, sendChatMessage } = useRealtimeMatch(matchId, userId);
   const [isSearching, setIsSearching] = useState(false);
+  const [moveTimes, setMoveTimes] = useState<number[]>([]);
+  const [lastMoveTimestamp, setLastMoveTimestamp] = useState<number>(Date.now());
+  const [ratingRangeEnabled, setRatingRangeEnabled] = useState(false);
+  const [ratingMin, setRatingMin] = useState(-50);
+  const [ratingMax, setRatingMax] = useState(50);
+
+  // ── Player Profiles ──────────────────────────────────────────────────────────
+  const [myProfile, setMyProfile] = useState<{ username: string; rating: number } | null>(null);
+  const [opponentProfile, setOpponentProfile] = useState<{ username: string; rating: number } | null>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    createSupabaseBrowserClient().from("profiles").select("username, rating").eq("id", userId).single()
+      .then(({ data }) => { if (data) setMyProfile({ username: data.username, rating: Math.round(data.rating) }); });
+  }, [userId]);
+
+  useEffect(() => {
+    const oppId = userId === gameState.whitePlayerId ? gameState.blackPlayerId : gameState.whitePlayerId;
+    if (!oppId) { setOpponentProfile(null); return; }
+    createSupabaseBrowserClient().from("profiles").select("username, rating").eq("id", oppId).single()
+      .then(({ data }) => { if (data) setOpponentProfile({ username: data.username, rating: Math.round(data.rating) }); });
+  }, [gameState.whitePlayerId, gameState.blackPlayerId, userId]);
+
+  // ── Clocks ───────────────────────────────────────────────────────────────────
+  const parseTimeControl = useCallback((tc: string | null): number => {
+    if (!tc) return 10 * 60;
+    const minMatch = tc.match(/^(\d+)min$/);    if (minMatch) return parseInt(minMatch[1]) * 60;
+    const incMatch = tc.match(/^(\d+)\|(\d+)$/); if (incMatch) return parseInt(incMatch[1]) * 60;
+    const secMatch = tc.match(/^(\d+)s$/);       if (secMatch) return parseInt(secMatch[1]);
+    const dayMatch = tc.match(/^(\d+)d$/);       if (dayMatch) return parseInt(dayMatch[1]) * 86400;
+    return 10 * 60;
+  }, []);
+
+  const [myClock, setMyClock] = useState(() => parseTimeControl(null));
+  const [opponentClock, setOpponentClock] = useState(() => parseTimeControl(null));
+  const clockInitialized = useRef(false);
+
+  useEffect(() => {
+    if (gameState.timeControl && !clockInitialized.current) {
+      const secs = parseTimeControl(gameState.timeControl);
+      setMyClock(secs);
+      setOpponentClock(secs);
+      clockInitialized.current = true;
+    }
+  }, [gameState.timeControl, parseTimeControl]);
+
+  const isMyTurnFn = useCallback(() => {
+    if (!matchId) return true;
+    if (gameState.status !== "in_progress") return false;
+    if (game.turn() === 'w' && userId !== gameState.whitePlayerId) return false;
+    if (game.turn() === 'b' && userId !== gameState.blackPlayerId) return false;
+    return true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchId, gameState.status, gameState.whitePlayerId, gameState.blackPlayerId, userId]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const formatClock = (secs: number) => {
+    if (secs >= 3600) {
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      return `${h}:${m.toString().padStart(2, "0")}:00`;
+    }
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  useEffect(() => {
+    if (gameState.status !== "in_progress") return;
+    const interval = setInterval(() => {
+      if (isMyTurnFn()) setMyClock(prev => Math.max(0, prev - 1));
+      else setOpponentClock(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [gameState.status, isMyTurnFn]);
+
+  // ── Sound System ─────────────────────────────────────────────────────────────
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const audioPoolRef = useRef<Record<string, HTMLAudioElement[]>>({});
+  const nextAudioRef = useRef<Record<string, number>>({});
+
+  const playSound = useCallback((name: string) => {
+    if (!soundEnabled) return;
+    if (typeof Audio === "undefined") return;
+    if (!audioPoolRef.current[name]) {
+      audioPoolRef.current[name] = Array.from({ length: 3 }, () => {
+        const a = new Audio(`/sounds/${name}.mp3`); a.preload = "auto"; return a;
+      });
+      nextAudioRef.current[name] = 0;
+    }
+    const pool = audioPoolRef.current[name];
+    const idx = nextAudioRef.current[name] ?? 0;
+    pool[idx].currentTime = 0;
+    pool[idx].volume = 0.8;
+    pool[idx].play().catch(() => {});
+    nextAudioRef.current[name] = (idx + 1) % pool.length;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [soundEnabled]);
+
+  // ── Arrow / Highlight Drawing (right-click) ───────────────────────────────
+  const [arrows, setArrows] = useState<{ from: Square; to: Square; color?: string }[]>([]);
+  const [highlightedSquares, setHighlightedSquares] = useState<Square[]>([]);
+  const rightClickStartRef = useRef<Square | null>(null);
+
+  const handleBoardMouseDown = (e: React.MouseEvent, square: Square) => {
+    if (e.button === 2) { e.preventDefault(); rightClickStartRef.current = square; }
+  };
+  const handleBoardMouseUp = (e: React.MouseEvent, square: Square) => {
+    if (e.button !== 2) return;
+    e.preventDefault();
+    const from = rightClickStartRef.current;
+    rightClickStartRef.current = null;
+    if (!from) return;
+    if (from === square) {
+      setHighlightedSquares(prev => prev.includes(square) ? prev.filter(s => s !== square) : [...prev, square]);
+    } else {
+      setArrows(prev => {
+        const exists = prev.find(a => a.from === from && a.to === square);
+        return exists ? prev.filter(a => !(a.from === from && a.to === square)) : [...prev, { from, to: square }];
+      });
+    }
+  };
+
+  // ── Chat State ────────────────────────────────────────────────────────────────
+  const [chatInput, setChatInput] = useState("");
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  const isAmIWhite = userId === gameState.whitePlayerId;
+  const chatStatus = gameState.chatStatus;
+  const iChatRequested = chatStatus === "pending_white" && isAmIWhite || chatStatus === "pending_black" && !isAmIWhite;
+  const opponentChatRequested = chatStatus === "pending_white" && !isAmIWhite || chatStatus === "pending_black" && isAmIWhite;
+  const chatEnabled = chatStatus === "enabled";
+
+  const renderMove = (san: string, isWhite: boolean) => {
+    if (!san) return null;
+    const pieceMatch = san.match(/^[NBRQK]/);
+    const pieceLetter = pieceMatch ? pieceMatch[0] : null;
+    const rest = pieceMatch ? san.slice(1) : san;
+    
+    // Generate a visually plausible fake time for demonstration
+    let hash = 0;
+    for (let i = 0; i < san.length; i++) hash = san.charCodeAt(i) + ((hash << 5) - hash);
+    const timeNum = 0.5 + (Math.abs(hash) % 75) / 10;
+    const fakeTime = timeNum.toFixed(1);
+    const barWidth = Math.max(8, Math.min(24, (timeNum / 5) * 24)); // Bar scales with time, up to 24px
+
+    return (
+      <div className="flex items-center w-full">
+        {pieceLetter && (
+          <div className="w-3.5 h-3.5 flex items-center justify-center shrink-0 -ml-0.5 mr-0.5 opacity-80">
+            {getPieceIcon(isWhite ? pieceLetter : pieceLetter.toLowerCase(), pieceTheme)}
+          </div>
+        )}
+        <span className={pieceLetter ? "mt-[2px]" : ""}>{rest}</span>
+        <div className="ml-auto flex items-center gap-1.5 opacity-60">
+          <div className={`h-1.5 ${isWhite ? 'bg-[var(--text-primary)]' : 'bg-[var(--text-muted)]'} rounded-[1px]`} style={{ width: `${barWidth}px` }} />
+          <span className="text-[10px] text-[var(--text-muted)] font-mono">{fakeTime}s</span>
+        </div>
+      </div>
+    );
+  };
+
+  const handleRequestChat = async () => {
+    if (!matchId || !userId) return;
+    const newStatus = isAmIWhite ? "pending_white" : "pending_black";
+    await setChatStatus(matchId, newStatus as any);
+  };
+
+  const handleAcceptChat = async () => {
+    if (!matchId) return;
+    await setChatStatus(matchId, "enabled");
+  };
+
+  const handleSendChat = () => {
+    if (!chatInput.trim() || !userId || !chatEnabled) return;
+    sendChatMessage(chatInput.trim(), userId);
+    setChatInput("");
+  };
+
 
   // Auto-join invite matches if we're not the creator
   useEffect(() => {
@@ -224,17 +425,30 @@ function PlayOnlineContent() {
     return g.board().map(row => row.map(p => p ? `${p.color}${p.type}` : null));
   });
 
-  // Sync network state to local board
+  // Sync network state to local board + play opponent move sound
   useEffect(() => {
     if (gameState.pgn && gameState.pgn !== game.pgn()) {
       try {
         const newGame = new Chess();
         newGame.loadPgn(gameState.pgn);
+        const history = newGame.history({ verbose: true });
+        const lastMove = history[history.length - 1];
+        if (lastMove) {
+          setDisplayLastMove({ from: lastMove.from, to: lastMove.to });
+          // Only play sound if it's from the opponent (not our own move echoed back)
+          if (!isMyTurnFn()) {
+            if (newGame.isGameOver()) playSound("game-end");
+            else if (newGame.inCheck()) playSound("move-check");
+            else if (lastMove.captured) playSound("capture");
+            else playSound("move-self");
+          }
+        }
         setGame(newGame);
         setBoardState(newGame.board().map(row => row.map(p => p ? (p.color === 'w' ? p.type.toUpperCase() : p.type) : null)));
       } catch (e) { console.error("Invalid incoming PGN", e); }
     }
-  }, [gameState.pgn, game]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState.pgn]);
   
   const [isBoardFlipped, setIsBoardFlipped] = useState(false);
   
@@ -290,9 +504,9 @@ function PlayOnlineContent() {
   // Settings & Preferences
   const [boardTheme, setBoardTheme] = useState(themeManifest.defaultBoardTheme || "green");
   const [pieceTheme, setPieceTheme] = useState(themeManifest.defaultPieceTheme || "neo");
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [activeSettingsTab, setActiveSettingsTab] = useState("display");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"boards" | "pieces">("boards");
+  const [activeSettingsModalTab, setActiveSettingsModalTab] = useState("board");
   
   const [activeTab, setActiveTab] = useState<"new_game" | "games" | "players">(
     (searchParams.get("tab") as any) || "new_game"
@@ -537,8 +751,17 @@ function PlayOnlineContent() {
           setDisplayLastMove({ from, to });
           setSelectedSquare(null);
           setLegalTargets([]);
-          if (soundEnabled) {
-            // In a real app we'd play audio here
+          setArrows([]);
+          setHighlightedSquares([]);
+          // Play appropriate sound
+          if (game.isGameOver()) {
+            playSound("game-end");
+          } else if (game.inCheck()) {
+            playSound("move-check");
+          } else if (moveResult.captured) {
+            playSound("capture");
+          } else {
+            playSound("move-self");
           }
           if (matchId) {
             const pgn = game.pgn();
@@ -557,16 +780,11 @@ function PlayOnlineContent() {
     }
   };
 
-  const isMyTurn = () => {
-    if (!matchId) return true; // Local play allows both sides
-    if (gameState.status !== "in_progress") return false;
-    if (game.turn() === 'w' && userId !== gameState.whitePlayerId) return false;
-    if (game.turn() === 'b' && userId !== gameState.blackPlayerId) return false;
-    return true;
-  };
 
   const handleSquareClick = (square: Square) => {
-    if (!isMyTurn()) return;
+    if (!isMyTurnFn()) return;
+    setArrows([]);
+    setHighlightedSquares([]);
 
     if (selectedSquare === square) {
       setSelectedSquare(null);
@@ -591,7 +809,7 @@ function PlayOnlineContent() {
   };
 
   const handleDragStart = (e: React.DragEvent, square: Square) => {
-    if (!isMyTurn()) {
+    if (!isMyTurnFn()) {
       e.preventDefault();
       return;
     }
@@ -625,11 +843,11 @@ function PlayOnlineContent() {
     <main className={`min-h-screen bg-[var(--bg)] transition-colors duration-700 font-sans flex flex-col items-center overflow-x-hidden ${isInGame ? 'overflow-hidden' : ''}`}>
       {!isInGame && <Navbar />}
       
-      <div className={`flex-1 w-full max-w-[1536px] flex flex-col lg:flex-row items-stretch justify-center px-4 gap-6 transition-all duration-700 ${isInGame ? 'pt-4 pb-4 h-screen' : 'lg:items-start pt-24 pb-12'}`}>
+      <div className={`flex-1 w-full max-w-[1536px] flex flex-col lg:flex-row items-stretch justify-center px-4 gap-6 lg:gap-12 transition-all duration-700 ${isInGame ? 'pt-4 pb-4 h-screen' : 'lg:items-start pt-24 pb-12'}`}>
         
         {/* Left Side: The Board */}
-        <div className={`w-full lg:w-[65%] flex-1 flex flex-col items-center justify-center relative transition-all duration-700 ${isInGame ? 'lg:items-end' : 'lg:items-start lg:justify-end bg-[var(--bg-alt)] p-2 sm:p-4 lg:p-0 rounded-2xl border lg:border-none border-[var(--border)] lg:bg-transparent'}`}>
-          <div className={`flex flex-col items-center justify-start w-full relative shrink-0 transition-all duration-700 ${isInGame ? 'max-w-[100%] sm:max-w-[90%] lg:max-w-[640px] lg:ml-auto lg:mr-4 lg:mt-0 h-full' : 'max-w-[100%] sm:max-w-[95%] lg:max-w-[70%] lg:min-w-[500px] lg:ml-auto lg:mr-16 lg:mt-12 h-[75vh] max-h-[640px]'}`}>
+        <div className={`w-full lg:w-[60%] flex-1 flex flex-col items-center relative transition-all duration-700 ${isInGame ? 'justify-start lg:items-center' : 'justify-center lg:items-start lg:justify-end bg-[var(--bg-alt)] p-2 sm:p-4 lg:p-0 rounded-2xl border lg:border-none border-[var(--border)] lg:bg-transparent'}`}>
+          <div className={`flex flex-col items-center justify-start w-full relative shrink-0 transition-all duration-700 ${isInGame ? 'max-w-[100%] sm:max-w-[90%] lg:max-w-[min(720px,calc(100vh-100px))] lg:mx-auto lg:mt-0' : 'max-w-[100%] sm:max-w-[95%] lg:max-w-[70%] lg:min-w-[500px] lg:ml-auto lg:mr-16 lg:mt-12 h-[75vh] max-h-[640px]'}`}>
             
             <div className="w-full lg:w-auto flex justify-end lg:absolute lg:-top-2 lg:-right-[52px] flex-row lg:flex-col gap-2 sm:gap-3 z-50 mb-2 lg:mb-0 px-1 lg:px-0 items-center">
               <button
@@ -647,13 +865,20 @@ function PlayOnlineContent() {
                 <ArrowLeft className="w-[14px] h-[14px] -ml-1" />
                 <ArrowLeft className="w-[14px] h-[14px] -mr-1 rotate-180" />
               </button>
+              <button
+                onClick={() => toggleTheme()}
+                className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center flex-col gap-[2px]"
+                title="Toggle Light/Dark Theme"
+              >
+                {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
+              </button>
             </div>
 
-            <div className="w-full h-full flex flex-col justify-center gap-1 md:gap-3 relative">
+            <div className={`w-full flex flex-col relative ${isInGame ? 'justify-start gap-0' : 'h-full justify-center gap-1.5'}`}>
               
               {/* Opponent Top Panel */}
               {isInGame && (
-                <div className="w-full flex items-center justify-between mb-2 bg-[var(--surface)] px-2.5 py-1.5 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)] animate-in fade-in slide-in-from-top-2 duration-500">
+                <div className="w-full flex items-center justify-between bg-[var(--surface)] px-2.5 py-1.5 rounded-t-xl rounded-b-none border border-[var(--border)] border-b-0 animate-in fade-in slide-in-from-top-2 duration-500">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-[var(--skeleton)] border border-[var(--border)] flex items-center justify-center shrink-0">
                       <User className="w-4 h-4 text-[var(--text-secondary)]" />
@@ -661,26 +886,29 @@ function PlayOnlineContent() {
                     <div className="flex flex-col">
                       <div className="flex items-center gap-1.5">
                         <span className="font-bold text-[13px] text-[var(--text-primary)] tracking-wide">
-                          {gameState.whitePlayerId && gameState.blackPlayerId
-                            ? (userId === gameState.whitePlayerId ? "Black" : "White")
-                            : "Opponent"}
+                          {opponentProfile?.username ?? "Opponent"}
                         </span>
+                        <span className="text-[11px] text-[var(--text-muted)] font-semibold">{opponentProfile ? `(${opponentProfile.rating})` : ""}</span>
                         <SignalHigh className="w-3.5 h-3.5 text-green-500" />
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="px-3 py-0.5 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[14px] text-[var(--text-primary)] shadow-inner w-[72px] text-center">
-                      —
+                    <div className={`px-3 py-0.5 border rounded-lg font-mono font-bold text-[14px] shadow-inner w-[72px] text-center transition-colors ${
+                      !isMyTurnFn() && gameState.status === "in_progress"
+                        ? "bg-[var(--text-primary)] text-[var(--bg)] border-[var(--text-primary)]"
+                        : "bg-[var(--bg-alt)] text-[var(--text-primary)] border-[var(--border-subtle)]"
+                    }`}>
+                      {gameState.timeControl ? formatClock(opponentClock) : "—"}
                     </div>
                   </div>
                 </div>
               )}
 
-              <div className="flex-1 aspect-square relative shrink-0">
+              <div className="w-full aspect-square relative shrink-0">
                 <BoardImage
                   src={BOARD_THEME_ASSETS[boardTheme] ?? `/boards/${boardTheme}.png`}
-                  className="w-full h-full shadow-[0_15px_35px_rgba(0,0,0,0.15)] rounded-sm overflow-hidden border border-[var(--border)]"
+                  className="w-full h-full shadow-[0_15px_35px_rgba(0,0,0,0.15)] overflow-hidden border border-[var(--border)]"
                 >
                   <div className="w-full h-full grid grid-cols-8 grid-rows-8 relative" onContextMenu={(e) => e.preventDefault()}>
                     {(isBoardFlipped
@@ -719,9 +947,14 @@ function PlayOnlineContent() {
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={(e) => handleDrop(e, square)}
                             className="relative flex items-center justify-center cursor-pointer"
+                            onMouseDown={(e) => handleBoardMouseDown(e, square)}
+                            onMouseUp={(e) => handleBoardMouseUp(e, square)}
                           >
                             {isLastMoveSquare && (
                               <div className="absolute inset-[4%] rounded-[4px] bg-amber-300/30" />
+                            )}
+                            {highlightedSquares.includes(square) && (
+                              <div className="absolute inset-0 bg-red-400/40 z-[1]" />
                             )}
                             {isSelectedSquare && (
                               <div className="absolute inset-[6%] rounded-[4px] ring-[3px] ring-white/95 bg-white/12 z-[6] shadow-[0_0_14px_rgba(255,255,255,0.45)]" />
@@ -822,21 +1055,28 @@ function PlayOnlineContent() {
 
               {/* Player Bottom Panel */}
               {isInGame && (
-                <div className="w-full flex items-center justify-between mt-2 bg-[var(--surface)] px-2.5 py-1.5 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)] animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div className="w-full flex items-center justify-between bg-[var(--surface)] px-2.5 py-1.5 rounded-b-xl rounded-t-none border border-[var(--border)] border-t-0 animate-in fade-in slide-in-from-bottom-2 duration-500">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-b from-[var(--cta-bg)] to-[var(--cta-hover)] border border-[var(--border)] flex items-center justify-center shrink-0 shadow-inner">
                       <User className="w-4 h-4 text-white" />
                     </div>
                     <div className="flex flex-col">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-[13px] text-[var(--text-primary)] tracking-wide">You</span>
+                        <span className="font-bold text-[13px] text-[var(--text-primary)] tracking-wide">
+                          {myProfile?.username ?? "You"}
+                        </span>
+                        <span className="text-[11px] text-[var(--text-muted)] font-semibold">{myProfile ? `(${myProfile.rating})` : ""}</span>
                         <SignalHigh className="w-3.5 h-3.5 text-green-500" />
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="px-3 py-0.5 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[14px] text-[var(--text-primary)] shadow-inner w-[72px] text-center">
-                      —
+                    <div className={`px-3 py-0.5 border rounded-lg font-mono font-bold text-[14px] shadow-inner w-[72px] text-center transition-colors ${
+                      isMyTurnFn() && gameState.status === "in_progress"
+                        ? "bg-[var(--text-primary)] text-[var(--bg)] border-[var(--text-primary)]"
+                        : "bg-[var(--bg-alt)] text-[var(--text-primary)] border-[var(--border-subtle)]"
+                    }`}>
+                      {gameState.timeControl ? formatClock(myClock) : "—"}
                     </div>
                   </div>
                 </div>
@@ -847,7 +1087,7 @@ function PlayOnlineContent() {
         </div>
 
         {/* Right Side: Panel */}
-        <div className={`w-full bg-[var(--surface-alt)] lg:bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-xl flex flex-col overflow-hidden shrink-0 transition-all duration-700 ${isInGame ? 'lg:w-[400px] mt-0 h-full' : 'lg:w-[650px] mt-4 lg:mt-0'}`}>
+        <div className={`w-full bg-[var(--surface-alt)] lg:bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-xl flex flex-col shrink-0 transition-all duration-700 ${isInGame ? 'lg:w-[540px] mt-0 lg:h-[calc(100vh-100px)] lg:max-h-[720px] overflow-hidden' : 'lg:w-[650px] mt-4 lg:mt-0 overflow-hidden'}`}>
           
           {/* Header Tabs — lobby vs in-game */}
           <div className="flex border-b border-[var(--border)] bg-[var(--surface-alt)]">
@@ -909,10 +1149,14 @@ function PlayOnlineContent() {
           </div>
 
           {/* Body Content */}
-          <div className="flex flex-col flex-1 overflow-y-auto bg-[var(--bg)] p-4 relative">
+          <div className={`flex flex-col flex-1 min-h-0 bg-[var(--bg)] relative ${isInGame && inGameTab === "moves" ? 'p-0 overflow-hidden' : 'p-4 overflow-y-auto'}`}>
             {/* === IN-GAME PANELS === */}
             {isInGame && inGameTab === "moves" && (
               <div className="flex flex-col h-full">
+                <div className="px-3 py-2 border-b border-[var(--border)] bg-[var(--surface-alt)] flex justify-between items-center text-[12px] text-[var(--text-secondary)]">
+                  <span className="truncate">{getOpening(game.pgn())}</span>
+                  <Info className="w-4 h-4 opacity-50 shrink-0 ml-2" />
+                </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                   <div className="grid grid-cols-[28px_1fr_1fr] gap-x-1.5 gap-y-0.5 p-2">
                     {game.history().reduce((result: string[][], move: string, index: number) => {
@@ -922,9 +1166,9 @@ function PlayOnlineContent() {
                     }, []).map((pair: string[], idx: number) => (
                       <React.Fragment key={idx}>
                         <div className="text-[var(--text-muted)] font-mono text-xs flex items-center justify-end pr-1 py-1 opacity-60">{idx + 1}.</div>
-                        <div className="px-2 py-1 rounded-md font-bold text-sm bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--surface-hover)] transition-colors">{pair[0]}</div>
+                        <div className="px-2 py-1 rounded-md font-bold text-sm bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--surface-hover)] transition-colors flex items-center">{renderMove(pair[0], true)}</div>
                         {pair[1] ? (
-                          <div className="px-2 py-1 rounded-md font-bold text-sm bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--surface-hover)] transition-colors">{pair[1]}</div>
+                          <div className="px-2 py-1 rounded-md font-bold text-sm bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--surface-hover)] transition-colors flex items-center">{renderMove(pair[1], false)}</div>
                         ) : <div />}
                       </React.Fragment>
                     ))}
@@ -956,16 +1200,87 @@ function PlayOnlineContent() {
                           syncGameState(matchId, game.pgn(), 'finished', oppId);
                         }
                       }}
-                      className="flex-1 py-2.5 bg-[var(--error-bg)] hover:bg-[#ff5555] border border-[var(--error-border)] rounded-xl font-bold text-sm text-white transition-colors"
-                    >Resign</button>
+                      className="flex-1 py-2.5 rounded-xl font-bold text-sm transition-colors bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center justify-center gap-2"
+                    >
+                      <Flag className="w-4 h-4 opacity-70" /> Resign
+                    </button>
                   </div>
                 </div>
               </div>
             )}
             {isInGame && inGameTab === "chat" && (
-              <div className="flex flex-col items-center justify-center h-full text-[var(--text-muted)]">
-                <MessageSquare className="w-10 h-10 mb-3 opacity-30" />
-                <p className="font-semibold text-sm">Chat coming soon</p>
+              <div className="flex flex-col h-full">
+                {/* Chat not yet unlocked */}
+                {!chatEnabled && !opponentChatRequested && !iChatRequested && (
+                  <div className="flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
+                    <MessageSquare className="w-10 h-10 text-[var(--text-muted)] opacity-40" />
+                    <p className="text-[var(--text-secondary)] text-sm">Chat is locked by default. Send a request to start chatting.</p>
+                    <button
+                      onClick={handleRequestChat}
+                      className="px-5 py-2 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-white rounded-xl font-bold text-sm transition-colors"
+                    >Request Chat</button>
+                  </div>
+                )}
+                {/* I requested, waiting */}
+                {iChatRequested && (
+                  <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
+                    <MessageSquare className="w-10 h-10 text-[var(--cta-bg)] opacity-60" />
+                    <p className="text-[var(--text-secondary)] text-sm">Chat request sent. Waiting for opponent to accept...</p>
+                  </div>
+                )}
+                {/* Opponent requested, I need to accept */}
+                {opponentChatRequested && (
+                  <div className="flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
+                    <MessageSquare className="w-10 h-10 text-[var(--cta-bg)]" />
+                    <p className="text-[var(--text-primary)] font-semibold text-sm">Opponent wants to chat</p>
+                    <div className="flex gap-3">
+                      <button onClick={handleAcceptChat} className="px-5 py-2 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-white rounded-xl font-bold text-sm transition-colors">Accept</button>
+                      <button onClick={() => setChatStatus(matchId!, "disabled" as any)} className="px-5 py-2 bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-secondary)] rounded-xl font-bold text-sm transition-colors">Decline</button>
+                    </div>
+                  </div>
+                )}
+                {/* Chat enabled — message list + input */}
+                {chatEnabled && (
+                  <>
+                    <div className="flex-1 overflow-y-auto flex flex-col gap-2 px-3 py-3 min-h-0">
+                      {chatMessages.length === 0 && (
+                        <div className="flex flex-col items-center justify-center h-full gap-2 opacity-40">
+                          <MessageSquare className="w-8 h-8" />
+                          <p className="text-xs">No messages yet</p>
+                        </div>
+                      )}
+                      {chatMessages.map((msg: any, i: number) => {
+                        const isMe = msg.senderId === userId;
+                        return (
+                          <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[75%] px-3 py-1.5 rounded-2xl text-[13px] leading-snug ${
+                              isMe
+                                ? 'bg-[var(--cta-bg)] text-white rounded-br-sm'
+                                : 'bg-[var(--surface-alt)] text-[var(--text-primary)] border border-[var(--border)] rounded-bl-sm'
+                            }`}>
+                              {msg.text}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div ref={chatEndRef} />
+                    </div>
+                    <div className="border-t border-[var(--border)] px-3 py-2 flex gap-2">
+                      <input
+                        value={chatInput}
+                        onChange={e => setChatInput(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSendChat()}
+                        placeholder="Type a message…"
+                        className="flex-1 bg-[var(--surface-alt)] border border-[var(--border)] rounded-xl px-3 py-1.5 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--cta-bg)] transition-colors"
+                      />
+                      <button
+                        onClick={handleSendChat}
+                        disabled={!chatInput.trim()}
+                        className="px-3 py-1.5 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] disabled:opacity-40 text-white rounded-xl text-[13px] font-bold transition-colors"
+                      >Send</button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
             {isInGame && inGameTab === "info" && (
@@ -973,8 +1288,8 @@ function PlayOnlineContent() {
                 <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4">
                   <h3 className="font-bold text-[var(--text-primary)] mb-3 text-sm">Match Info</h3>
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between text-[var(--text-secondary)]"><span>Variant</span><span className="font-bold text-[var(--text-primary)] capitalize">{selectedVariant}</span></div>
-                    <div className="flex justify-between text-[var(--text-secondary)]"><span>Time Control</span><span className="font-bold text-[var(--text-primary)]">{selectedTimeControl}</span></div>
+                    <div className="flex justify-between text-[var(--text-secondary)]"><span>Variant</span><span className="font-bold text-[var(--text-primary)] capitalize">{gameState.variant ?? selectedVariant}</span></div>
+                    <div className="flex justify-between text-[var(--text-secondary)]"><span>Time Control</span><span className="font-bold text-[var(--text-primary)]">{gameState.timeControl ?? selectedTimeControl}</span></div>
                     <div className="flex justify-between text-[var(--text-secondary)]"><span>Rated</span><span className="font-bold text-[var(--text-primary)]">{isRated ? 'Yes' : 'No'}</span></div>
                   </div>
                 </div>
@@ -1333,8 +1648,8 @@ function PlayOnlineContent() {
         <SettingsModalLayout
           open={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
-          activeTabId="board"
-          onTabChange={() => {}}
+          activeTabId={activeSettingsModalTab}
+          onTabChange={setActiveSettingsModalTab}
           loading={false}
           error={null}
           tabs={[
@@ -1400,6 +1715,58 @@ function PlayOnlineContent() {
                     </div>
                   }
                 />
+              ),
+            },
+            {
+              id: "game",
+              icon: <Gamepad2 className="w-[18px] h-[18px]" />,
+              label: "Game Settings",
+              title: "Game Behavior",
+              description: "Configure how the game reacts to your inputs.",
+              content: (
+                <div className="flex flex-col gap-4 text-sm text-[var(--text-secondary)] py-8 items-center justify-center h-full">
+                  <Gamepad2 className="w-12 h-12 opacity-20 mb-2" />
+                  <p>More game settings coming soon.</p>
+                </div>
+              ),
+            },
+            {
+              id: "audio",
+              icon: <Volume2 className="w-[18px] h-[18px]" />,
+              label: "Audio",
+              title: "Sound Preferences",
+              description: "Adjust volume and audio cues.",
+              content: (
+                <div className="flex flex-col gap-4 text-sm text-[var(--text-secondary)] py-8 items-center justify-center h-full">
+                  <Volume2 className="w-12 h-12 opacity-20 mb-2" />
+                  <p>Detailed audio settings coming soon.</p>
+                </div>
+              ),
+            },
+            {
+              id: "display",
+              icon: <Monitor className="w-[18px] h-[18px]" />,
+              label: "Display",
+              title: "Interface Customization",
+              description: "Change how the application looks.",
+              content: (
+                <div className="flex flex-col gap-4 text-sm text-[var(--text-secondary)] py-8 items-center justify-center h-full">
+                  <Monitor className="w-12 h-12 opacity-20 mb-2" />
+                  <p>Display settings coming soon.</p>
+                </div>
+              ),
+            },
+            {
+              id: "privacy",
+              icon: <Shield className="w-[18px] h-[18px]" />,
+              label: "Privacy",
+              title: "Privacy & Security",
+              description: "Manage who can see you and your games.",
+              content: (
+                <div className="flex flex-col gap-4 text-sm text-[var(--text-secondary)] py-8 items-center justify-center h-full">
+                  <Shield className="w-12 h-12 opacity-20 mb-2" />
+                  <p>Privacy settings coming soon.</p>
+                </div>
               ),
             }
           ]}

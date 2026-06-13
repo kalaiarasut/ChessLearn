@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { Play, X, User } from "lucide-react";
+import { Play, X, User, Dices } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { joinFriendMatch } from "@/app/actions/match";
@@ -13,6 +13,7 @@ type InvitePayload = {
   inviterRating: number;
   matchId: string;
   timeControl: string;
+  variant?: string;
 };
 
 export default function GlobalInviteListener() {
@@ -33,6 +34,10 @@ export default function GlobalInviteListener() {
       channel.on('broadcast', { event: 'game_invite' }, ({ payload }) => {
         setInvite(payload as InvitePayload);
         setTimeLeft(10);
+      })
+      .on('broadcast', { event: 'invite_rejected' }, () => {
+        // Simple notification
+        alert("Your match invitation was rejected.");
       }).subscribe();
     };
 
@@ -71,7 +76,25 @@ export default function GlobalInviteListener() {
     router.push(`/play/online?matchId=${matchId}&invite=1`);
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
+    if (!invite) return;
+    try {
+      const { rejectMatch } = await import('@/app/actions/match');
+      await rejectMatch(invite.matchId);
+      
+      const channel = supabase.channel(`invites:${invite.inviterId}`);
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          channel.send({
+            type: 'broadcast',
+            event: 'invite_rejected',
+            payload: { matchId: invite.matchId }
+          });
+        }
+      });
+    } catch (e) {
+      console.error("Failed to reject match", e);
+    }
     setInvite(null);
   };
 
@@ -87,13 +110,18 @@ export default function GlobalInviteListener() {
           <div className="bg-[var(--surface-alt)] border-2 border-[var(--cta-bg)] rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col relative">
             <div className="p-4 flex flex-col items-center text-center">
               <div className="w-12 h-12 bg-[var(--surface)] rounded-full flex items-center justify-center mb-3 border border-[var(--border)] shadow-inner">
-                <User className="w-6 h-6 text-[var(--text-primary)]" />
+                {invite.variant && invite.variant !== "standard" ? (
+                  <Dices className="w-6 h-6 text-[var(--cta-bg)]" />
+                ) : (
+                  <User className="w-6 h-6 text-[var(--text-primary)]" />
+                )}
               </div>
               <h3 className="text-lg font-bold text-[var(--text-primary)] leading-tight">
-                Challenge from <span className="text-[var(--cta-bg)]">{invite.inviterUsername}</span>
+                {invite.variant && invite.variant !== "standard" ? "Custom Challenge from" : "Challenge from"} <span className="text-[var(--cta-bg)]">{invite.inviterUsername}</span>
               </h3>
               <p className="text-sm text-[var(--text-secondary)] mt-1 font-semibold">
                 Rating: {invite.inviterRating} &bull; {invite.timeControl}
+                {invite.variant && invite.variant !== "standard" && ` \u2022 ${invite.variant}`}
               </p>
               
               <div className="flex w-full gap-3 mt-5">

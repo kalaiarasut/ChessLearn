@@ -178,9 +178,9 @@ export default function PlayersTab({ currentUserId, onInviteFriend }: { currentU
                 const isSent = sentRequests.some(f => f.receiverProfile?.id === profile.id);
                 
                 return (
-                  <div key={profile.id} className="flex items-center justify-between p-2 border-b border-[var(--border)] last:border-0 hover:bg-[var(--surface-hover)] transition-colors">
+                  <div key={profile.id} className="flex items-center justify-between px-2 py-1.5 border-b border-[var(--border)] last:border-0 hover:bg-[var(--surface-hover)] transition-colors">
                     <div>
-                      <div className="font-bold text-sm text-[var(--text-primary)]">{profile.username}</div>
+                      <div className="font-bold text-[13px] leading-tight text-[var(--text-primary)]">{profile.username}</div>
                       <div className="text-xs text-[var(--text-secondary)]">Rating: {Math.round(profile.rating)}</div>
                     </div>
                     {isFriend ? (
@@ -213,14 +213,14 @@ export default function PlayersTab({ currentUserId, onInviteFriend }: { currentU
 
       <div className="h-[1px] w-full bg-[var(--border)] shrink-0" />
 
-      <div className="flex flex-col gap-4 flex-1 overflow-y-auto">
+      <div className="flex flex-col gap-3 flex-1 overflow-y-auto pr-1">
         {pendingRequests.length > 0 && (
           <div className="flex flex-col gap-2">
             <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Friend Requests</h3>
             {pendingRequests.map(req => (
-              <div key={req.user_id} className="flex items-center justify-between p-2 bg-[var(--surface-alt)] border border-[var(--border)] rounded-xl shadow-sm">
+              <div key={req.user_id} className="flex items-center justify-between px-2 py-1.5 bg-[var(--surface-alt)] border border-[var(--border)] rounded-lg shadow-sm">
                 <div>
-                  <div className="font-bold text-sm text-[var(--text-primary)]">{req.senderProfile.username}</div>
+                  <div className="font-bold text-[13px] leading-tight text-[var(--text-primary)]">{req.senderProfile.username}</div>
                   <div className="text-xs text-[var(--text-secondary)]">Rating: {Math.round(req.senderProfile.rating)}</div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -249,13 +249,13 @@ export default function PlayersTab({ currentUserId, onInviteFriend }: { currentU
             </div>
           ) : (
             friends.map(friend => (
-              <div key={friend.friendProfile.id} className="flex items-center justify-between p-2 bg-[var(--surface-alt)] border border-[var(--border)] rounded-xl shadow-sm hover:border-[var(--cta-bg)] transition-colors cursor-pointer group" onClick={() => onInviteFriend(friend.friendProfile)}>
+              <div key={friend.friendProfile.id} className="flex items-center justify-between px-2 py-1.5 bg-[var(--surface-alt)] border border-[var(--border)] rounded-lg shadow-sm hover:border-[var(--cta-bg)] transition-colors cursor-pointer group" onClick={() => onInviteFriend(friend.friendProfile)}>
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[var(--surface)] flex items-center justify-center font-bold text-sm text-[var(--text-primary)]">
+                  <div className="w-7 h-7 rounded-full bg-[var(--surface)] flex items-center justify-center font-bold text-[13px] text-[var(--text-primary)]">
                     {friend.friendProfile.username.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <div className="font-bold text-sm text-[var(--text-primary)]">{friend.friendProfile.username}</div>
+                    <div className="font-bold text-[13px] leading-tight text-[var(--text-primary)]">{friend.friendProfile.username}</div>
                     <div className="text-xs text-[var(--text-secondary)]">Rating: {Math.round(friend.friendProfile.rating)}</div>
                   </div>
                 </div>

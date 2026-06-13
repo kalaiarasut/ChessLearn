@@ -1608,7 +1608,7 @@ function SolverInner() {
                   unoptimized
                 />
 
-                {moveResult === "incorrect" && (
+                {moveResult === "wrong" && (
                   <div className="absolute inset-0 z-30 rounded-xl pointer-events-none transition-opacity duration-200 bg-red-500/10 border-2 border-red-500/40" />
                 )}
 
