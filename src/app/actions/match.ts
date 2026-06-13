@@ -55,6 +55,7 @@ export async function createFriendMatch(initialPgn: string = "") {
 
 /**
  * Joins an invite-only match as the black player.
+ * Uses a SECURITY DEFINER Postgres function to bypass RLS.
  */
 export async function joinFriendMatch(matchId: string) {
   const supabase = await createSupabaseServerClient();
@@ -62,27 +63,11 @@ export async function joinFriendMatch(matchId: string) {
 
   if (!user) throw new Error("Must be logged in.");
 
-  // First fetch the match to make sure it's invite_only
-  const { data: match, error: fetchErr } = await supabase.from("matches").select("*").eq("id", matchId).single();
-  
-  if (fetchErr || !match) throw new Error("Match not found.");
+  const { error } = await supabase.rpc("join_invite_match", { match_id: matchId });
 
-  if (match.white_player_id === user.id) {
-    // User is the creator, just joining their own match
-    return { success: true };
-  }
-
-  if (match.status === "invite_only") {
-    // Join as black
-    const { error: updateErr } = await supabase.from("matches").update({
-      black_player_id: user.id,
-      status: "in_progress",
-      updated_at: new Date().toISOString()
-    }).eq("id", matchId);
-
-    if (updateErr) throw new Error("Failed to join match.");
-  } else if (match.black_player_id !== user.id) {
-    throw new Error("Match is full or already started.");
+  if (error) {
+    console.error("joinFriendMatch RPC error:", error);
+    throw new Error("Failed to join match.");
   }
 
   return { success: true };

@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Play, X, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { joinFriendMatch } from "@/app/actions/match";
 
 type InvitePayload = {
   inviterId: string;
@@ -58,10 +59,16 @@ export default function GlobalInviteListener() {
     return () => clearTimeout(timerId);
   }, [invite, timeLeft]);
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
     if (!invite) return;
-    router.push(`/play/online?matchId=${invite.matchId}`);
+    const matchId = invite.matchId;
     setInvite(null);
+    try {
+      await joinFriendMatch(matchId);
+    } catch (e) {
+      console.error("Failed to join friend match", e);
+    }
+    router.push(`/play/online?matchId=${matchId}&invite=1`);
   };
 
   const handleReject = () => {

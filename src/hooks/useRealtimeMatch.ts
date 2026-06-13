@@ -9,15 +9,17 @@ export interface RealtimeMatchState {
   opponentOnline: boolean;
   whitePlayerId: string | null;
   blackPlayerId: string | null;
+  winnerId: string | null;
 }
 
-export function useRealtimeMatch(matchId: string | null) {
+export function useRealtimeMatch(matchId: string | null, currentUserId?: string | null) {
   const [gameState, setGameState] = useState<RealtimeMatchState>({
     pgn: "",
     status: "waiting",
     opponentOnline: false,
     whitePlayerId: null,
     blackPlayerId: null,
+    winnerId: null,
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -47,6 +49,7 @@ export function useRealtimeMatch(matchId: string | null) {
           status: data.status,
           whitePlayerId: data.white_player_id,
           blackPlayerId: data.black_player_id,
+          winnerId: data.winner_id ?? null,
         }));
       }
       setIsLoading(false);
@@ -96,8 +99,10 @@ export function useRealtimeMatch(matchId: string | null) {
           setGameState(prev => ({
             ...prev,
             status: payload.new.status,
+            pgn: payload.new.pgn ?? prev.pgn,
             whitePlayerId: payload.new.white_player_id,
             blackPlayerId: payload.new.black_player_id,
+            winnerId: payload.new.winner_id ?? null,
           }));
         }
       )

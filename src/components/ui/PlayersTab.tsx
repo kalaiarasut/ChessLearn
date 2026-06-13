@@ -158,13 +158,13 @@ export default function PlayersTab({ currentUserId, onInviteFriend }: { currentU
           </button>
         </div>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)]" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
           <input
             type="text"
             placeholder="Search by username..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[var(--surface-alt)] border border-[var(--border)] rounded-xl py-1.5 pl-9 pr-4 text-xs font-semibold text-[var(--text-primary)] focus:outline-none focus:border-[var(--cta-bg)] transition-colors"
+            className="w-full bg-[var(--surface-alt)] border border-[var(--border)] rounded-xl py-3 pl-10 pr-4 text-sm font-semibold text-[var(--text-primary)] placeholder:text-[var(--text-muted)] placeholder:font-normal focus:outline-none focus:border-[var(--cta-bg)] transition-colors"
           />
         </div>
 

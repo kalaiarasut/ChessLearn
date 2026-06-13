@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Navbar from "@/components/ui/Navbar";
 import { Chess, type Square } from "chess.js";
 import { 
-  Rocket, Zap, Clock, Sun, Settings, ArrowLeft, Moon, LayoutGrid, Users, Handshake, Bot, Info, ChevronDown, ChevronUp, Bomb, Swords, Flag
+  Rocket, Zap, Clock, Sun, Settings, ArrowLeft, Moon, LayoutGrid, Users, Handshake, Bot, Info, ChevronDown, ChevronUp, Bomb, Swords, Flag, User, SignalHigh, SkipBack, SkipForward, ChevronLeft, ChevronRight, MessageSquare
 } from "lucide-react";
 import themeManifest from "@/data/themeManifest.json";
 import { useTheme } from "@/lib/theme-context";
@@ -191,6 +191,8 @@ function PlayOnlineContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const matchId = searchParams.get("matchId");
+  // `invite=1` is appended by GlobalInviteListener when a friend invite is accepted
+  const isFriendInviteParam = searchParams.get("invite") === "1";
   
   const [userId, setUserId] = useState<string | null>(null);
   
@@ -205,7 +207,7 @@ function PlayOnlineContent() {
     });
   }, [router]);
 
-  const { gameState, isLoading: isMatchLoading, error: matchError, sendMove } = useRealtimeMatch(matchId);
+  const { gameState, isLoading: isMatchLoading, error: matchError, sendMove } = useRealtimeMatch(matchId, userId);
   const [isSearching, setIsSearching] = useState(false);
 
   // Auto-join invite matches if we're not the creator
@@ -257,6 +259,33 @@ function PlayOnlineContent() {
   const [draggedSquare, setDraggedSquare] = useState<Square | null>(null);
   const [legalTargets, setLegalTargets] = useState<Square[]>([]);
   const [displayLastMove, setDisplayLastMove] = useState<{from: string, to: string} | null>(null);
+
+  // In-game transition state
+  const [isInGame, setIsInGame] = useState(false);
+  const [inGameTab, setInGameTab] = useState<"moves" | "chat" | "info">("moves");
+
+  // Track whether this is a friend invite match (invite_only → in_progress)
+  // Detected via URL param (set by acceptor) or by seeing invite_only status (set by inviter)
+  const [isFriendInvite, setIsFriendInvite] = useState(isFriendInviteParam);
+
+  useEffect(() => {
+    if (gameState.status === "invite_only") {
+      setIsFriendInvite(true); // inviter side: they created the match
+    }
+  }, [gameState.status]);
+
+  // Transition to in-game: immediate for friend invites, 1.5s delay for matchups
+  useEffect(() => {
+    if (gameState.status === "in_progress" && !isInGame) {
+      if (isFriendInvite) {
+        setIsInGame(true); // instant — no connection screen needed
+      } else {
+        const timer = setTimeout(() => setIsInGame(true), 1500);
+        return () => clearTimeout(timer);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState.status, isFriendInvite]);
 
   // Settings & Preferences
   const [boardTheme, setBoardTheme] = useState(themeManifest.defaultBoardTheme || "green");
@@ -593,14 +622,14 @@ function PlayOnlineContent() {
   };
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] transition-colors duration-300 font-sans flex flex-col items-center overflow-x-hidden">
-      <Navbar />
+    <main className={`min-h-screen bg-[var(--bg)] transition-colors duration-700 font-sans flex flex-col items-center overflow-x-hidden ${isInGame ? 'overflow-hidden' : ''}`}>
+      {!isInGame && <Navbar />}
       
-      <div className="flex-1 w-full max-w-[1536px] flex flex-col lg:flex-row items-stretch lg:items-start justify-center pt-24 pb-12 px-4 gap-6">
+      <div className={`flex-1 w-full max-w-[1536px] flex flex-col lg:flex-row items-stretch justify-center px-4 gap-6 transition-all duration-700 ${isInGame ? 'pt-4 pb-4 h-screen' : 'lg:items-start pt-24 pb-12'}`}>
         
         {/* Left Side: The Board */}
-        <div className="w-full lg:w-[65%] flex-1 flex flex-col items-center lg:items-start justify-center lg:justify-end bg-[var(--bg-alt)] p-2 sm:p-4 lg:p-0 relative rounded-2xl border lg:border-none border-[var(--border)] lg:bg-transparent">
-          <div className={`flex flex-col items-center justify-start max-w-[100%] sm:max-w-[95%] lg:max-w-[70%] lg:min-w-[500px] w-full relative shrink-0 lg:ml-auto lg:mr-16 lg:mt-12 h-[75vh] max-h-[640px]`}>
+        <div className={`w-full lg:w-[65%] flex-1 flex flex-col items-center justify-center relative transition-all duration-700 ${isInGame ? 'lg:items-end' : 'lg:items-start lg:justify-end bg-[var(--bg-alt)] p-2 sm:p-4 lg:p-0 rounded-2xl border lg:border-none border-[var(--border)] lg:bg-transparent'}`}>
+          <div className={`flex flex-col items-center justify-start w-full relative shrink-0 transition-all duration-700 ${isInGame ? 'max-w-[100%] sm:max-w-[90%] lg:max-w-[640px] lg:ml-auto lg:mr-4 lg:mt-0 h-full' : 'max-w-[100%] sm:max-w-[95%] lg:max-w-[70%] lg:min-w-[500px] lg:ml-auto lg:mr-16 lg:mt-12 h-[75vh] max-h-[640px]'}`}>
             
             <div className="w-full lg:w-auto flex justify-end lg:absolute lg:-top-2 lg:-right-[52px] flex-row lg:flex-col gap-2 sm:gap-3 z-50 mb-2 lg:mb-0 px-1 lg:px-0 items-center">
               <button
@@ -622,7 +651,31 @@ function PlayOnlineContent() {
 
             <div className="w-full h-full flex flex-col justify-center gap-1 md:gap-3 relative">
               
-              {/* Opponent Top Panel Placeholder Removed */}
+              {/* Opponent Top Panel */}
+              {isInGame && (
+                <div className="w-full flex items-center justify-between mb-2 bg-[var(--surface)] px-2.5 py-1.5 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)] animate-in fade-in slide-in-from-top-2 duration-500">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[var(--skeleton)] border border-[var(--border)] flex items-center justify-center shrink-0">
+                      <User className="w-4 h-4 text-[var(--text-secondary)]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-[13px] text-[var(--text-primary)] tracking-wide">
+                          {gameState.whitePlayerId && gameState.blackPlayerId
+                            ? (userId === gameState.whitePlayerId ? "Black" : "White")
+                            : "Opponent"}
+                        </span>
+                        <SignalHigh className="w-3.5 h-3.5 text-green-500" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="px-3 py-0.5 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[14px] text-[var(--text-primary)] shadow-inner w-[72px] text-center">
+                      —
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex-1 aspect-square relative shrink-0">
                 <BoardImage
@@ -767,46 +820,172 @@ function PlayOnlineContent() {
                 )}
               </div>
 
-              {/* Player Bottom Panel Placeholder Removed */}
+              {/* Player Bottom Panel */}
+              {isInGame && (
+                <div className="w-full flex items-center justify-between mt-2 bg-[var(--surface)] px-2.5 py-1.5 rounded-xl border border-[var(--border)] shadow-[0_8px_30px_rgb(0,0,0,0.04)] animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-b from-[var(--cta-bg)] to-[var(--cta-hover)] border border-[var(--border)] flex items-center justify-center shrink-0 shadow-inner">
+                      <User className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-[13px] text-[var(--text-primary)] tracking-wide">You</span>
+                        <SignalHigh className="w-3.5 h-3.5 text-green-500" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="px-3 py-0.5 bg-[var(--bg-alt)] border border-[var(--border-subtle)] rounded-lg font-mono font-bold text-[14px] text-[var(--text-primary)] shadow-inner w-[72px] text-center">
+                      —
+                    </div>
+                  </div>
+                </div>
+              )}
 
             </div>
           </div>
         </div>
 
-        {/* Right Side: Matchmaking Hub */}
-        <div className="w-full lg:w-[650px] bg-[var(--surface-alt)] lg:bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-xl flex flex-col overflow-hidden shrink-0 mt-4 lg:mt-0">
+        {/* Right Side: Panel */}
+        <div className={`w-full bg-[var(--surface-alt)] lg:bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-xl flex flex-col overflow-hidden shrink-0 transition-all duration-700 ${isInGame ? 'lg:w-[400px] mt-0 h-full' : 'lg:w-[650px] mt-4 lg:mt-0'}`}>
           
-          {/* Header Tabs */}
+          {/* Header Tabs — lobby vs in-game */}
           <div className="flex border-b border-[var(--border)] bg-[var(--surface-alt)]">
-            <button 
-              onClick={() => setActiveTab("new_game")}
-              className={`flex-1 py-4 px-6 flex flex-col items-center justify-center transition-colors relative ${activeTab === "new_game" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
-            >
-              <div className="w-6 h-6 mb-1 rounded border-2 border-current flex items-center justify-center text-[14px] font-bold">+</div>
-              <span className="text-xs font-semibold">New Game</span>
-              {activeTab === "new_game" && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[var(--text-primary)]"></div>}
-            </button>
-            <button 
-              onClick={() => setActiveTab("games")}
-              className={`flex-1 py-4 px-6 flex flex-col items-center justify-center transition-colors relative ${activeTab === "games" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
-            >
-              <LayoutGrid className="w-6 h-6 mb-1 opacity-80" />
-              <span className="text-xs font-semibold">Games</span>
-              {activeTab === "games" && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[var(--text-primary)]"></div>}
-            </button>
-            <button 
-              onClick={() => setActiveTab("players")}
-              className={`flex-1 py-4 px-6 flex flex-col items-center justify-center transition-colors relative ${activeTab === "players" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
-            >
-              <Users className="w-6 h-6 mb-1 opacity-80" />
-              <span className="text-xs font-semibold">Players</span>
-              {activeTab === "players" && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[var(--text-primary)]"></div>}
-            </button>
+            {!isInGame ? (
+              <>
+                <button 
+                  onClick={() => setActiveTab("new_game")}
+                  className={`flex-1 py-4 px-6 flex flex-col items-center justify-center transition-colors relative ${activeTab === "new_game" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
+                >
+                  <div className="w-6 h-6 mb-1 rounded border-2 border-current flex items-center justify-center text-[14px] font-bold">+</div>
+                  <span className="text-xs font-semibold">New Game</span>
+                  {activeTab === "new_game" && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[var(--text-primary)]"></div>}
+                </button>
+                <button 
+                  onClick={() => setActiveTab("games")}
+                  className={`flex-1 py-4 px-6 flex flex-col items-center justify-center transition-colors relative ${activeTab === "games" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
+                >
+                  <LayoutGrid className="w-6 h-6 mb-1 opacity-80" />
+                  <span className="text-xs font-semibold">Games</span>
+                  {activeTab === "games" && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[var(--text-primary)]"></div>}
+                </button>
+                <button 
+                  onClick={() => setActiveTab("players")}
+                  className={`flex-1 py-4 px-6 flex flex-col items-center justify-center transition-colors relative ${activeTab === "players" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
+                >
+                  <Users className="w-6 h-6 mb-1 opacity-80" />
+                  <span className="text-xs font-semibold">Players</span>
+                  {activeTab === "players" && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[var(--text-primary)]"></div>}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setInGameTab("moves")}
+                  className={`flex-1 py-4 px-6 flex flex-col items-center justify-center transition-colors relative ${inGameTab === "moves" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
+                >
+                  <LayoutGrid className="w-6 h-6 mb-1 opacity-80" />
+                  <span className="text-xs font-semibold">Moves</span>
+                  {inGameTab === "moves" && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[var(--text-primary)]"></div>}
+                </button>
+                <button
+                  onClick={() => setInGameTab("chat")}
+                  className={`flex-1 py-4 px-6 flex flex-col items-center justify-center transition-colors relative ${inGameTab === "chat" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
+                >
+                  <MessageSquare className="w-6 h-6 mb-1 opacity-80" />
+                  <span className="text-xs font-semibold">Chat</span>
+                  {inGameTab === "chat" && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[var(--text-primary)]"></div>}
+                </button>
+                <button
+                  onClick={() => setInGameTab("info")}
+                  className={`flex-1 py-4 px-6 flex flex-col items-center justify-center transition-colors relative ${inGameTab === "info" ? "text-[var(--text-primary)]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"}`}
+                >
+                  <Info className="w-6 h-6 mb-1 opacity-80" />
+                  <span className="text-xs font-semibold">Info</span>
+                  {inGameTab === "info" && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[var(--text-primary)]"></div>}
+                </button>
+              </>
+            )}
           </div>
 
           {/* Body Content */}
-          <div className="flex flex-col flex-1 overflow-y-auto bg-[var(--bg)] p-4">
-            {activeTab === "new_game" && (
+          <div className="flex flex-col flex-1 overflow-y-auto bg-[var(--bg)] p-4 relative">
+            {/* === IN-GAME PANELS === */}
+            {isInGame && inGameTab === "moves" && (
+              <div className="flex flex-col h-full">
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                  <div className="grid grid-cols-[28px_1fr_1fr] gap-x-1.5 gap-y-0.5 p-2">
+                    {game.history().reduce((result: string[][], move: string, index: number) => {
+                      if (index % 2 === 0) result.push([move]);
+                      else result[result.length - 1].push(move);
+                      return result;
+                    }, []).map((pair: string[], idx: number) => (
+                      <React.Fragment key={idx}>
+                        <div className="text-[var(--text-muted)] font-mono text-xs flex items-center justify-end pr-1 py-1 opacity-60">{idx + 1}.</div>
+                        <div className="px-2 py-1 rounded-md font-bold text-sm bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--surface-hover)] transition-colors">{pair[0]}</div>
+                        {pair[1] ? (
+                          <div className="px-2 py-1 rounded-md font-bold text-sm bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--surface-hover)] transition-colors">{pair[1]}</div>
+                        ) : <div />}
+                      </React.Fragment>
+                    ))}
+                    {game.history().length === 0 && (
+                      <div className="col-span-3 flex flex-col items-center justify-center py-12 text-[var(--text-muted)]">
+                        <LayoutGrid className="w-8 h-8 mb-3 opacity-30" />
+                        <p className="text-sm font-semibold">No moves yet</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Game Controls */}
+                <div className="border-t border-[var(--border)] bg-[var(--surface-alt)] p-3 flex flex-col gap-2 mt-auto shrink-0">
+                  <div className="flex items-center justify-center gap-2">
+                    <button className="p-2 rounded-md bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)] opacity-50 cursor-not-allowed"><SkipBack className="w-4 h-4" /></button>
+                    <button className="p-2 rounded-md bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)] opacity-50 cursor-not-allowed"><ChevronLeft className="w-4 h-4" /></button>
+                    <button className="p-2 rounded-md bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)] opacity-50 cursor-not-allowed"><ChevronRight className="w-4 h-4" /></button>
+                    <button className="p-2 rounded-md bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)] opacity-50 cursor-not-allowed"><SkipForward className="w-4 h-4" /></button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { if (matchId) syncGameState(matchId, game.pgn(), 'finished', null); }}
+                      className="flex-1 py-2.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl font-bold text-sm text-[var(--text-primary)] transition-colors"
+                    >½ Draw</button>
+                    <button
+                      onClick={() => {
+                        if (matchId) {
+                          const oppId = userId === gameState.whitePlayerId ? gameState.blackPlayerId : gameState.whitePlayerId;
+                          syncGameState(matchId, game.pgn(), 'finished', oppId);
+                        }
+                      }}
+                      className="flex-1 py-2.5 bg-[var(--error-bg)] hover:bg-[#ff5555] border border-[var(--error-border)] rounded-xl font-bold text-sm text-white transition-colors"
+                    >Resign</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {isInGame && inGameTab === "chat" && (
+              <div className="flex flex-col items-center justify-center h-full text-[var(--text-muted)]">
+                <MessageSquare className="w-10 h-10 mb-3 opacity-30" />
+                <p className="font-semibold text-sm">Chat coming soon</p>
+              </div>
+            )}
+            {isInGame && inGameTab === "info" && (
+              <div className="flex flex-col gap-4 p-2">
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4">
+                  <h3 className="font-bold text-[var(--text-primary)] mb-3 text-sm">Match Info</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between text-[var(--text-secondary)]"><span>Variant</span><span className="font-bold text-[var(--text-primary)] capitalize">{selectedVariant}</span></div>
+                    <div className="flex justify-between text-[var(--text-secondary)]"><span>Time Control</span><span className="font-bold text-[var(--text-primary)]">{selectedTimeControl}</span></div>
+                    <div className="flex justify-between text-[var(--text-secondary)]"><span>Rated</span><span className="font-bold text-[var(--text-primary)]">{isRated ? 'Yes' : 'No'}</span></div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => router.push('/play/online')}
+                  className="w-full py-3 bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl font-bold text-sm text-[var(--text-primary)] transition-colors"
+                >Leave Match</button>
+              </div>
+            )}
+            {/* === LOBBY PANELS === */}
+            {!isInGame && activeTab === "new_game" && (
               <div className="flex flex-col lg:flex-row h-full gap-4">
                 
                 {/* Left Column: Match Info OR Time Controls & Play */}
@@ -1060,7 +1239,7 @@ function PlayOnlineContent() {
                           onMouseEnter={() => setPreviewVariant(variant.id)}
                           onMouseLeave={() => setPreviewVariant(null)}
                         >
-                          <Tooltip content={variant.desc} side="left" sideOffset={10}>
+                          <Tooltip content={variant.desc}>
                             <button 
                               onClick={() => setSelectedVariant(variant.id)}
                               className={`w-full text-left px-4 py-3 rounded-lg hover:bg-[var(--surface-hover)] transition-colors flex items-center group ${selectedVariant === variant.id ? "bg-[var(--surface-hover)]" : ""}`}
@@ -1095,7 +1274,7 @@ function PlayOnlineContent() {
 
               </div>
             )}
-            {activeTab === "players" && (
+            {!isInGame && activeTab === "players" && (
               <PlayersTab 
                 currentUserId={userId} 
                 onInviteFriend={async (friend) => {
