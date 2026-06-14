@@ -31,7 +31,7 @@ const MiniBoard = ({ pgn, isWhite }: { pgn: string, isWhite: boolean }) => {
                 <div key={cIdx} className={`flex-1 flex items-center justify-center ${isLight ? 'bg-[#ebecd0]' : 'bg-[#739552]'}`}>
                   {square && (
                     <img 
-                      src={PIECE_THEME_ASSETS['neo']?.replace('{piece}', `${square.color}${square.type}`) || `/pieces/neo/${square.color}${square.type}.png`} 
+                      src={PIECE_THEME_ASSETS['neo'] ? `${PIECE_THEME_ASSETS['neo']}/${square.color}${square.type}.png` : `/pieces/neo/150/${square.color}${square.type}.png`} 
                       alt={`${square.color}${square.type}`}
                       className="w-full h-full object-contain drop-shadow-sm p-[2%]"
                       draggable={false}
@@ -91,7 +91,7 @@ export default function GamesHistory({ userId }: GamesHistoryProps) {
   return (
     <div className="flex flex-col h-full space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-bold text-[var(--text-primary)]">Your Games</h2>
+        <h2 className="text-[13px] font-bold text-[var(--text-primary)]">Your Games</h2>
         <div className="flex items-center gap-2">
           <select 
             className="bg-[var(--surface-alt)] text-[var(--text-primary)] text-sm border border-[var(--border)] rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-[var(--cta-bg)]"
@@ -133,15 +133,15 @@ export default function GamesHistory({ userId }: GamesHistoryProps) {
             return (
               <div 
                 key={game.id} 
-                className={`flex ${view === "grid" ? "flex-col" : "items-center justify-between"} bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 transition-colors hover:bg-[var(--surface-hover)]`}
+                className={`flex ${view === "grid" ? "flex-col" : "items-center justify-between"} bg-[var(--surface)] border border-[var(--border)] rounded-lg p-2 transition-colors hover:bg-[var(--surface-hover)]`}
               >
                 {view === "grid" && <MiniBoard pgn={game.pgn} isWhite={isWhite} />}
-                <div className={`flex items-center ${view === "grid" ? "mb-3" : "gap-3"}`}>
-                  <div className="w-8 h-8 bg-[var(--surface-alt)] rounded-full flex items-center justify-center flex-shrink-0">
-                    <User className="text-[var(--text-muted)]" size={16} />
+                <div className={`flex items-center ${view === "grid" ? "mb-2" : "gap-2"}`}>
+                  <div className="w-6 h-6 bg-[var(--surface-alt)] rounded-full flex items-center justify-center flex-shrink-0">
+                    <User className="text-[var(--text-muted)]" size={14} />
                   </div>
-                  <div className={`${view === "grid" ? "ml-2" : ""}`}>
-                    <div className="font-bold text-sm text-[var(--text-primary)]">{opponent?.username || "Guest"}</div>
+                  <div className={`${view === "grid" ? "ml-1.5" : ""}`}>
+                    <div className="font-bold text-[12px] text-[var(--text-primary)]">{opponent?.username || "Guest"}</div>
                     <div className="text-[10px] text-[var(--text-secondary)]">
                       {isWhite ? "Playing as White" : "Playing as Black"} • {game.time_control || "Custom"}
                     </div>

@@ -47,6 +47,16 @@ export type BotClientPreferences = {
   masterVolume: number;
 };
 
+export type OnlineClientPreferences = {
+  autoQueen: boolean;
+  premoveEnabled: boolean;
+  premoveMode: PremoveMode;
+  showLegalMoves: boolean;
+  moveMethod: MoveMethod;
+  lowTimeWarning: boolean;
+  masterVolume: number;
+};
+
 export type PuzzleThemeStat = {
   solved: number;
   failed: number;
@@ -80,6 +90,7 @@ export type ClientPreferences = {
   learn: LearnClientPreferences;
   bot: BotClientPreferences;
   puzzle: PuzzleClientPreferences;
+  online: OnlineClientPreferences;
 };
 
 export const CLIENT_PREFERENCES_STORAGE_KEY = "ChessLearn-client-preferences";
@@ -110,6 +121,15 @@ export const DEFAULT_CLIENT_PREFERENCES: ClientPreferences = {
     boardOrientation: "auto",
     lowTimeWarning: true,
     boardLock: false,
+    masterVolume: 80,
+  },
+  online: {
+    autoQueen: false,
+    premoveEnabled: true,
+    premoveMode: "single",
+    showLegalMoves: true,
+    moveMethod: "both",
+    lowTimeWarning: true,
     masterVolume: 80,
   },
   puzzle: {
@@ -158,6 +178,10 @@ export function loadClientPreferences(): ClientPreferences {
           masterVolume: clampNumber(parsed.bot.masterVolume, 0, 100, DEFAULT_CLIENT_PREFERENCES.bot.masterVolume),
         },
         puzzle: normalizePuzzlePreferences(puzzleRaw),
+        online: {
+          ...DEFAULT_CLIENT_PREFERENCES.online,
+          ...(parsed.online || {}),
+        },
       };
     }
 
@@ -194,6 +218,7 @@ export function loadClientPreferences(): ClientPreferences {
         masterVolume: clampNumber(asNumber(legacy.masterVolume), 0, 100, DEFAULT_CLIENT_PREFERENCES.bot.masterVolume),
       },
       puzzle: DEFAULT_CLIENT_PREFERENCES.puzzle,
+      online: DEFAULT_CLIENT_PREFERENCES.online,
     };
   } catch {
     return DEFAULT_CLIENT_PREFERENCES;

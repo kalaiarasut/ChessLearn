@@ -70,6 +70,7 @@ import type { PuzzleEntry } from "@/lib/puzzle-service";
 import { usePuzzleProgress } from "@/lib/use-puzzle-progress";
 import { PuzzleLoginOverlay } from "./_components/PuzzleLoginOverlay";
 import { PuzzleSyncBanner } from "./_components/PuzzleSyncBanner";
+import { useDisplayPreferences } from "@/lib/display-preferences-context";
 
 const PIECE_THEME_ASSETS = themeManifest.pieceAssets as Record<string, string>;
 const BOARD_THEME_ASSETS = themeManifest.boardAssets as Record<string, string>;

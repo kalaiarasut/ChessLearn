@@ -21,6 +21,7 @@ import {
   type LearnOpeningProgress,
 } from "@/lib/client-preferences";
 import { useLearnProgressSync } from "@/lib/use-learn-progress-sync";
+import { useDisplayPreferences } from "@/lib/display-preferences-context";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 const DEFAULT_FEN = new Chess().fen();
@@ -243,6 +244,8 @@ const BoardImage = ({ src, className, children }: { src: string; className?: str
       <img
         src={src}
         alt="Board Theme"
+        loading="eager"
+        fetchPriority="high"
         className="absolute inset-0 w-full h-full object-cover"
       />
       <div className="relative z-10 w-full h-full">
@@ -423,14 +426,15 @@ const MiniBoardPreview = ({
 };
 
 export default function OpeningPage() {
+  const { boardTheme, pieceTheme, soundEnabled, setBoardTheme, setPieceTheme, setSoundEnabled } = useDisplayPreferences();
   const pathname = usePathname();
   const openingSlug = decodeURIComponent(pathname.split("/").pop() ?? "");
 
-  const [boardTheme, setBoardTheme] = useState(themeManifest.defaultBoardTheme);
-  const [pieceTheme, setPieceTheme] = useState(themeManifest.defaultPieceTheme);
+  
+  
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<"boards" | "pieces" | "engine" | "gameplay">("boards");
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  
   const [fen, setFen] = useState(DEFAULT_FEN);
   const [history, setHistory] = useState<string[]>([DEFAULT_FEN]);
   const [sanHistory, setSanHistory] = useState<string[]>([]);
@@ -1010,54 +1014,7 @@ export default function OpeningPage() {
     });
   }, []);
 
-  useEffect(() => {
-    let isCancelled = false;
-
-    const loadPreferences = async () => {
-      try {
-        const response = await fetch("/api/preferences", { method: "GET" });
-        if (!response.ok) {
-          return;
-        }
-
-        const data = (await response.json()) as {
-          boardTheme?: string;
-          pieceTheme?: string;
-          soundEnabled?: boolean;
-        };
-
-        if (isCancelled) {
-          return;
-        }
-
-        if (typeof data.boardTheme === "string") {
-          setBoardTheme(data.boardTheme);
-        }
-
-        if (typeof data.pieceTheme === "string") {
-          setPieceTheme(data.pieceTheme);
-        }
-
-        if (typeof data.soundEnabled === "boolean") {
-          setSoundEnabled(data.soundEnabled);
-        }
-      } finally {
-        if (!isCancelled) {
-          setPreferencesLoading(false);
-        }
-      }
-    };
-
-    loadPreferences().catch(() => {
-      if (!isCancelled) {
-        setPreferencesLoading(false);
-      }
-    });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
+  
 
   useEffect(() => {
     setAnalysisDepth(ANALYSIS_PRESET_TO_DEPTH[analysisStrength]);

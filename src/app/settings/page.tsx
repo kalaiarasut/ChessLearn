@@ -11,6 +11,7 @@ import {
   type BotClientPreferences,
   type LearnClientPreferences,
   type PuzzleClientPreferences,
+  type OnlineClientPreferences,
   loadClientPreferences,
   saveClientPreferences,
 } from "@/lib/client-preferences";
@@ -112,6 +113,7 @@ export default function SettingsPage() {
   const [learnPrefs, setLearnPrefs] = useState<LearnClientPreferences>(DEFAULT_CLIENT_PREFERENCES.learn);
   const [botPrefs, setBotPrefs] = useState<BotClientPreferences>(DEFAULT_CLIENT_PREFERENCES.bot);
   const [puzzlePrefs, setPuzzlePrefs] = useState<PuzzleClientPreferences>(DEFAULT_CLIENT_PREFERENCES.puzzle);
+  const [onlinePrefs, setOnlinePrefs] = useState<OnlineClientPreferences>(DEFAULT_CLIENT_PREFERENCES.online);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const [username, setUsername] = useState("");
@@ -125,6 +127,7 @@ export default function SettingsPage() {
     setLearnPrefs(loaded.learn);
     setBotPrefs(loaded.bot);
     setPuzzlePrefs(loaded.puzzle);
+    setOnlinePrefs(loaded.online);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -173,7 +176,7 @@ export default function SettingsPage() {
     }
 
     if (mode === "persist") {
-      saveClientPreferences({ learn: learnPrefs, bot: botPrefs, puzzle: puzzlePrefs });
+      saveClientPreferences({ learn: learnPrefs, bot: botPrefs, puzzle: puzzlePrefs, online: onlinePrefs });
       setSaveMessage(activeScope === "learn" ? "Learn settings saved." : "Bot settings saved.");
       return;
     }
@@ -196,7 +199,7 @@ export default function SettingsPage() {
       setLearnPrefs(nextLearnPrefs);
 
       if (mode === "persist") {
-        saveClientPreferences({ learn: nextLearnPrefs, bot: botPrefs, puzzle: puzzlePrefs });
+        saveClientPreferences({ learn: nextLearnPrefs, bot: botPrefs, puzzle: puzzlePrefs, online: onlinePrefs });
         setSaveMessage("Learn settings reset.");
       } else {
         setSaveMessage("Learn settings reset for this session only.");
@@ -212,7 +215,7 @@ export default function SettingsPage() {
     setBotPrefs(DEFAULT_CLIENT_PREFERENCES.bot);
 
     if (mode === "persist") {
-      saveClientPreferences({ learn: learnPrefs, bot: DEFAULT_CLIENT_PREFERENCES.bot, puzzle: puzzlePrefs });
+      saveClientPreferences({ learn: learnPrefs, bot: DEFAULT_CLIENT_PREFERENCES.bot, puzzle: puzzlePrefs, online: onlinePrefs });
       setSaveMessage("Bot settings reset.");
     } else {
       setSaveMessage("Bot settings reset for this session only.");

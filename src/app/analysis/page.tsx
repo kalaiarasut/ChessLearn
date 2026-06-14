@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import themeManifest from "@/data/themeManifest.json";
+import { useDisplayPreferences } from "@/lib/display-preferences-context";
 import {
   useGameReview,
   type MoveReviewCategory,

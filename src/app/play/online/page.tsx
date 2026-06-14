@@ -18,6 +18,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useRealtimeMatch } from "@/hooks/useRealtimeMatch";
 import { findOrCreateMatch, createFriendMatch, joinFriendMatch, syncGameState, setChatStatus } from "@/app/actions/match";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreferences } from "@/lib/client-preferences";
+import { useDisplayPreferences } from "@/lib/display-preferences-context";
 
 const VARIANTS = [
   { id: "chess960", label: "Chess960", desc: "Randomized back rank starting position." },
@@ -86,6 +88,8 @@ const BoardImage = ({ src, className, children }: { src: string; className?: str
       <img
         src={src}
         alt="Board Theme"
+        loading="eager"
+        fetchPriority="high"
         className="absolute inset-0 w-full h-full object-cover"
       />
       <div className="relative z-10 w-full h-full">
@@ -207,6 +211,7 @@ export default function PlayOnlinePage() {
 
 function PlayOnlineContent() {
   const { isDark, toggleTheme } = useTheme();
+  const { boardTheme, pieceTheme, soundEnabled, setBoardTheme, setPieceTheme, setSoundEnabled } = useDisplayPreferences();
   const searchParams = useSearchParams();
   const router = useRouter();
   const matchId = searchParams.get("matchId");
@@ -280,14 +285,13 @@ function PlayOnlineContent() {
     }
   }, [gameState.timeControl, parseTimeControl]);
 
-  const isMyTurnFn = useCallback(() => {
+  const isMyTurnFn = () => {
     if (!matchId) return true;
     if (gameState.status !== "in_progress") return false;
     if (game.turn() === 'w' && userId !== gameState.whitePlayerId) return false;
     if (game.turn() === 'b' && userId !== gameState.blackPlayerId) return false;
     return true;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchId, gameState.status, gameState.whitePlayerId, gameState.blackPlayerId, userId]);
+  };
 
   const formatClock = (ms: number) => {
     if (ms <= 0) return "0:00";
@@ -306,7 +310,6 @@ function PlayOnlineContent() {
   };
 
   // ── Sound System ─────────────────────────────────────────────────────────────
-  const [soundEnabled, setSoundEnabled] = useState(true);
   const audioPoolRef = useRef<Record<string, HTMLAudioElement[]>>({});
   const nextAudioRef = useRef<Record<string, number>>({});
 
@@ -436,7 +439,7 @@ function PlayOnlineContent() {
       else setOpponentClock(prev => Math.max(0, prev - delta));
     }, 100);
     return () => clearInterval(interval);
-  }, [gameState.status, game.turn(), gameState.whitePlayerId, gameState.blackPlayerId, userId, isMyTurnFn]);
+  }, [gameState.status]);
 
   const [boardState, setBoardState] = useState<(string | null)[][]>(() => {
     const g = new Chess();
@@ -454,8 +457,30 @@ function PlayOnlineContent() {
       const newGame = new Chess();
       newGame.loadPgn(gameState.pgn);
       setGame(newGame);
+
+      // Update the visual board state
+      setBoardState(newGame.board().map(row => row.map(p => p ? (p.color === 'w' ? p.type.toUpperCase() : p.type) : null)));
+
+      // Show last move highlight
+      const history = newGame.history({ verbose: true });
+      if (history.length > 0) {
+        const lastMove = history[history.length - 1];
+        setDisplayLastMove({ from: lastMove.from, to: lastMove.to });
+      }
+
+      // Play appropriate sound for opponent's move
+      if (newGame.isGameOver()) {
+        playSound("game-end");
+      } else if (newGame.inCheck()) {
+        playSound("move-check");
+      } else if (history.length > 0 && history[history.length - 1].captured) {
+        playSound("capture");
+      } else {
+        playSound("move-opponent");
+      }
     }
-  }, [gameState.pgn, game, getIncrementMs, gameState.timeControl]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState.pgn]);
   
   const [isBoardFlipped, setIsBoardFlipped] = useState(false);
   
@@ -473,6 +498,17 @@ function PlayOnlineContent() {
     if (matchId) {
       setActiveTab("new_game");
       setIsSearching(false);
+    } else {
+      // Reset game state when returning to lobby
+      setIsInGame(false);
+      setGame(new Chess());
+      setBoardState(new Chess().board().map(row => row.map(p => p ? (p.color === 'w' ? p.type.toUpperCase() : p.type) : null)));
+      setDisplayLastMove(null);
+      setSelectedSquare(null);
+      setLegalTargets([]);
+      setDrawOfferSent(false);
+      setShowResignConfirm(false);
+      clockInitialized.current = false;
     }
   }, [matchId, searchParams]);
 
@@ -509,9 +545,7 @@ function PlayOnlineContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState.status, isFriendInvite]);
 
-  // Settings & Preferences
-  const [boardTheme, setBoardTheme] = useState(themeManifest.defaultBoardTheme || "green");
-  const [pieceTheme, setPieceTheme] = useState(themeManifest.defaultPieceTheme || "neo");
+
   const [showSettings, setShowSettings] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<"boards" | "pieces">("boards");
   const [showResignConfirm, setShowResignConfirm] = useState(false);
@@ -519,6 +553,53 @@ function PlayOnlineContent() {
   const [drawOfferSent, setDrawOfferSent] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSettingsModalTab, setActiveSettingsModalTab] = useState("board");
+
+  // ── Online Game Preferences ────────────────────────────────────────────────
+  const [clientPreferences, setClientPreferences] = useState(DEFAULT_CLIENT_PREFERENCES);
+
+  useEffect(() => {
+    setClientPreferences(loadClientPreferences());
+  }, []);
+
+  const onlinePreferences = clientPreferences.online;
+
+  const updateOnlinePreferences = (updates: Partial<typeof onlinePreferences>) => {
+    setClientPreferences((previous) => {
+      const next = { ...previous, online: { ...previous.online, ...updates } };
+      saveClientPreferences(next);
+      return next;
+    });
+  };
+
+  // ── Abandon Timer ────────────────────────────────────────────────────────────
+  const [abandonTimer, setAbandonTimer] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (gameState.status !== 'in_progress') { setAbandonTimer(null); return; }
+    if (gameState.opponentOnline) { setAbandonTimer(null); return; }
+    // Start 60-second countdown when opponent disconnects during a live game
+    setAbandonTimer(60);
+    const interval = setInterval(() => {
+      setAbandonTimer(prev => {
+        if (prev === null || prev <= 0) { clearInterval(interval); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [gameState.opponentOnline, gameState.status]);
+
+  // ── Game Over Reason ──────────────────────────────────────────────────────────
+  const getGameOverReasonLabel = () => {
+    if (gameState.status === 'abandoned') return 'by Abandonment';
+    if (game.isCheckmate()) return 'by Checkmate';
+    if (game.isStalemate()) return 'by Stalemate';
+    if (game.isThreefoldRepetition()) return 'by Repetition';
+    if (game.isInsufficientMaterial()) return 'by Insufficient Material';
+    if (game.isDraw()) return 'by Draw';
+    if (gameState.status === 'finished' && gameState.winnerId) return 'by Resignation';
+    if (gameState.status === 'finished' && !gameState.winnerId) return 'by Agreement';
+    return '';
+  };
   
   const [activeTab, setActiveTab] = useState<"new_game" | "games" | "players">(
     (searchParams.get("tab") as any) || "new_game"
@@ -711,39 +792,16 @@ function PlayOnlineContent() {
     return () => clearInterval(interval);
   }, [previewVariant, selectedVariant, customFen]);
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("ChessThemeSettings");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.boardTheme) setBoardTheme(parsed.boardTheme);
-        if (parsed.pieceTheme) setPieceTheme(parsed.pieceTheme);
-        if (typeof parsed.soundEnabled === "boolean") setSoundEnabled(parsed.soundEnabled);
-      }
-    } catch (e) {}
-  }, []);
-
-  const saveSettings = (updates: { boardTheme?: string, pieceTheme?: string, soundEnabled?: boolean }) => {
-    try {
-      const stored = localStorage.getItem("ChessThemeSettings");
-      const current = stored ? JSON.parse(stored) : {};
-      localStorage.setItem("ChessThemeSettings", JSON.stringify({ ...current, ...updates }));
-    } catch (e) {}
-  };
-
   const handleBoardThemeChange = (theme: string) => {
     setBoardTheme(theme);
-    saveSettings({ boardTheme: theme });
   };
 
   const handlePieceThemeChange = (theme: string) => {
     setPieceTheme(theme);
-    saveSettings({ pieceTheme: theme });
   };
 
   const handleSoundEnabledChange = (enabled: boolean) => {
     setSoundEnabled(enabled);
-    saveSettings({ soundEnabled: enabled });
   };
 
   const updateBoard = (g: Chess) => {
@@ -890,13 +948,6 @@ function PlayOnlineContent() {
                 <ArrowLeft className="w-[14px] h-[14px] -ml-1" />
                 <ArrowLeft className="w-[14px] h-[14px] -mr-1 rotate-180" />
               </button>
-              <button
-                onClick={() => toggleTheme()}
-                className="p-2.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-all border border-[var(--border)] shadow-lg flex items-center justify-center flex-col gap-[2px]"
-                title="Toggle Light/Dark Theme"
-              >
-                {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
-              </button>
             </div>
 
             <div className={`w-full flex flex-col relative ${isInGame ? 'justify-start gap-0' : 'h-full justify-center gap-1.5'}`}>
@@ -924,7 +975,7 @@ function PlayOnlineContent() {
                         ? "bg-[var(--text-primary)] text-[var(--bg)] border-[var(--text-primary)]"
                         : "bg-[var(--bg-alt)] text-[var(--text-primary)] border-[var(--border-subtle)]"
                     }`}>
-                      {gameState.timeControl ? formatClock(opponentClock) : "—"}
+                      {formatClock(opponentClock)}
                     </div>
                   </div>
                 </div>
@@ -1101,7 +1152,7 @@ function PlayOnlineContent() {
                         ? "bg-[var(--text-primary)] text-[var(--bg)] border-[var(--text-primary)]"
                         : "bg-[var(--bg-alt)] text-[var(--text-primary)] border-[var(--border-subtle)]"
                     }`}>
-                      {gameState.timeControl ? formatClock(myClock) : "—"}
+                      {formatClock(myClock)}
                     </div>
                   </div>
                 </div>
@@ -1378,12 +1429,13 @@ function PlayOnlineContent() {
                           <div className="flex w-full gap-3 mt-2">
                             <button 
                               onClick={() => {
-                                if (matchId) {
-                                  syncGameState(matchId, game.pgn(), 'finished', null); // null winner for draw (simplified for now)
-                                }
+                                if (drawOfferSent) return;
+                                sendDrawOffer();
+                                setDrawOfferSent(true);
                               }}
-                              className="flex-1 py-3 bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl font-bold text-[var(--text-primary)] transition-colors">
-                              ½ Draw
+                              className="flex-1 py-3 bg-[var(--surface-alt)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl font-bold text-[var(--text-primary)] transition-colors disabled:opacity-50"
+                              disabled={drawOfferSent}>
+                              {drawOfferSent ? "Draw Offered" : "½ Draw"}
                             </button>
                             <button 
                               onClick={() => {
@@ -1406,6 +1458,9 @@ function PlayOnlineContent() {
                           <p className="text-sm font-semibold text-[var(--text-primary)]">
                             {gameState.winnerId ? (gameState.winnerId === userId ? "You won!" : "Opponent won!") : "It's a draw."}
                           </p>
+                          <p className="text-xs text-[var(--text-secondary)] mt-1">
+                            {getGameOverReasonLabel()}
+                          </p>
                         </div>
                       )}
                       {gameState.status === 'waiting' && (
@@ -1420,10 +1475,20 @@ function PlayOnlineContent() {
                           <span className="text-sm font-semibold text-[var(--text-primary)]">
                             {gameState.status === 'invite_only' || gameState.status === 'waiting' 
                               ? 'Waiting for connection...' 
-                              : (gameState.opponentOnline ? 'Opponent Connected' : 'Opponent Disconnected')}
+                              : (gameState.opponentOnline ? 'Opponent Connected' : `Opponent Disconnected${abandonTimer !== null ? ` (${abandonTimer}s)` : ''}`)}
                           </span>
                         </div>
-                      </div>
+                        {abandonTimer === 0 && gameState.status === 'in_progress' && (
+                          <button
+                            onClick={() => {
+                              if (matchId) syncGameState(matchId, game.pgn(), 'abandoned', userId);
+                            }}
+                            className="px-3 py-1 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-white text-xs font-bold rounded transition-colors"
+                          >
+                            Claim Win
+                          </button>
+                        )}
+                        </div>
 
                       <button 
                         onClick={() => router.push("/play/online")}
@@ -1780,9 +1845,48 @@ function PlayOnlineContent() {
               title: "Game Behavior",
               description: "Configure how the game reacts to your inputs.",
               content: (
-                <div className="flex flex-col gap-4 text-sm text-[var(--text-secondary)] py-8 items-center justify-center h-full">
-                  <Gamepad2 className="w-12 h-12 opacity-20 mb-2" />
-                  <p>More game settings coming soon.</p>
+                <div className="px-5 md:px-8 pb-5 md:pb-8 pt-2">
+                  <div className="space-y-[1px] bg-[var(--border)] border border-[var(--border)] rounded-sm overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                      <span className="text-[14px] text-[var(--text-primary)]">Move Method</span>
+                      <select
+                        value={onlinePreferences.moveMethod}
+                        onChange={(event) => updateOnlinePreferences({ moveMethod: event.target.value as typeof onlinePreferences.moveMethod })}
+                        className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5"
+                      >
+                        <option value="drag">Drag only</option>
+                        <option value="click">Click only</option>
+                        <option value="both">Both</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                      <span className="text-[14px] text-[var(--text-primary)]">Show Legal Moves</span>
+                      <input type="checkbox" checked={onlinePreferences.showLegalMoves} onChange={(event) => updateOnlinePreferences({ showLegalMoves: event.target.checked })} />
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                      <span className="text-[14px] text-[var(--text-primary)]">Enable Premove</span>
+                      <input type="checkbox" checked={onlinePreferences.premoveEnabled} onChange={(event) => updateOnlinePreferences({ premoveEnabled: event.target.checked })} />
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                      <span className="text-[14px] text-[var(--text-primary)]">Premove Mode</span>
+                      <select
+                        value={onlinePreferences.premoveMode}
+                        onChange={(event) => updateOnlinePreferences({ premoveMode: event.target.value as typeof onlinePreferences.premoveMode })}
+                        className="bg-[var(--surface-alt)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-[13px] rounded px-3 py-1.5 focus:outline-none focus:border-[var(--border-hover)] w-full md:w-auto md:min-w-[160px] cursor-pointer appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0ibm9uZSIgdmlld0JveD0iMCAwIDI0IDI0IiBzdHJva2U9IiM5OTkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTggOSI+PC9wb2x5bGluZT48L3N2Zz4=')] bg-no-repeat bg-[center_right_0.5rem]"
+                      >
+                        <option value="single">Single premove</option>
+                        <option value="multiple">Multiple premoves</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                      <span className="text-[14px] text-[var(--text-primary)]">Auto Queen</span>
+                      <input type="checkbox" checked={onlinePreferences.autoQueen} onChange={(event) => updateOnlinePreferences({ autoQueen: event.target.checked })} />
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg)] hover:bg-[var(--surface)] transition-colors">
+                      <span className="text-[14px] text-[var(--text-primary)]">Low Time Warning</span>
+                      <input type="checkbox" checked={onlinePreferences.lowTimeWarning} onChange={(event) => updateOnlinePreferences({ lowTimeWarning: event.target.checked })} />
+                    </div>
+                  </div>
                 </div>
               ),
             },
@@ -1843,7 +1947,7 @@ function PlayOnlineContent() {
           </div>
           <div className="flex gap-2 mb-3">
             <button 
-              onClick={() => { syncGameState(matchId!, game.pgn(), 'finished', null); setDrawOfferReceived(false); }} 
+              onClick={async () => { await syncGameState(matchId!, game.pgn(), 'finished', null); setDrawOfferReceived(false); }} 
               className="flex-1 py-2 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-white rounded-lg font-bold text-sm transition-colors"
             >
               Accept

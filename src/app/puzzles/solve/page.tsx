@@ -41,6 +41,7 @@ import {
   type PuzzleReviewItem,
 } from "@/lib/puzzle-progress";
 import { usePuzzleProgress } from "@/lib/use-puzzle-progress";
+import { useDisplayPreferences } from "@/lib/display-preferences-context";
 
 const PIECE_ASSETS = themeManifest.pieceAssets as Record<string, string>;
 const BOARD_ASSETS = themeManifest.boardAssets as Record<string, string>;
@@ -214,11 +215,12 @@ function SolverInner() {
   const requestedPuzzleId = params.get("id");
   const { toggleTheme, isDark } = useTheme();
   const { progress, authenticated, importNotice, syncStatus, dismissImportNotice, dismissSyncError, refresh, setProgress } = usePuzzleProgress();
-  const [boardTheme, setBoardTheme] = useState(themeManifest.defaultBoardTheme);
-  const [pieceTheme, setPieceTheme] = useState(themeManifest.defaultPieceTheme);
+  const { boardTheme, pieceTheme, soundEnabled, setBoardTheme, setPieceTheme, setSoundEnabled } = useDisplayPreferences();
+  
+  
   const [showLegalMoves, setShowLegalMoves] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  
   const [masterVolume, setMasterVolume] = useState(80);
   const [preferencesSaving, setPreferencesSaving] = useState(false);
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
