@@ -1,0 +1,57 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# local environment
+.env*
+.venv/
+
+# deployment
+.vercel
+
+# logs
+npm-debug.log*
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# misc
+.DS_Store
+
+# temporary local files
+source code.html
+soruce code.html
+download_themes.js
+fromsettingspage.html
+/.github
+
+# large local engine binaries
+public/engines/stockfish/stockfish-18-single.wasm
+
+# downloaded/generated opening datasets and local source notes
+OPENINGS_DATA_SOURCES.md
+src/data/openings/
+src/data/openings_hf/
+src/data/openings_ecojson/
+src/data/openings_combined/
+.gitignore
+
+# Lichess Puzzle Database Files
+lichess_db_puzzle.csv
+lichess_db_puzzle.csv.zst
+puzzles.sqlite3
+puzzles.sqlite3-wal
+puzzles.sqlite3-shm
+/puzzle-chunks/
+/puzzle-theme-fts-chunks/
+/.playwright-mcp/
+
+# downloaded player-game corpora
+/data/player-games/
+
+# Ignore public directory containing images/sounds
+public/

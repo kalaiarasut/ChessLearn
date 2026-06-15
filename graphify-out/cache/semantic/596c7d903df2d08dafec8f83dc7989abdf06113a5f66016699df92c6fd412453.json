@@ -1,0 +1,1 @@
+{"nodes": [{"id": "attempt_route_post", "label": "POST", "file_type": "code", "source_file": "src/app/api/puzzle-progress/attempt/route.ts", "source_location": "5-33", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

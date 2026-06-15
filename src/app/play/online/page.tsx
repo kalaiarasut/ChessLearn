@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import Navbar from "@/components/ui/Navbar";
 import { Chess, type Square } from "chess.js";
 import { 
-  Rocket, Zap, Clock, Sun, Settings, ArrowLeft, Moon, LayoutGrid, Users, Handshake, Bot, Info, ChevronDown, ChevronUp, Bomb, Swords, Flag, User, SignalHigh, SkipBack, SkipForward, ChevronLeft, ChevronRight, MessageSquare, Palette, Gamepad2, Volume2, Monitor, Shield
+  Rocket, Zap, Clock, Sun, Settings, ArrowLeft, Moon, LayoutGrid, Users, Handshake, Bot, Info, ChevronDown, ChevronUp, Bomb, Swords, Flag, User, SignalHigh, SkipBack, SkipForward, ChevronLeft, ChevronRight, MessageSquare, Palette, Gamepad2, Volume2, Monitor, Shield, Crown, RotateCcw, LineChart
 } from "lucide-react";
 import themeManifest from "@/data/themeManifest.json";
 import { useTheme } from "@/lib/theme-context";
@@ -231,7 +231,12 @@ function PlayOnlineContent() {
     });
   }, [router]);
 
-  const { gameState, isLoading: isMatchLoading, error: matchError, sendMove, chatMessages, sendChatMessage, drawOfferReceived, setDrawOfferReceived, sendDrawOffer, declineDrawOffer } = useRealtimeMatch(matchId, userId);
+  const { 
+    gameState, isLoading: isMatchLoading, error: matchError, sendMove, 
+    chatMessages, sendChatMessage, drawOfferReceived, setDrawOfferReceived, sendDrawOffer, declineDrawOffer,
+    rematchOfferReceived, setRematchOfferReceived, sendRematchOffer
+  } = useRealtimeMatch(matchId, userId);
+  const [rematchSent, setRematchSent] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [moveTimes, setMoveTimes] = useState<number[]>([]);
   const [lastMoveTimestamp, setLastMoveTimestamp] = useState<number>(Date.now());
@@ -498,6 +503,7 @@ function PlayOnlineContent() {
     if (matchId) {
       setActiveTab("new_game");
       setIsSearching(false);
+      setRematchSent(false);
     } else {
       // Reset game state when returning to lobby
       setIsInGame(false);
@@ -509,6 +515,7 @@ function PlayOnlineContent() {
       setDrawOfferSent(false);
       setShowResignConfirm(false);
       clockInitialized.current = false;
+      setRematchSent(false);
     }
   }, [matchId, searchParams]);
 
@@ -541,6 +548,8 @@ function PlayOnlineContent() {
         const timer = setTimeout(() => setIsInGame(true), 1500);
         return () => clearTimeout(timer);
       }
+    } else if (gameState.status === "waiting" || gameState.status === "invite_only") {
+      setIsInGame(false); // Reset to lobby when waiting for opponent
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState.status, isFriendInvite]);
@@ -889,10 +898,11 @@ function PlayOnlineContent() {
       const moves = game.moves({ square, verbose: true });
       setLegalTargets(moves.map(m => m.to as Square));
       
-      // Create empty drag image
-      const dragImg = new Image(0, 0);
-      dragImg.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-      e.dataTransfer.setDragImage(dragImg, 0, 0);
+      const pieceImg = e.currentTarget.querySelector('img');
+      if (pieceImg) {
+        const size = pieceImg.getBoundingClientRect();
+        e.dataTransfer.setDragImage(pieceImg, size.width / 2, size.height / 2);
+      }
     } else {
       e.preventDefault();
     }
@@ -987,6 +997,59 @@ function PlayOnlineContent() {
                   className="w-full h-full shadow-[0_15px_35px_rgba(0,0,0,0.15)] overflow-hidden border border-[var(--border)]"
                 >
                   <div className="w-full h-full grid grid-cols-8 grid-rows-8 relative" onContextMenu={(e) => e.preventDefault()}>
+                    {(gameState.status === 'finished' || gameState.status === 'abandoned') && (
+                      <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-[2px] transition-opacity duration-500">
+                        <div className="bg-[var(--surface)]/96 border border-[var(--border)] shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-6 md:p-8 rounded-2xl flex flex-col items-center max-w-[85%] w-[340px] text-center transition-all duration-700 relative overflow-hidden">
+                          <div className="w-16 h-16 rounded-full bg-[var(--surface-hover)] border border-[var(--border-subtle)] flex items-center justify-center mb-4 text-[#eab308] shadow-inner relative z-10">
+                            <Crown className="w-8 h-8 drop-shadow-md" strokeWidth={2.5} />
+                          </div>
+                          <h2 className="text-2xl font-black text-[var(--text-primary)] tracking-wide mb-1 relative z-10">
+                            {gameState.winnerId ? (gameState.winnerId === userId ? "You Won!" : "You Lost") : "Draw"}
+                          </h2>
+                          <p className="text-[14px] text-[var(--text-secondary)] font-medium mb-8 relative z-10">
+                            {getGameOverReasonLabel()}
+                          </p>
+
+                          <div className="flex flex-col gap-3 w-full relative z-10">
+                            <button
+                              onClick={async () => {
+                                if (rematchOfferReceived) {
+                                  // Accept!
+                                  await joinFriendMatch(rematchOfferReceived);
+                                  router.push(`/play/online?matchId=${rematchOfferReceived}&invite=1`);
+                                } else {
+                                  if (rematchSent) return;
+                                  setRematchSent(true);
+                                  // Create friend match (private) so it's guaranteed to be the same opponent
+                                  const res = await createFriendMatch(undefined, gameState.timeControl || undefined, gameState.variant || undefined);
+                                  if (res.matchId) {
+                                    await sendRematchOffer(res.matchId);
+                                    router.push(`/play/online?matchId=${res.matchId}&invite=1`);
+                                  }
+                                }
+                              }}
+                              disabled={rematchSent && !rematchOfferReceived}
+                              className={`pointer-events-auto w-full py-[14px] font-bold rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.28)] transition-all duration-300 relative overflow-hidden group border border-white/10 ${
+                                rematchOfferReceived
+                                  ? "bg-green-600 hover:bg-green-500 text-white"
+                                  : "bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] hover:scale-[1.02]"
+                              } ${rematchSent && !rematchOfferReceived ? "opacity-70 cursor-not-allowed hover:scale-100" : ""}`}
+                            >
+                              <span className="relative z-10 flex items-center justify-center gap-2 text-white">
+                                <RotateCcw className="w-[18px] h-[18px]" strokeWidth={2.5} />
+                                {rematchOfferReceived ? "Accept Rematch" : (rematchSent ? "Waiting for opponent..." : "Rematch")}
+                              </span>
+                            </button>
+                            <button
+                              className="pointer-events-auto w-full flex items-center justify-center gap-2 py-[12px] text-[14.5px] text-[var(--text-secondary)] font-bold hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] rounded-lg transition-colors border border-transparent hover:border-[var(--border)]"
+                            >
+                              <LineChart className="w-4 h-4" />
+                              Analyze
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     {(isBoardFlipped
                       ? [...(previewBoardState || boardState)].reverse().map(r => [...r].reverse())
                       : (previewBoardState || boardState)
@@ -1450,19 +1513,7 @@ function PlayOnlineContent() {
                           </div>
                         </div>
                       )}
-                      {gameState.status === 'finished' && (
-                        <div className="flex flex-col items-center justify-center w-full mb-6">
-                          <p className="text-xl font-bold text-[var(--cta-bg)] text-center mb-2">
-                            Game Over
-                          </p>
-                          <p className="text-sm font-semibold text-[var(--text-primary)]">
-                            {gameState.winnerId ? (gameState.winnerId === userId ? "You won!" : "Opponent won!") : "It's a draw."}
-                          </p>
-                          <p className="text-xs text-[var(--text-secondary)] mt-1">
-                            {getGameOverReasonLabel()}
-                          </p>
-                        </div>
-                      )}
+
                       {gameState.status === 'waiting' && (
                         <p className="text-sm text-[var(--text-secondary)] text-center mb-6">
                           Waiting for opponent to join...
@@ -1637,7 +1688,8 @@ function PlayOnlineContent() {
                 </div>
 
                 {/* Right Column: Custom Challenges */}
-                <div className="flex flex-col lg:w-[280px]">
+                {!matchId && (
+                  <div className="flex flex-col lg:w-[280px]">
                   <div className="flex flex-col bg-[var(--surface-alt)] border border-[var(--border)] rounded-xl shadow-sm z-10 h-full">
                     <div className="w-full py-4 flex items-center justify-center gap-2 border-b border-[var(--border)] px-4">
                       <Settings className="w-5 h-5 text-[var(--text-muted)]" />
@@ -1707,6 +1759,7 @@ function PlayOnlineContent() {
                     </div>
                   </div>
                 </div>
+                )}
 
               </div>
             )}

@@ -1,0 +1,627 @@
+{
+  "D:\\ON-AIR\\Chessify\\.vscode\\tasks.json": {
+    "mtime": 1776101660.0024076,
+    "ast_hash": "616cd21b136a3cacd403a9341bb36a5d",
+    "semantic_hash": "616cd21b136a3cacd403a9341bb36a5d"
+  },
+  "D:\\ON-AIR\\Chessify\\chessboard-flat.tsx": {
+    "mtime": 1776693033.7399404,
+    "ast_hash": "82e9627c06bb274e9a10b1c4cc02d845",
+    "semantic_hash": "82e9627c06bb274e9a10b1c4cc02d845"
+  },
+  "D:\\ON-AIR\\Chessify\\eslint.config.mjs": {
+    "mtime": 1776265230.290944,
+    "ast_hash": "cb51e45a4b62e370fa874b6222318c03",
+    "semantic_hash": "cb51e45a4b62e370fa874b6222318c03"
+  },
+  "D:\\ON-AIR\\Chessify\\next.config.ts": {
+    "mtime": 1777868013.9003792,
+    "ast_hash": "e6ae7379042dc49f26d51799326ac3f6",
+    "semantic_hash": "e6ae7379042dc49f26d51799326ac3f6"
+  },
+  "D:\\ON-AIR\\Chessify\\output\\playwright\\puzzle-category-smoke.spec.ts": {
+    "mtime": 1777993066.1528752,
+    "ast_hash": "a5a84fdcb84a14d4238a3c695e31ad7c",
+    "semantic_hash": "a5a84fdcb84a14d4238a3c695e31ad7c"
+  },
+  "D:\\ON-AIR\\Chessify\\package.json": {
+    "mtime": 1777718443.5151374,
+    "ast_hash": "c9e763762e4887dd9e76f7515f202ba3",
+    "semantic_hash": "c9e763762e4887dd9e76f7515f202ba3"
+  },
+  "D:\\ON-AIR\\Chessify\\postcss.config.mjs": {
+    "mtime": 1776100895.5375304,
+    "ast_hash": "239f3ebf717465dc636818a1a619398d",
+    "semantic_hash": "239f3ebf717465dc636818a1a619398d"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\build-combined-openings.mjs": {
+    "mtime": 1777264038.907216,
+    "ast_hash": "0b7cf4d63b2240aae407b1680c1fa6e9",
+    "semantic_hash": "0b7cf4d63b2240aae407b1680c1fa6e9"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\build-opening-descriptions.mjs": {
+    "mtime": 1777623769.7144527,
+    "ast_hash": "c62f5b212caf8554cb00013690936f9f",
+    "semantic_hash": "c62f5b212caf8554cb00013690936f9f"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\build-puzzle-db.mjs": {
+    "mtime": 1777453352.7138379,
+    "ast_hash": "f0145e83e3684dcd8add5a21e07c1f29",
+    "semantic_hash": "f0145e83e3684dcd8add5a21e07c1f29"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\build_hikaru_training_corpus.py": {
+    "mtime": 1777797036.817571,
+    "ast_hash": "4e7938b30f77322a0612082c72629aa0",
+    "semantic_hash": "4e7938b30f77322a0612082c72629aa0"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\download-ecojson-source.mjs": {
+    "mtime": 1777623769.192663,
+    "ast_hash": "6124514146fcdac748ca15d2660a139f",
+    "semantic_hash": "6124514146fcdac748ca15d2660a139f"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\download-openings-db.mjs": {
+    "mtime": 1777623769.4771295,
+    "ast_hash": "d5a1605a657395fc429163f40d708d6f",
+    "semantic_hash": "d5a1605a657395fc429163f40d708d6f"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\download-openings-stats-source.mjs": {
+    "mtime": 1777623769.006253,
+    "ast_hash": "df27242f1a4848d28c243a2e1a1ddb89",
+    "semantic_hash": "df27242f1a4848d28c243a2e1a1ddb89"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\download_chesscom_master_hikaru.py": {
+    "mtime": 1777777954.9913948,
+    "ast_hash": "f84274a6f02d3653351c905848fb201d",
+    "semantic_hash": "f84274a6f02d3653351c905848fb201d"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\download_hikaru_sources.py": {
+    "mtime": 1777778581.8091583,
+    "ast_hash": "25c29a972252bbe13ac29af64e6c7a33",
+    "semantic_hash": "25c29a972252bbe13ac29af64e6c7a33"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\download_lichess_broadcast_hikaru.py": {
+    "mtime": 1777739141.9438262,
+    "ast_hash": "59242b498937402cc3bdb5948f32811d",
+    "semantic_hash": "59242b498937402cc3bdb5948f32811d"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\evaluate_hikaru_baseline.py": {
+    "mtime": 1777806471.214295,
+    "ast_hash": "da7faa72b038d8fb4ceaadd19bcf1b65",
+    "semantic_hash": "da7faa72b038d8fb4ceaadd19bcf1b65"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\export-theme-fts-chunks.mjs": {
+    "mtime": 1777453372.33895,
+    "ast_hash": "ffec761e1bf5132b724e27b957413791",
+    "semantic_hash": "ffec761e1bf5132b724e27b957413791"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\export-to-sql-chunks.mjs": {
+    "mtime": 1777309838.9209363,
+    "ast_hash": "3df62c2853e848f8f8bf92a486487853",
+    "semantic_hash": "3df62c2853e848f8f8bf92a486487853"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\supabase-auth.sql": {
+    "mtime": 1777782555.917404,
+    "ast_hash": "a865896899cffcaebb431516508817ef",
+    "semantic_hash": "a865896899cffcaebb431516508817ef"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\torch_status.py": {
+    "mtime": 1776265161.0361192,
+    "ast_hash": "cba3a1d13ff4c06e6d80a80ce147c401",
+    "semantic_hash": "cba3a1d13ff4c06e6d80a80ce147c401"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\train_hikaru_style_prior.py": {
+    "mtime": 1777808510.4530108,
+    "ast_hash": "f4f191c6550d97535d123e8502273288",
+    "semantic_hash": "f4f191c6550d97535d123e8502273288"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\upload-to-d1.mjs": {
+    "mtime": 1777625765.4600005,
+    "ast_hash": "cf604779192d72c3b65f9179553f2a30",
+    "semantic_hash": "cf604779192d72c3b65f9179553f2a30"
+  },
+  "D:\\ON-AIR\\Chessify\\scripts\\upload-to-d1.ps1": {
+    "mtime": 1777625770.100528,
+    "ast_hash": "33b4f3f88ebb800f894677f2d17c3603",
+    "semantic_hash": "33b4f3f88ebb800f894677f2d17c3603"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\actions\\auth.ts": {
+    "mtime": 1781259988.8000195,
+    "ast_hash": "3e06533765f0427bf40dd63106fac3b0",
+    "semantic_hash": "3e06533765f0427bf40dd63106fac3b0"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\actions\\friends.ts": {
+    "mtime": 1781276013.7618933,
+    "ast_hash": "48b7a87ec16c50a77c49d39331f34d73",
+    "semantic_hash": "48b7a87ec16c50a77c49d39331f34d73"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\actions\\history.ts": {
+    "mtime": 1781357929.8136208,
+    "ast_hash": "041a138bdd3cbe61610daf82525ed94e",
+    "semantic_hash": "041a138bdd3cbe61610daf82525ed94e"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\actions\\match.ts": {
+    "mtime": 1781347052.753693,
+    "ast_hash": "dac5bead8aa1de6a3921a4c4cbdf5fea",
+    "semantic_hash": "dac5bead8aa1de6a3921a4c4cbdf5fea"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\actions\\profile.ts": {
+    "mtime": 1781265247.1269257,
+    "ast_hash": "88d66c2b3af6b073820ea7ece5672d0c",
+    "semantic_hash": "88d66c2b3af6b073820ea7ece5672d0c"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\analysis\\page.tsx": {
+    "mtime": 1781414968.8978205,
+    "ast_hash": "8899a5c2dcf14638feea687c37a5a048",
+    "semantic_hash": "8899a5c2dcf14638feea687c37a5a048"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\bot-replays\\route.ts": {
+    "mtime": 1777703881.9294586,
+    "ast_hash": "91b54c8f5dbcaf7108a818a54c10554f",
+    "semantic_hash": "91b54c8f5dbcaf7108a818a54c10554f"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\leaderboard\\route.ts": {
+    "mtime": 1777725112.1761098,
+    "ast_hash": "a50e1252a09311fba269ace93dcf7273",
+    "semantic_hash": "a50e1252a09311fba269ace93dcf7273"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\learn-progress\\route.ts": {
+    "mtime": 1777710469.7325141,
+    "ast_hash": "2230615c655a93f0510104437a83985b",
+    "semantic_hash": "2230615c655a93f0510104437a83985b"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\login-streak\\route.ts": {
+    "mtime": 1777782520.2179964,
+    "ast_hash": "2143c67a23bdc5768667014b6d9418b7",
+    "semantic_hash": "2143c67a23bdc5768667014b6d9418b7"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\openings\\[slug]\\route.ts": {
+    "mtime": 1776443959.936141,
+    "ast_hash": "f3a88533e165a7fbcf3a58f0db47ca90",
+    "semantic_hash": "f3a88533e165a7fbcf3a58f0db47ca90"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\openings\\route.ts": {
+    "mtime": 1777281057.4270556,
+    "ast_hash": "5925e478469cfed63e8bcd23f33a2538",
+    "semantic_hash": "5925e478469cfed63e8bcd23f33a2538"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\preferences\\route.ts": {
+    "mtime": 1781412233.2982502,
+    "ast_hash": "aef6501c6176de757ba5a3e50c950b0e",
+    "semantic_hash": "aef6501c6176de757ba5a3e50c950b0e"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\puzzle-progress\\attempt\\route.ts": {
+    "mtime": 1777459304.2520857,
+    "ast_hash": "06e700b2de7672dbf7d5d5f603f14b29",
+    "semantic_hash": "06e700b2de7672dbf7d5d5f603f14b29"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\puzzle-progress\\import\\route.ts": {
+    "mtime": 1777461423.7700958,
+    "ast_hash": "ef4827acc17f272d72d6289089754030",
+    "semantic_hash": "ef4827acc17f272d72d6289089754030"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\puzzle-progress\\review\\[id]\\route.ts": {
+    "mtime": 1777459320.5946953,
+    "ast_hash": "57962dd90bbd01e4b3a37fa3c76fc3e7",
+    "semantic_hash": "57962dd90bbd01e4b3a37fa3c76fc3e7"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\puzzle-progress\\review\\route.ts": {
+    "mtime": 1777459310.246297,
+    "ast_hash": "cd5ebc1837a3f1de65efe983eb63e7f5",
+    "semantic_hash": "cd5ebc1837a3f1de65efe983eb63e7f5"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\puzzle-progress\\route.ts": {
+    "mtime": 1777459295.9154425,
+    "ast_hash": "813dce4af640d1f05f97338bb3a8e151",
+    "semantic_hash": "813dce4af640d1f05f97338bb3a8e151"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\puzzles\\route.ts": {
+    "mtime": 1777988136.5137854,
+    "ast_hash": "aedb87e02a0c6f73b5f727e794ee502c",
+    "semantic_hash": "aedb87e02a0c6f73b5f727e794ee502c"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\site-stats\\route.ts": {
+    "mtime": 1777725125.1941822,
+    "ast_hash": "89b711ee6ca5c18108cef0a46c64f06a",
+    "semantic_hash": "89b711ee6ca5c18108cef0a46c64f06a"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\api\\torch\\status\\route.ts": {
+    "mtime": 1776265161.0416691,
+    "ast_hash": "436eb8bb864e310360c22ad9a4346e25",
+    "semantic_hash": "436eb8bb864e310360c22ad9a4346e25"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\auth\\confirm\\route.ts": {
+    "mtime": 1776274861.650636,
+    "ast_hash": "c298ec93905b121ea92d83dfd7969631",
+    "semantic_hash": "c298ec93905b121ea92d83dfd7969631"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\layout.tsx": {
+    "mtime": 1781414797.993994,
+    "ast_hash": "79c42a413bba02b138ffcbb40913443b",
+    "semantic_hash": "79c42a413bba02b138ffcbb40913443b"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\leaderboard\\page.tsx": {
+    "mtime": 1777725429.8114586,
+    "ast_hash": "d25ac5e0b263a338530fb76b5ec4d729",
+    "semantic_hash": "d25ac5e0b263a338530fb76b5ec4d729"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\learn\\[opening]\\loading.tsx": {
+    "mtime": 1777549007.4921725,
+    "ast_hash": "3104865ee71a5f5c77e2e23c0bafa57d",
+    "semantic_hash": "3104865ee71a5f5c77e2e23c0bafa57d"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\learn\\[opening]\\page.tsx": {
+    "mtime": 1781369107.8028088,
+    "ast_hash": "9c1878c8396b74d38e9bd83cddb44077",
+    "semantic_hash": "9c1878c8396b74d38e9bd83cddb44077"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\learn\\[opening]\\use-stockfish-analysis.ts": {
+    "mtime": 1776605281.6922326,
+    "ast_hash": "f975f60efb9f13e045db22fa51dfb210",
+    "semantic_hash": "f975f60efb9f13e045db22fa51dfb210"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\learn\\[opening]\\use-torch-status.ts": {
+    "mtime": 1776265161.0436683,
+    "ast_hash": "d0ed96a4e111f2cc6565d6c900594fd1",
+    "semantic_hash": "d0ed96a4e111f2cc6565d6c900594fd1"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\learn\\_data\\openings.ts": {
+    "mtime": 1776245324.6173818,
+    "ast_hash": "624fd98f6fd9c4a9db42e2ba42248a3e",
+    "semantic_hash": "624fd98f6fd9c4a9db42e2ba42248a3e"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\learn\\loading.tsx": {
+    "mtime": 1776415246.0291986,
+    "ast_hash": "37217c642bde33a909beaaa74fa8d93d",
+    "semantic_hash": "37217c642bde33a909beaaa74fa8d93d"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\learn\\page.tsx": {
+    "mtime": 1777719808.7668607,
+    "ast_hash": "e0d9973553ad7233c3de3e0ea1f692d5",
+    "semantic_hash": "e0d9973553ad7233c3de3e0ea1f692d5"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\login\\page.tsx": {
+    "mtime": 1781277511.3598058,
+    "ast_hash": "4c857d4080feee29fe5c8c8faa528ba9",
+    "semantic_hash": "4c857d4080feee29fe5c8c8faa528ba9"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\onboarding\\page.tsx": {
+    "mtime": 1781259976.533084,
+    "ast_hash": "4cdd79cf00c0536d00b7769772b53f1b",
+    "semantic_hash": "4cdd79cf00c0536d00b7769772b53f1b"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\page.tsx": {
+    "mtime": 1781246582.7372546,
+    "ast_hash": "921061b9f2f8139876fdfea9879cf58c",
+    "semantic_hash": "921061b9f2f8139876fdfea9879cf58c"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\play\\computer\\engine-assets.ts": {
+    "mtime": 1777868089.6831052,
+    "ast_hash": "35586a27dcc488c18d7c3ed2849681f4",
+    "semantic_hash": "35586a27dcc488c18d7c3ed2849681f4"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\play\\computer\\hikaru-style-prior.ts": {
+    "mtime": 1777810418.294403,
+    "ast_hash": "4681c025bdf0a2a2d36016383bd63a91",
+    "semantic_hash": "4681c025bdf0a2a2d36016383bd63a91"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\play\\computer\\loading.tsx": {
+    "mtime": 1777701602.2353406,
+    "ast_hash": "a0759f84a87acd57b8f0ba1213936596",
+    "semantic_hash": "a0759f84a87acd57b8f0ba1213936596"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\play\\computer\\page.tsx": {
+    "mtime": 1781369107.745918,
+    "ast_hash": "4bd44f7f76d133b0835669f797ecfaf7",
+    "semantic_hash": "4bd44f7f76d133b0835669f797ecfaf7"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\play\\computer\\use-game-review.ts": {
+    "mtime": 1781191024.7158997,
+    "ast_hash": "4a135b44cdbedf47b3cdbe6985ba66d3",
+    "semantic_hash": "4a135b44cdbedf47b3cdbe6985ba66d3"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\play\\computer\\use-stockfish-engine-download.ts": {
+    "mtime": 1777868193.9741688,
+    "ast_hash": "068c0938f422ef968bf35424988b071e",
+    "semantic_hash": "068c0938f422ef968bf35424988b071e"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\play\\computer\\use-stockfish-player.ts": {
+    "mtime": 1777866059.9175582,
+    "ast_hash": "03f79131e491f544ebbf43ee388ee5c3",
+    "semantic_hash": "03f79131e491f544ebbf43ee388ee5c3"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\play\\online\\page.tsx": {
+    "mtime": 1781430769.2768092,
+    "ast_hash": "46333dde4c702f163eaee394c02f53f4",
+    "semantic_hash": "46333dde4c702f163eaee394c02f53f4"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\_components\\PuzzleLoginOverlay.tsx": {
+    "mtime": 1777461942.3876717,
+    "ast_hash": "c02607f8c853a3d802c6e40ca0b99533",
+    "semantic_hash": "c02607f8c853a3d802c6e40ca0b99533"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\_components\\PuzzleSyncBanner.tsx": {
+    "mtime": 1777461969.0241983,
+    "ast_hash": "535e8d52441e757c403a9cafedcb272d",
+    "semantic_hash": "535e8d52441e757c403a9cafedcb272d"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\dashboard\\_components\\DashboardHeader.tsx": {
+    "mtime": 1777271639.4942727,
+    "ast_hash": "d73c14eef784abd0c766a72979c5439e",
+    "semantic_hash": "d73c14eef784abd0c766a72979c5439e"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\dashboard\\_components\\DashboardNav.tsx": {
+    "mtime": 1777271609.7338142,
+    "ast_hash": "c49a60ed4f1e43b6e2b1c6d2d19ad26f",
+    "semantic_hash": "c49a60ed4f1e43b6e2b1c6d2d19ad26f"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\dashboard\\_components\\KpiCard.tsx": {
+    "mtime": 1777272316.0616424,
+    "ast_hash": "a2e51b1d62c628947a485eaba5394a11",
+    "semantic_hash": "a2e51b1d62c628947a485eaba5394a11"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\dashboard\\_components\\ThemeStatRow.tsx": {
+    "mtime": 1777462088.0473478,
+    "ast_hash": "010bcc57a42a7b76c2322ca503c7e09a",
+    "semantic_hash": "010bcc57a42a7b76c2322ca503c7e09a"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\dashboard\\improvement-areas\\page.tsx": {
+    "mtime": 1777462112.6519148,
+    "ast_hash": "06764d11a05f3316a0a35f57c424f43a",
+    "semantic_hash": "06764d11a05f3316a0a35f57c424f43a"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\dashboard\\layout.tsx": {
+    "mtime": 1777271645.6459553,
+    "ast_hash": "d738845538a68ae7689273286424d2d0",
+    "semantic_hash": "d738845538a68ae7689273286424d2d0"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\dashboard\\page.tsx": {
+    "mtime": 1777628496.1932697,
+    "ast_hash": "27924f639226011b81848f00ec80e6e9",
+    "semantic_hash": "27924f639226011b81848f00ec80e6e9"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\dashboard\\strengths\\page.tsx": {
+    "mtime": 1777462187.358305,
+    "ast_hash": "40126de6fdaaa43d6b71648f548eff35",
+    "semantic_hash": "40126de6fdaaa43d6b71648f548eff35"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\loading.tsx": {
+    "mtime": 1777550713.2966483,
+    "ast_hash": "e73c8815cf4a0fda96ac85967ef010b5",
+    "semantic_hash": "e73c8815cf4a0fda96ac85967ef010b5"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\page.tsx": {
+    "mtime": 1781355381.756685,
+    "ast_hash": "eaeb540d1e54610b80115eff2a072aaa",
+    "semantic_hash": "eaeb540d1e54610b80115eff2a072aaa"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\puzzles-client-page.tsx": {
+    "mtime": 1781411866.8961842,
+    "ast_hash": "06e9f7f53376dae4adf9b2c51a050c94",
+    "semantic_hash": "06e9f7f53376dae4adf9b2c51a050c94"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\solve\\page.tsx": {
+    "mtime": 1781425764.613021,
+    "ast_hash": "48fb5feeab80d0a004d8e3c3070b7fcf",
+    "semantic_hash": "48fb5feeab80d0a004d8e3c3070b7fcf"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\puzzles\\theme-categories.ts": {
+    "mtime": 1777453506.1916316,
+    "ast_hash": "79e730749e8a4a32a4f5d8d42f2dba60",
+    "semantic_hash": "79e730749e8a4a32a4f5d8d42f2dba60"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\settings\\page.tsx": {
+    "mtime": 1781365872.6394975,
+    "ast_hash": "b6cf41ee42cc98e18bbbbb214654e705",
+    "semantic_hash": "b6cf41ee42cc98e18bbbbb214654e705"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\signup\\page.tsx": {
+    "mtime": 1781345246.6280756,
+    "ast_hash": "d648879c810984c3956affe67bd5076e",
+    "semantic_hash": "d648879c810984c3956affe67bd5076e"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\whats-new\\page.tsx": {
+    "mtime": 1777719757.2269154,
+    "ast_hash": "10bd0553433b002f46b99a06463c4f13",
+    "semantic_hash": "10bd0553433b002f46b99a06463c4f13"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\components\\PixelBlast.jsx": {
+    "mtime": 1777568635.2629256,
+    "ast_hash": "3601192082318164d665276c2e50d0fd",
+    "semantic_hash": "3601192082318164d665276c2e50d0fd"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\components\\auth-menu.tsx": {
+    "mtime": 1777811218.7217317,
+    "ast_hash": "9c6ae3247fa7dbf8170510463c6ffd57",
+    "semantic_hash": "9c6ae3247fa7dbf8170510463c6ffd57"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\components\\board-settings-modal.tsx": {
+    "mtime": 1777555216.9496534,
+    "ast_hash": "577285b72006250a71976a6cc84c9bdf",
+    "semantic_hash": "577285b72006250a71976a6cc84c9bdf"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\components\\settings-layout.tsx": {
+    "mtime": 1777562301.0806828,
+    "ast_hash": "e58a3ddb513546c81228cb107f3b7591",
+    "semantic_hash": "e58a3ddb513546c81228cb107f3b7591"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\components\\ui\\GamesHistory.tsx": {
+    "mtime": 1781366691.266393,
+    "ast_hash": "f74cc21eee3dd38f8568d6394c25d89b",
+    "semantic_hash": "f74cc21eee3dd38f8568d6394c25d89b"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\components\\ui\\GlobalInviteListener.tsx": {
+    "mtime": 1781344496.267274,
+    "ast_hash": "f251ed4846324a550a88098cdac41691",
+    "semantic_hash": "f251ed4846324a550a88098cdac41691"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\components\\ui\\LightRays.tsx": {
+    "mtime": 1777726298.4620242,
+    "ast_hash": "e4b9c5da0ba4cca7958df5d48d682e5e",
+    "semantic_hash": "e4b9c5da0ba4cca7958df5d48d682e5e"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\components\\ui\\Navbar.tsx": {
+    "mtime": 1781246310.7179332,
+    "ast_hash": "021a5bb9cf07da75f776c03fdf6100f2",
+    "semantic_hash": "021a5bb9cf07da75f776c03fdf6100f2"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\components\\ui\\PlayersTab.tsx": {
+    "mtime": 1781344490.9249668,
+    "ast_hash": "9ce1b4e9f978d6adc2d316064eba420a",
+    "semantic_hash": "9ce1b4e9f978d6adc2d316064eba420a"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\components\\ui\\StreakAnimation.tsx": {
+    "mtime": 1777719057.480917,
+    "ast_hash": "de94553a3a6faa15092a1040178dcf1c",
+    "semantic_hash": "de94553a3a6faa15092a1040178dcf1c"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\components\\ui\\Tooltip.tsx": {
+    "mtime": 1781253450.7122407,
+    "ast_hash": "7429491cbd6464d3c5ca8b6737c3d566",
+    "semantic_hash": "7429491cbd6464d3c5ca8b6737c3d566"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\data\\openingDescriptions.json": {
+    "mtime": 1776611884.9854777,
+    "ast_hash": "ede6bc71dd2b0720c5c888ebbd8c9f77",
+    "semantic_hash": "ede6bc71dd2b0720c5c888ebbd8c9f77"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\data\\openings_stats\\sources.manifest.json": {
+    "mtime": 1777277408.2178774,
+    "ast_hash": "b3347bf91dd122dfcae2c237e8f5eb0b",
+    "semantic_hash": "b3347bf91dd122dfcae2c237e8f5eb0b"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\data\\themeManifest.json": {
+    "mtime": 1776251987.4035144,
+    "ast_hash": "89a5dfdd0f8ec32f1c21f9a64807d860",
+    "semantic_hash": "89a5dfdd0f8ec32f1c21f9a64807d860"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\hooks\\useRealtimeMatch.ts": {
+    "mtime": 1781430724.5739484,
+    "ast_hash": "e993024ad2a1eba24242143afd8d5444",
+    "semantic_hash": "e993024ad2a1eba24242143afd8d5444"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\client-preferences.ts": {
+    "mtime": 1781366062.4343424,
+    "ast_hash": "1aeb82adadc126e9e3b7a89e44a15c0f",
+    "semantic_hash": "1aeb82adadc126e9e3b7a89e44a15c0f"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\display-preferences-context.tsx": {
+    "mtime": 1781426444.1016092,
+    "ast_hash": "66f1b31be6c5f9d7440aa909f4690326",
+    "semantic_hash": "66f1b31be6c5f9d7440aa909f4690326"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\glicko.ts": {
+    "mtime": 1781265261.934923,
+    "ast_hash": "70755d07b487619edb256e7f0a8d83fe",
+    "semantic_hash": "70755d07b487619edb256e7f0a8d83fe"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\learn-progress-sync.ts": {
+    "mtime": 1777710469.7145114,
+    "ast_hash": "147eec7515514f0f0b98633cc65d7129",
+    "semantic_hash": "147eec7515514f0f0b98633cc65d7129"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\login-streak-server.ts": {
+    "mtime": 1777784162.344818,
+    "ast_hash": "da5b7b66236e2b3d52559287ac2a6acf",
+    "semantic_hash": "da5b7b66236e2b3d52559287ac2a6acf"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\openings-catalog.ts": {
+    "mtime": 1777278601.0225506,
+    "ast_hash": "f928164d2163439dfa6053ab14487535",
+    "semantic_hash": "f928164d2163439dfa6053ab14487535"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\puzzle-progress-server.ts": {
+    "mtime": 1777461408.5198364,
+    "ast_hash": "efe4364377b34c92bbac5bb679fd0da7",
+    "semantic_hash": "efe4364377b34c92bbac5bb679fd0da7"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\puzzle-progress.ts": {
+    "mtime": 1777461321.3274753,
+    "ast_hash": "852d35fb29cebb9a473ebc3ac71f0633",
+    "semantic_hash": "852d35fb29cebb9a473ebc3ac71f0633"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\puzzle-service.ts": {
+    "mtime": 1777990589.2065659,
+    "ast_hash": "34f89b04a3457f8ef69f27a91f57dfcb",
+    "semantic_hash": "34f89b04a3457f8ef69f27a91f57dfcb"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\supabase\\client.ts": {
+    "mtime": 1776275232.4240377,
+    "ast_hash": "cac44c36b6cc7bf61734d10f0cf7fb12",
+    "semantic_hash": "cac44c36b6cc7bf61734d10f0cf7fb12"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\supabase\\env.ts": {
+    "mtime": 1776397836.281151,
+    "ast_hash": "e1e35d087fc87e38b5f81e89e4f7091f",
+    "semantic_hash": "e1e35d087fc87e38b5f81e89e4f7091f"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\supabase\\proxy.ts": {
+    "mtime": 1777525502.1883104,
+    "ast_hash": "4d79c83a765a1c8cef2481f6495c3700",
+    "semantic_hash": "4d79c83a765a1c8cef2481f6495c3700"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\supabase\\server.ts": {
+    "mtime": 1776275254.9825776,
+    "ast_hash": "078d075b3e3bc3ff0e4a96de159cdb7a",
+    "semantic_hash": "078d075b3e3bc3ff0e4a96de159cdb7a"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\theme-context.tsx": {
+    "mtime": 1777623768.7068317,
+    "ast_hash": "7aa99b6b937445e9b3224c2b49f9167f",
+    "semantic_hash": "7aa99b6b937445e9b3224c2b49f9167f"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\use-learn-progress-sync.ts": {
+    "mtime": 1777710469.718516,
+    "ast_hash": "36812221e324ffb149acb9357d8e46d2",
+    "semantic_hash": "36812221e324ffb149acb9357d8e46d2"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\lib\\use-puzzle-progress.ts": {
+    "mtime": 1777623768.3963506,
+    "ast_hash": "f24b38270a32f7ca65802430134ea952",
+    "semantic_hash": "f24b38270a32f7ca65802430134ea952"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\proxy.ts": {
+    "mtime": 1776274832.230139,
+    "ast_hash": "3d0c8f3339e4c4e0960f4cea85f97d11",
+    "semantic_hash": "3d0c8f3339e4c4e0960f4cea85f97d11"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\registry\\magicui\\confetti.tsx": {
+    "mtime": 1777783375.164475,
+    "ast_hash": "5f770c472675d744555bf2c8b6ac566f",
+    "semantic_hash": "5f770c472675d744555bf2c8b6ac566f"
+  },
+  "D:\\ON-AIR\\Chessify\\tsconfig.json": {
+    "mtime": 1776100914.2643147,
+    "ast_hash": "ee17fd1c97c735e9f3564e3f5251f125",
+    "semantic_hash": "ee17fd1c97c735e9f3564e3f5251f125"
+  },
+  "D:\\ON-AIR\\Chessify\\AGENTS.md": {
+    "mtime": 1776101218.1865563,
+    "ast_hash": "9e09241799026ac05be315a2f0b50055",
+    "semantic_hash": "9e09241799026ac05be315a2f0b50055"
+  },
+  "D:\\ON-AIR\\Chessify\\CLAUDE.md": {
+    "mtime": 1776101218.193074,
+    "ast_hash": "5c27369b226fcf2be8a6cfe52224e767",
+    "semantic_hash": "5c27369b226fcf2be8a6cfe52224e767"
+  },
+  "D:\\ON-AIR\\Chessify\\README.md": {
+    "mtime": 1777989135.3254087,
+    "ast_hash": "650340d2856a0cbcdbd125ae5c579943",
+    "semantic_hash": "650340d2856a0cbcdbd125ae5c579943"
+  },
+  "D:\\ON-AIR\\Chessify\\doc\\hikaru_bot_single_phase_plan.md": {
+    "mtime": 1777876323.7581732,
+    "ast_hash": "d76210f8baa0f3d031b424baf568f0f4",
+    "semantic_hash": "d76210f8baa0f3d031b424baf568f0f4"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\data\\openings_stats\\README.source.md": {
+    "mtime": 1777277408.0424623,
+    "ast_hash": "ad1dea3cf02fc7ff5ab036185fd5495d",
+    "semantic_hash": "ad1dea3cf02fc7ff5ab036185fd5495d"
+  },
+  "D:\\ON-AIR\\Chessify\\src\\app\\icon.png": {
+    "mtime": 1776604479.7324884,
+    "ast_hash": "dec98d79db3b44283c7c728bd0e7feee",
+    "semantic_hash": "dec98d79db3b44283c7c728bd0e7feee"
+  }
+}

@@ -1,0 +1,1 @@
+{"nodes": [{"id": "openings_route_get", "label": "GET", "file_type": "code", "source_file": "src/app/api/openings/route.ts", "source_location": "6-18", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

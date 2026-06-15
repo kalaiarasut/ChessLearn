@@ -20,6 +20,7 @@ export interface RealtimeMatchState {
 
 export function useRealtimeMatch(matchId: string | null, currentUserId?: string | null) {
   const [drawOfferReceived, setDrawOfferReceived] = useState(false);
+  const [rematchOfferReceived, setRematchOfferReceived] = useState<string | null>(null);
   const [gameState, setGameState] = useState<RealtimeMatchState>({
     pgn: "",
     status: "waiting",
@@ -117,6 +118,15 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
       )
       .on(
         "broadcast",
+        { event: "rematch_offer" },
+        ({ payload }) => {
+          if (payload && payload.newMatchId) {
+            setRematchOfferReceived(payload.newMatchId);
+          }
+        }
+      )
+      .on(
+        "broadcast",
         { event: "draw_decline" },
         () => setDrawOfferReceived(false) // Optionally we could notify the sender, but we can just clear it
       )
@@ -181,6 +191,11 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
     channelRef.current.send({ type: "broadcast", event: "draw_decline" });
   }, []);
 
+  const sendRematchOffer = useCallback(async (newMatchId: string) => {
+    if (!channelRef.current) return;
+    await channelRef.current.send({ type: "broadcast", event: "rematch_offer", payload: { newMatchId } });
+  }, []);
+
   const [chatMessages, setChatMessages] = useState<{senderId: string, text: string, timestamp: number}[]>([]);
 
   useEffect(() => {
@@ -224,6 +239,9 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
     drawOfferReceived,
     setDrawOfferReceived,
     sendDrawOffer,
-    declineDrawOffer
+    declineDrawOffer,
+    rematchOfferReceived,
+    setRematchOfferReceived,
+    sendRematchOffer
   };
 }
