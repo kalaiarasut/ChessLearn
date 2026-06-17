@@ -23,6 +23,7 @@ export default function Navbar() {
           <Link href="/play/online" className="hover:text-[var(--text-primary)] transition-colors">Play</Link>
           <Link href="/leaderboard" className="hover:text-[var(--text-primary)] transition-colors">Leaderboard</Link>
           <Link href="/whats-new" className="hover:text-[var(--text-primary)] transition-colors">What&apos;s New</Link>
+          <Link href="/discussion" className="hover:text-[var(--text-primary)] transition-colors text-[var(--brand)]">Discussion</Link>
         </nav>
 
         <div className="flex items-center space-x-5 text-[14px] font-medium max-[1024px]:space-x-3">
@@ -52,6 +53,7 @@ export default function Navbar() {
             <Link href="/play/online" onClick={() => setIsMobileMenuOpen(false)}>Play</Link>
             <Link href="/leaderboard" onClick={() => setIsMobileMenuOpen(false)}>Leaderboard</Link>
             <Link href="/whats-new" onClick={() => setIsMobileMenuOpen(false)}>What&apos;s New</Link>
+            <Link href="/discussion" onClick={() => setIsMobileMenuOpen(false)} className="text-[var(--brand)]">Discussion</Link>
           </nav>
           <div className="mt-auto pb-10 pt-6 flex items-center space-x-6">
             <AuthMenu />

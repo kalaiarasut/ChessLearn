@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Trophy, Swords, BookOpen, Flame, Medal, User } from "lucide-react";
 import LightRays from "@/components/ui/LightRays";
 import Navbar from "@/components/ui/Navbar";
+import Link from "next/link";
 
 type LeaderboardCategory = "puzzle" | "opening" | "activity";
 
@@ -165,14 +166,14 @@ export default function LeaderboardPage() {
                   }`}
                 />
                 
-                <div className="mt-3 text-center bg-[var(--surface-alt)]/90 backdrop-blur-sm px-4 py-2 rounded-xl border border-[var(--border)]">
+                <Link href={`/user/${encodeURIComponent(player.name)}`} className="mt-3 text-center bg-[var(--surface-alt)]/90 backdrop-blur-sm px-4 py-2 rounded-xl border border-[var(--border)] hover:bg-[var(--surface-hover)] transition-colors">
                   <div className="font-bold text-[var(--text-primary)] whitespace-nowrap">{player.name}</div>
                   <div className={`text-sm font-black ${
                     player.rank === 1 ? "text-yellow-500" : player.rank === 2 ? "text-slate-400" : "text-amber-600"
                   }`}>
                     {player.rating}
                   </div>
-                </div>
+                </Link>
               </div>
 
               {/* Pillar */}
@@ -240,7 +241,9 @@ export default function LeaderboardPage() {
                   </div>
                   
                   <div className="flex-1">
-                    <div className="font-bold text-lg group-hover:text-[var(--text-primary)] text-[var(--text-secondary)] transition-colors">{player.name}</div>
+                    <Link href={`/user/${encodeURIComponent(player.name)}`} className="font-bold text-lg group-hover:text-[var(--text-primary)] text-[var(--text-secondary)] transition-colors hover:underline">
+                      {player.name}
+                    </Link>
                   </div>
                   
                   <div className="text-right">

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import { ThemeProvider } from "@/lib/theme-context";
 import { DisplayPreferencesProvider } from "@/lib/display-preferences-context";
+import { Toaster } from 'sonner';
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -53,6 +54,7 @@ export default function RootLayout({
           <DisplayPreferencesProvider>
             <GlobalInviteListener />
             {children}
+            <Toaster theme="system" position="bottom-right" />
           </DisplayPreferencesProvider>
         </ThemeProvider>
       </body>

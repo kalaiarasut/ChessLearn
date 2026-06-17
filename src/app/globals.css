@@ -65,6 +65,9 @@
   --error-bg: #2b1616;
   --error-border: #5c2b2b;
   --error-text: #ffadad;
+  --brand: #2563eb;
+  --brand-hover: #1d4ed8;
+  --brand-muted: rgba(37, 99, 235, 0.1);
 }
 
 .light {
@@ -110,6 +113,9 @@
   --error-bg: #fef2f2;
   --error-border: #fca5a5;
   --error-text: #991b1b;
+  --brand: #2563eb;
+  --brand-hover: #1d4ed8;
+  --brand-muted: rgba(37, 99, 235, 0.1);
 }
 
 /* ===== GLOBAL STYLES ===== */

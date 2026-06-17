@@ -26,10 +26,10 @@ export default function GlobalInviteListener() {
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
     const setupListener = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
 
-      channel = supabase.channel(`invites:${data.user.id}`);
+      channel = supabase.channel(`invites:${session.user.id}`);
       
       channel.on('broadcast', { event: 'game_invite' }, ({ payload }) => {
         setInvite(payload as InvitePayload);

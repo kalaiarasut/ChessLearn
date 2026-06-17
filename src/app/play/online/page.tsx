@@ -516,6 +516,7 @@ function PlayOnlineContent() {
       setShowResignConfirm(false);
       clockInitialized.current = false;
       setRematchSent(false);
+      toastShownRef.current = false;
     }
   }, [matchId, searchParams]);
 
@@ -596,6 +597,32 @@ function PlayOnlineContent() {
     }, 1000);
     return () => clearInterval(interval);
   }, [gameState.opponentOnline, gameState.status]);
+
+  // ── Elo Toast ─────────────────────────────────────────────────────────────────
+  const toastShownRef = useRef(false);
+
+  useEffect(() => {
+    if (gameState.status === 'finished' && myProfile && userId && !toastShownRef.current) {
+      toastShownRef.current = true;
+      const timer = setTimeout(async () => {
+        const { data } = await createSupabaseBrowserClient().from("profiles").select("rating").eq("id", userId).single();
+        if (data) {
+          const newRating = Math.round(data.rating);
+          const diff = newRating - myProfile.rating;
+          if (diff !== 0) {
+            import("sonner").then(({ toast }) => {
+              toast.success(`Rating Update: ${newRating} (${diff > 0 ? '+' : ''}${diff})`, {
+                icon: '📈',
+                duration: 5000,
+              });
+            });
+            setMyProfile(prev => prev ? { ...prev, rating: newRating } : prev);
+          }
+        }
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState.status, myProfile, userId]);
 
   // ── Game Over Reason ──────────────────────────────────────────────────────────
   const getGameOverReasonLabel = () => {
@@ -1950,35 +1977,26 @@ function PlayOnlineContent() {
               title: "Sound Preferences",
               description: "Adjust volume and audio cues.",
               content: (
-                <div className="flex flex-col gap-4 text-sm text-[var(--text-secondary)] py-8 items-center justify-center h-full">
-                  <Volume2 className="w-12 h-12 opacity-20 mb-2" />
-                  <p>Detailed audio settings coming soon.</p>
-                </div>
-              ),
-            },
-            {
-              id: "display",
-              icon: <Monitor className="w-[18px] h-[18px]" />,
-              label: "Display",
-              title: "Interface Customization",
-              description: "Change how the application looks.",
-              content: (
-                <div className="flex flex-col gap-4 text-sm text-[var(--text-secondary)] py-8 items-center justify-center h-full">
-                  <Monitor className="w-12 h-12 opacity-20 mb-2" />
-                  <p>Display settings coming soon.</p>
-                </div>
-              ),
-            },
-            {
-              id: "privacy",
-              icon: <Shield className="w-[18px] h-[18px]" />,
-              label: "Privacy",
-              title: "Privacy & Security",
-              description: "Manage who can see you and your games.",
-              content: (
-                <div className="flex flex-col gap-4 text-sm text-[var(--text-secondary)] py-8 items-center justify-center h-full">
-                  <Shield className="w-12 h-12 opacity-20 mb-2" />
-                  <p>Privacy settings coming soon.</p>
+                <div className="flex flex-col gap-6 text-[var(--text-primary)] px-8 py-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Master Volume</label>
+                      <span className="text-sm text-[var(--text-muted)] font-mono">{onlinePreferences.masterVolume}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={onlinePreferences.masterVolume}
+                      onChange={(e) => {
+                        updateOnlinePreferences({ masterVolume: parseInt(e.target.value) });
+                        if (typeof playSound === 'function') {
+                          playSound('move-self');
+                        }
+                      }}
+                      className="w-full accent-[var(--brand)]"
+                    />
+                  </div>
                 </div>
               ),
             }

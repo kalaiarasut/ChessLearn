@@ -6,6 +6,7 @@ import { Session } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Settings } from "lucide-react";
+import { NotificationDropdown } from "./ui/NotificationDropdown";
 
 export function AuthMenu() {
   const [session, setSession] = useState<Session | null>(null);
@@ -125,6 +126,7 @@ export function AuthMenu() {
         >
           <Settings className="w-[18px] h-[18px]" />
         </Link>
+        <NotificationDropdown />
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -135,9 +137,16 @@ export function AuthMenu() {
 
         {dropdownOpen && (
           <div className="absolute right-0 top-full mt-2 w-48 rounded-lg shadow-lg bg-[var(--surface)] border border-[var(--border)] overflow-hidden z-50">
+            <Link
+              href={`/user/${encodeURIComponent(baseDisplayName)}`}
+              onClick={() => setDropdownOpen(false)}
+              className="block w-full text-left px-4 py-3 text-[14px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors border-b border-[var(--border)]"
+            >
+              Profile
+            </Link>
             <button
               onClick={handleLogout}
-              className="w-full text-left px-4 py-3 text-[14px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors"
+              className="w-full text-left px-4 py-3 text-[14px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors text-red-500 hover:text-red-400"
             >
               Sign out
             </button>
