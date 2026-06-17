@@ -1,1 +1,1 @@
-{"nodes": [{"id": "tsconfig_tsconfig", "label": "tsconfig", "file_type": "document", "source_file": "tsconfig.json", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}
+{"nodes": [{"id": "tsconfig_compileroptions", "label": "TypeScript Compiler Options", "file_type": "concept", "source_file": "tsconfig.json", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}
