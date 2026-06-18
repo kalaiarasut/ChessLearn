@@ -8,6 +8,7 @@ import { MiniBoardPreview } from "@/components/discussion/MiniBoardPreview";
 import { ACHIEVEMENTS, OPENINGS } from "@/lib/data/gamification";
 import EloGraph from "@/components/ui/EloGraph";
 import EditableAvatar from "@/components/ui/EditableAvatar";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const iconMap: Record<string, any> = {
   Crown, ArrowUp, RefreshCcw, Zap, Shield, ShieldCheck, Crosshair, Ghost, Target, Castle, BookOpen, Skull, TrendingUp, Activity, Clock, Flag, Star, Swords, Axe, Split, Box, PanelBottom, CloudRain, Wand2, Diamond, Coins, Milestone, CheckCircle, Award
@@ -23,6 +24,24 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
   }
 
   const { stats } = profile;
+
+  const supabase = await createSupabaseServerClient();
+  const { data: userAch } = await supabase
+    .from('user_achievements')
+    .select('progress, unlocked_at, achievements(title)')
+    .eq('user_id', profile.id);
+
+  const progressMap: Record<string, { current: number, unlocked: boolean }> = {};
+  if (userAch) {
+    for (const record of userAch as any[]) {
+      if (record.achievements?.title) {
+        progressMap[record.achievements.title] = {
+          current: record.progress,
+          unlocked: !!record.unlocked_at
+        };
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[var(--bg)] flex flex-col">
@@ -151,13 +170,10 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
                 const isLegendary = award.rarity === "Legendary";
                 const isEpic = award.rarity === "Epic";
                 
-                // Mock progress for UI demonstration based on index
                 const max = award.maxProgress || 1;
-                let current = (i * 17) % (max + 1);
-                // Make the first few explicitly unlocked
-                if (i < 3 || i === 5) current = max;
-                
-                const isUnlocked = current === max;
+                const state = progressMap[award.title] || { current: 0, unlocked: false };
+                const current = state.current;
+                const isUnlocked = state.unlocked;
                 const progressPercent = max > 0 ? (current / max) * 100 : 0;
                 
                 // Styling based on unlock state

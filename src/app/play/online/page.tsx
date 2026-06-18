@@ -22,6 +22,7 @@ import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreference
 import { useDisplayPreferences } from "@/lib/display-preferences-context";
 import { ACHIEVEMENTS } from "@/lib/data/gamification";
 import { showAchievement } from "@/components/ui/AchievementToast";
+import { evaluateMoveAchievements, evaluateGameEndAchievements } from "@/lib/chess/achievement-engine";
 
 const VARIANTS = [
   { id: "chess960", label: "Chess960", desc: "Randomized back rank starting position." },
@@ -245,6 +246,16 @@ function PlayOnlineContent() {
   const [ratingRangeEnabled, setRatingRangeEnabled] = useState(false);
   const [ratingMin, setRatingMin] = useState(-50);
   const [ratingMax, setRatingMax] = useState(50);
+
+  // Gamification state
+  const [gamificationState, setGamificationState] = useState<Record<string, { current: number, max: number, unlocked: boolean }>>({});
+  const gamificationIncrementsRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    fetch('/api/gamification/progress').then(res => res.json()).then(data => {
+      if (data.progress) setGamificationState(data.progress);
+    });
+  }, []);
 
   // ── Player Profiles ──────────────────────────────────────────────────────────
   const [myProfile, setMyProfile] = useState<{ username: string; rating: number } | null>(null);
@@ -861,6 +872,25 @@ function PlayOnlineContent() {
         // Auto-promote to Queen for simplicity
         const moveResult = game.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
         if (moveResult) {
+          const inc = evaluateMoveAchievements(moveResult, userId === gameState.whitePlayerId);
+          for (const [title, val] of Object.entries(inc)) {
+            gamificationIncrementsRef.current[title] = (gamificationIncrementsRef.current[title] || 0) + val;
+            const baseline = gamificationState[title];
+            if (baseline && !baseline.unlocked) {
+              const currentProgress = baseline.current + gamificationIncrementsRef.current[title];
+              if (currentProgress === baseline.max) {
+                 const achInfo = ACHIEVEMENTS.find(a => a.title === title);
+                 if (achInfo) {
+                   showAchievement(achInfo);
+                   setGamificationState(prev => ({
+                     ...prev,
+                     [title]: { ...baseline, current: baseline.max, unlocked: true }
+                   }));
+                 }
+              }
+            }
+          }
+
           updateBoard(game);
           setDisplayLastMove({ from: sourceSquare, to: targetSquare });
           setSelectedSquare(null);
@@ -870,15 +900,30 @@ function PlayOnlineContent() {
           // Play appropriate sound
           if (game.isGameOver()) {
             playSound("game-end");
-            setTimeout(() => {
-              if (game.isCheckmate()) {
-                const winAch = ACHIEVEMENTS.find(a => a.title === "Fast & Furious") || ACHIEVEMENTS[0];
-                showAchievement(winAch);
-              } else {
-                const drawAch = ACHIEVEMENTS.find(a => a.title === "Pacifist") || ACHIEVEMENTS[0];
-                showAchievement(drawAch);
-              }
-            }, 1000);
+            
+            const endInc = evaluateGameEndAchievements(game, userId === gameState.whitePlayerId);
+            for (const [title, val] of Object.entries(endInc)) {
+              gamificationIncrementsRef.current[title] = (gamificationIncrementsRef.current[title] || 0) + val;
+            }
+
+            fetch('/api/gamification/progress', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ increments: gamificationIncrementsRef.current })
+            }).then(res => res.json()).then(data => {
+               if (data.newUnlocks) {
+                 data.newUnlocks.forEach((title: string, i: number) => {
+                    const achInfo = ACHIEVEMENTS.find(a => a.title === title);
+                    if (achInfo) {
+                      setTimeout(() => showAchievement(achInfo), i * 1500);
+                      setGamificationState(prev => ({
+                        ...prev,
+                        [title]: { current: achInfo.maxProgress || 1, max: achInfo.maxProgress || 1, unlocked: true }
+                      }));
+                    }
+                 });
+               }
+            }).catch(err => console.error(err));
           } else if (game.inCheck()) {
             playSound("move-check");
           } else if (moveResult.captured) {

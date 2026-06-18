@@ -88,7 +88,13 @@ const OPENINGS = [
 async function seed() {
   console.log('Seeding achievements...');
   const { error: achErr } = await supabase.from('achievements').upsert(
-    ACHIEVEMENTS.map(a => ({ ...a })),
+    ACHIEVEMENTS.map(a => ({ 
+      title: a.title, 
+      description: a.desc, 
+      icon: a.icon, 
+      rarity: a.rarity, 
+      max_progress: a.maxProgress || 1 
+    })),
     { onConflict: 'title' }
   );
   if (achErr) console.error(achErr);
