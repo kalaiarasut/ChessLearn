@@ -136,6 +136,7 @@ export function PostCard({ post, isReply = false, onCommentClick }: PostCardProp
         <img
           src={post.author.avatar}
           alt={post.author.name}
+          onClick={(e) => { e.stopPropagation(); router.push(`/user/${post.author.handle}`); }}
           className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
         />
         {post.replies && post.replies.length > 0 && (
@@ -147,7 +148,10 @@ export function PostCard({ post, isReply = false, onCommentClick }: PostCardProp
       <div className="flex-1 min-w-0 pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 overflow-hidden text-[15px]">
-            <span className="font-bold text-[var(--text-primary)] hover:underline cursor-pointer truncate">
+            <span 
+              className="font-bold text-[var(--text-primary)] hover:underline cursor-pointer truncate"
+              onClick={(e) => { e.stopPropagation(); router.push(`/user/${post.author.handle}`); }}
+            >
               {post.author.name}
             </span>
             {post.author.verified && (

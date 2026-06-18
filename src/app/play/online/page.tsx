@@ -20,6 +20,8 @@ import { findOrCreateMatch, createFriendMatch, joinFriendMatch, syncGameState, s
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreferences } from "@/lib/client-preferences";
 import { useDisplayPreferences } from "@/lib/display-preferences-context";
+import { ACHIEVEMENTS } from "@/lib/data/gamification";
+import { showAchievement } from "@/components/ui/AchievementToast";
 
 const VARIANTS = [
   { id: "chess960", label: "Chess960", desc: "Randomized back rank starting position." },
@@ -476,6 +478,12 @@ function PlayOnlineContent() {
       // Play appropriate sound for opponent's move
       if (newGame.isGameOver()) {
         playSound("game-end");
+        setTimeout(() => {
+          if (newGame.isCheckmate()) {
+            const epicAch = ACHIEVEMENTS.find(a => a.title === "The Immortal King") || ACHIEVEMENTS[0];
+            showAchievement(epicAch);
+          }
+        }, 1000);
       } else if (newGame.inCheck()) {
         playSound("move-check");
       } else if (history.length > 0 && history[history.length - 1].captured) {
@@ -862,6 +870,15 @@ function PlayOnlineContent() {
           // Play appropriate sound
           if (game.isGameOver()) {
             playSound("game-end");
+            setTimeout(() => {
+              if (game.isCheckmate()) {
+                const winAch = ACHIEVEMENTS.find(a => a.title === "Fast & Furious") || ACHIEVEMENTS[0];
+                showAchievement(winAch);
+              } else {
+                const drawAch = ACHIEVEMENTS.find(a => a.title === "Pacifist") || ACHIEVEMENTS[0];
+                showAchievement(drawAch);
+              }
+            }, 1000);
           } else if (game.inCheck()) {
             playSound("move-check");
           } else if (moveResult.captured) {

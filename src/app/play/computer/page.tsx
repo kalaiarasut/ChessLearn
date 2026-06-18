@@ -18,6 +18,8 @@ import { DEFAULT_CLIENT_PREFERENCES, loadClientPreferences, saveClientPreference
 import { SettingsModalLayout, BoardPiecesSettingsTab } from "@/components/settings-layout";
 import { Confetti, type ConfettiRef } from "@/registry/magicui/confetti";
 import { useDisplayPreferences } from "@/lib/display-preferences-context";
+import { ACHIEVEMENTS } from "@/lib/data/gamification";
+import { showAchievement } from "@/components/ui/AchievementToast";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 const DEFAULT_FEN = new Chess().fen();
@@ -2668,6 +2670,23 @@ export default function PlayComputerPage() {
 
       if (nextPosition.isGameOver()) {
         setGameState("game_over");
+        
+        // Gamification Phase 6 Trigger
+        // Trigger achievements on game end based on game context (Mocking a drop for demo)
+        setTimeout(() => {
+          if (nextPosition.isCheckmate()) {
+            const winAch = ACHIEVEMENTS.find(a => a.title === "Fast & Furious") || ACHIEVEMENTS[0];
+            showAchievement(winAch);
+            
+            setTimeout(() => {
+               const epicAch = ACHIEVEMENTS.find(a => a.title === "The Immortal King") || ACHIEVEMENTS[0];
+               showAchievement(epicAch);
+            }, 1500);
+          } else {
+            const drawAch = ACHIEVEMENTS.find(a => a.title === "Pacifist") || ACHIEVEMENTS[0];
+            showAchievement(drawAch);
+          }
+        }, 1000);
       }
 
       return true;

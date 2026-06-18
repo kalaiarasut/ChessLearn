@@ -51,7 +51,7 @@ export function MiniBoardPreview({ fenOrPgn }: MiniBoardPreviewProps) {
     // Using standard pieces theme
     return (
       <img 
-        src={`/themes/pieces/standard/${fileName}.png`} 
+        src={`/pieces/neo/150/${fileName}.png`} 
         alt={fileName}
         className="w-full h-full object-contain drop-shadow-sm pointer-events-none"
       />
@@ -89,7 +89,7 @@ export function MiniBoardPreview({ fenOrPgn }: MiniBoardPreviewProps) {
       <div className="flex justify-between items-center text-xs text-[var(--text-secondary)]">
         <span>Chess Position</span>
         <button 
-          className="text-[var(--brand)] hover:underline font-medium"
+          className="text-[var(--text-primary)] hover:underline font-medium"
           onClick={(e) => {
             e.stopPropagation();
             if (parsedFen) {
