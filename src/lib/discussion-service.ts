@@ -22,8 +22,8 @@ export async function getSupabaseServerClient() {
   });
 }
 
-// Fetch posts (optionally filtered by parent id for replies)
-export async function getPosts(replyToId: string | null = null, limit = 20, cursor?: string, feedType: 'all' | 'following' = 'all'): Promise<Post[]> {
+// Fetch posts (optionally filtered by parent id for replies, or search query)
+export async function getPosts(replyToId: string | null = null, limit = 20, cursor?: string, feedType: 'all' | 'following' = 'all', searchQuery?: string): Promise<Post[]> {
   const supabase = await getSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
   const currentUserId = userData?.user?.id;
@@ -45,6 +45,14 @@ export async function getPosts(replyToId: string | null = null, limit = 20, curs
         images,
         created_at,
         author_id
+      ),
+      polls (
+        id,
+        options,
+        poll_votes (
+          user_id,
+          option_index
+        )
       )
     `)
     .order("created_at", { ascending: false })
@@ -60,17 +68,23 @@ export async function getPosts(replyToId: string | null = null, limit = 20, curs
     query = query.lt("created_at", cursor);
   }
 
-  if (feedType === 'following' && currentUserId && !replyToId) {
-    // Subquery to get followed users
+  if (searchQuery) {
+    query = query.ilike("content", `%${searchQuery}%`);
+  }
+
+  if (feedType === 'following' && currentUserId && !searchQuery) {
+    // get followed user ids
     const { data: follows } = await supabase
-      .from("follows")
-      .select("following_id")
-      .eq("follower_id", currentUserId);
-    
-    const followingIds = follows?.map(f => f.following_id) || [];
-    followingIds.push(currentUserId); // include own posts
-    
-    query = query.in("author_id", followingIds);
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', currentUserId);
+    if (follows && follows.length > 0) {
+      const followedIds = follows.map(f => f.following_id);
+      query = query.in('author_id', [...followedIds, currentUserId]);
+    } else {
+      // If not following anyone, return empty or just own posts
+      query = query.eq('author_id', currentUserId);
+    }
   }
 
   const { data, error } = await query;
@@ -187,8 +201,13 @@ export async function getPosts(replyToId: string | null = null, limit = 20, curs
         hasReposted,
       },
       replies: postReplies.length > 0 ? postReplies : undefined,
-      replyToId: p.reply_to_id,
+      replyToId: p.reply_to_id || undefined,
       quotedPost,
+      poll: p.polls && p.polls.length > 0 ? {
+        id: p.polls[0].id,
+        options: p.polls[0].options,
+        votes: p.polls[0].poll_votes?.map((v: any) => ({ userId: v.user_id, optionIndex: v.option_index })) || []
+      } : undefined
     };
   };
 
@@ -213,4 +232,136 @@ export async function searchUsers(query: string): Promise<User[]> {
     verified: p.verified,
     isOnline: p.is_online || false,
   }));
+}
+
+export async function getPostsByIds(postIds: string[]): Promise<Post[]> {
+  if (postIds.length === 0) return [];
+
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const currentUserId = user?.id || null;
+
+  const { data, error } = await supabase
+    .from("discussion_posts")
+    .select(`
+      *,
+      reactions:discussion_reactions(*),
+      quoted_post:discussion_posts!quoted_post_id(*),
+      polls(*, poll_votes(*))
+    `)
+    .in("id", postIds)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) return [];
+
+  // Fetch author profiles
+  const authorIds = new Set<string>();
+  data.forEach((p: any) => {
+    authorIds.add(p.author_id);
+    if (p.quoted_post) authorIds.add(p.quoted_post.author_id);
+  });
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, username, avatar_url, verified, is_online")
+    .in("id", Array.from(authorIds));
+
+  const profilesMap: Record<string, any> = {};
+  if (profiles) {
+    profiles.forEach(p => profilesMap[p.id] = p);
+  }
+
+  // Fetch replies
+  const { data: replies } = await supabase
+    .from("discussion_posts")
+    .select(`
+      *,
+      reactions:discussion_reactions(*),
+      quoted_post:discussion_posts!quoted_post_id(*),
+      polls(*, poll_votes(*))
+    `)
+    .in("reply_to_id", data.map((p: any) => p.id));
+    
+  if (replies) {
+    replies.forEach((r: any) => {
+      authorIds.add(r.author_id);
+    });
+    // fetch missing profiles
+    const { data: moreProfiles } = await supabase
+      .from("profiles")
+      .select("id, username, avatar_url, verified, is_online")
+      .in("id", Array.from(authorIds));
+    if (moreProfiles) {
+      moreProfiles.forEach(p => profilesMap[p.id] = p);
+    }
+  }
+
+  const allReplies = replies || [];
+
+  const mapPost = (p: any): Post => {
+    const likes = p.reactions?.filter((r: any) => r.type === 'like') || [];
+    const reposts = p.reactions?.filter((r: any) => r.type === 'repost') || [];
+    const hasLiked = currentUserId ? likes.some((r: any) => r.user_id === currentUserId) : false;
+    const hasReposted = currentUserId ? reposts.some((r: any) => r.user_id === currentUserId) : false;
+    
+    // We also need to map hasBookmarked
+    const hasBookmarked = true; // By definition these are bookmarks
+
+    const postReplies = allReplies.filter(r => r.reply_to_id === p.id).map(mapPost);
+    const profile = profilesMap[p.author_id];
+
+    let quotedPost: Post | undefined = undefined;
+    if (p.quoted_post) {
+      const qp = p.quoted_post;
+      const qProfile = profilesMap[qp.author_id];
+      quotedPost = {
+        id: qp.id,
+        author: {
+          id: qProfile?.id || qp.author_id || 'unknown',
+          name: qProfile?.username || 'Unknown User',
+          handle: qProfile?.username || 'unknown',
+          avatar: qProfile?.avatar_url || `https://ui-avatars.com/api/?name=${qProfile?.username || 'U'}`,
+          verified: qProfile?.verified || false,
+          isOnline: qProfile?.is_online || false,
+        },
+        content: qp.content,
+        images: qp.images && qp.images.length > 0 ? qp.images : undefined,
+        createdAt: qp.created_at,
+        reactions: { likes: 0, comments: 0, reposts: 0 },
+      };
+    }
+
+    return {
+      id: p.id,
+      author: {
+        id: profile?.id || p.author_id || 'unknown',
+        name: profile?.username || 'Unknown User',
+        handle: profile?.username || 'unknown',
+        avatar: profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.username || 'U'}`,
+        verified: profile?.verified || false,
+        isOnline: profile?.is_online || false,
+      },
+      content: p.content,
+      images: p.images && p.images.length > 0 ? p.images : undefined,
+      createdAt: p.created_at,
+      reactions: {
+        likes: likes.length,
+        comments: postReplies.length,
+        reposts: reposts.length,
+        hasLiked,
+        hasReposted,
+        hasBookmarked
+      },
+      replies: postReplies.length > 0 ? postReplies : undefined,
+      replyToId: p.reply_to_id || undefined,
+      quotedPost,
+      poll: p.polls && p.polls.length > 0 ? {
+        id: p.polls[0].id,
+        options: p.polls[0].options,
+        votes: p.polls[0].poll_votes?.map((v: any) => ({ userId: v.user_id, optionIndex: v.option_index })) || []
+      } : undefined
+    };
+  };
+
+  return data.map(mapPost);
 }

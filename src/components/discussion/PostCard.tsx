@@ -16,6 +16,7 @@ import { LinkPreview } from "./LinkPreview";
 import { ImageLightbox } from "./ImageLightbox";
 import { ReportModal } from "./ReportModal";
 import { QuotedPostPreview } from "./QuotedPostPreview";
+import { PollViewer } from "./PollViewer";
 
 interface PostCardProps {
   post: Post;
@@ -78,12 +79,16 @@ export function PostCard({ post, isReply = false, onCommentClick }: PostCardProp
     const urlMatch = content.match(urlRegex);
     const firstUrl = urlMatch ? urlMatch[0] : null;
 
-    // Regex for matching @mentions, #hashtags, and links
-    const parts = content.split(/(@\w+|#\w+|https?:\/\/[^\s]+)/g);
+    // Regex for matching @mentions, #hashtags, links, and board tags
+    const parts = content.split(/(@\w+|#\w+|https?:\/\/[^\s]+|\[fen\][\s\S]*?\[\/fen\]|\[pgn\][\s\S]*?\[\/pgn\]|\[livegame:[\w-]+\])/ig);
 
     return (
       <div className="text-[15px] leading-normal text-[var(--text-primary)] mt-1 whitespace-pre-wrap word-break">
         {parts.map((part, i) => {
+          if (!part) return null;
+          if (part.toLowerCase().startsWith('[fen]') || part.toLowerCase().startsWith('[pgn]') || part.toLowerCase().startsWith('[livegame:')) {
+            return null; // hide tags from text
+          }
           if (part.startsWith('@')) {
             const handle = part.slice(1);
             return (
@@ -114,9 +119,22 @@ export function PostCard({ post, isReply = false, onCommentClick }: PostCardProp
           return <span key={i}>{part}</span>;
         })}
         
-        <div className="mt-3">
-          <MiniBoardPreview fenOrPgn={content} />
-        </div>
+        {(() => {
+          const fenMatch = content.match(/\[fen\]([\s\S]*?)\[\/fen\]/i);
+          const pgnMatch = content.match(/\[pgn\]([\s\S]*?)\[\/pgn\]/i);
+          const liveGameMatch = content.match(/\[livegame:([\w-]+)\]/i);
+          const boardData = fenMatch ? fenMatch[1].trim() : (pgnMatch ? pgnMatch[1].trim() : null);
+          const liveGameId = liveGameMatch ? liveGameMatch[1] : null;
+          
+          if (boardData || liveGameId) {
+            return (
+              <div className="mt-3">
+                <MiniBoardPreview fenOrPgn={boardData || undefined} liveGameId={liveGameId || undefined} />
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         {firstUrl && !post.quotedPost && (
           <LinkPreview url={firstUrl} />
@@ -199,6 +217,10 @@ export function PostCard({ post, isReply = false, onCommentClick }: PostCardProp
                   onImageClick={(index) => setLightboxIndex(index)}
                 />
               </div>
+            )}
+
+            {post.poll && (
+              <PollViewer poll={post.poll} currentUserId={currentUserId} />
             )}
           </>
         )}

@@ -15,6 +15,7 @@ export default async function SpectateMatchPage({ params }: { params: Promise<{ 
       black_player_id,
       pgn,
       status,
+      time_control,
       created_at,
       white_player:profiles!matches_white_player_id_fkey(id, username, rating, avatar_url),
       black_player:profiles!matches_black_player_id_fkey(id, username, rating, avatar_url)

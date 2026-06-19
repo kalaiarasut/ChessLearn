@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Search, MoreHorizontal } from "lucide-react";
 import { getSupabaseServerClient } from "@/lib/discussion-service";
 import { FollowButton } from "./FollowButton";
+import { DiscussionSearchBar } from "./DiscussionSearchBar";
 
 export async function RightSidebar() {
   const supabase = await getSupabaseServerClient();
@@ -40,16 +41,7 @@ export async function RightSidebar() {
   return (
     <div className="flex flex-col gap-4 sticky top-24">
       {/* Search Bar */}
-      <div className="relative group">
-        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-[var(--text-muted)] group-focus-within:text-[var(--cta-bg)] transition-colors" />
-        </div>
-        <input
-          type="text"
-          placeholder="Search"
-          className="w-full bg-[var(--surface-alt)] border border-transparent text-[var(--text-primary)] placeholder-[var(--text-muted)] rounded-full py-2.5 pl-12 pr-4 focus:outline-none focus:border-[var(--cta-bg)] focus:bg-[var(--surface)] transition-all"
-        />
-      </div>
+      <DiscussionSearchBar />
 
       {/* Relevant People */}
       <div className="bg-[var(--surface-alt)] rounded-2xl border border-[var(--border)] overflow-hidden">

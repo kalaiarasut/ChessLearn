@@ -18,20 +18,37 @@ export function QuotedPostPreview({ post }: { post: Post }) {
   // Basic content formatting for quote (similar to PostCard but stripped down)
   const renderContent = (content: string = "") => {
     if (!content) return null;
-    const parts = content.split(/(@\w+|#\w+|https?:\/\/[^\s]+)/g);
+    const parts = content.split(/(@\w+|#\w+|https?:\/\/[^\s]+|\[fen\][\s\S]*?\[\/fen\]|\[pgn\][\s\S]*?\[\/pgn\]|\[livegame:[\w-]+\])/ig);
     
     return (
       <div className="text-[15px] leading-normal text-[var(--text-primary)] mt-1 whitespace-pre-wrap word-break">
         {parts.map((part, i) => {
+          if (!part) return null;
+          if (part.toLowerCase().startsWith('[fen]') || part.toLowerCase().startsWith('[pgn]') || part.toLowerCase().startsWith('[livegame:')) {
+            return null;
+          }
           if (part.startsWith('@')) return <span key={i} className="text-[var(--brand)]">{part}</span>;
           if (part.startsWith('#')) return <span key={i} className="text-[var(--brand)]">{part}</span>;
           if (part.startsWith('http')) return <span key={i} className="text-[var(--brand)]">{part}</span>;
           return <span key={i}>{part}</span>;
         })}
         
-        <div className="mt-2">
-          <MiniBoardPreview fenOrPgn={content} />
-        </div>
+        {(() => {
+          const fenMatch = content.match(/\[fen\]([\s\S]*?)\[\/fen\]/i);
+          const pgnMatch = content.match(/\[pgn\]([\s\S]*?)\[\/pgn\]/i);
+          const liveGameMatch = content.match(/\[livegame:([\w-]+)\]/i);
+          const boardData = fenMatch ? fenMatch[1].trim() : (pgnMatch ? pgnMatch[1].trim() : null);
+          const liveGameId = liveGameMatch ? liveGameMatch[1] : null;
+          
+          if (boardData || liveGameId) {
+            return (
+              <div className="mt-2">
+                <MiniBoardPreview fenOrPgn={boardData || undefined} liveGameId={liveGameId || undefined} />
+              </div>
+            );
+          }
+          return null;
+        })()}
       </div>
     );
   };

@@ -11,10 +11,17 @@ import { fetchPostsAction } from '@/app/actions/discussion';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { Loader2 } from "lucide-react";
 import { useInView } from 'react-intersection-observer';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Search } from 'lucide-react';
 
 export default function DiscussionPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const query = searchParams.get('q');
+  
   const [feedType, setFeedType] = useState<'all' | 'following'>('all');
   const [posts, setPosts] = useState<Post[]>([]);
+  const [people, setPeople] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -26,21 +33,33 @@ export default function DiscussionPage() {
 
   const loadInitialPosts = async () => {
     setLoading(true);
-    const fetched = await fetchPostsAction(null, 20, undefined, feedType);
+    let fetched: Post[] = [];
+    if (query) {
+      const { searchPostsAction, fetchUsersAction } = await import('@/app/actions/discussion');
+      const [fetchedPosts, fetchedPeople] = await Promise.all([
+        searchPostsAction(query),
+        fetchUsersAction(query)
+      ]);
+      fetched = fetchedPosts;
+      setPeople(fetchedPeople);
+    } else {
+      fetched = await fetchPostsAction(null, 20, undefined, feedType);
+      setPeople([]);
+    }
     setPosts(fetched);
     setLoading(false);
-    if (fetched.length < 20) setHasMore(false);
+    if (fetched.length < 20 || query) setHasMore(false); // Disable infinite scroll for search for now
     else setHasMore(true);
   };
 
   useEffect(() => {
     loadInitialPosts();
-  }, [feedType]); // Reload when feedType changes
+  }, [feedType, query]); // Reload when feedType or search query changes
 
   useEffect(() => {
-    loadInitialPosts();
+    // Subscribe to real-time inserts (only if not searching)
+    if (query) return;
 
-    // Subscribe to real-time inserts
     const channel = supabase.channel('realtime_posts')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'discussion_posts' }, (payload) => {
         // Only prepend top-level posts
@@ -58,10 +77,10 @@ export default function DiscussionPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [query]);
 
   const loadMorePosts = useCallback(async () => {
-    if (loadingMore || !hasMore || posts.length === 0) return;
+    if (loadingMore || !hasMore || posts.length === 0 || query) return;
     setLoadingMore(true);
     const lastPost = posts[posts.length - 1];
     const morePosts = await fetchPostsAction(null, 20, lastPost.createdAt, feedType);
@@ -79,10 +98,10 @@ export default function DiscussionPage() {
     }
   }, [inView, hasMore, loadingMore, loadMorePosts]);
 
-  const handleCreatePost = async (content: string, images: string[]) => {
+  const handleCreatePost = async (content: string, images: string[], pollOptions?: string[]) => {
     // Optimistic UI could go here
     const { createPost } = await import('@/app/actions/discussion');
-    await createPost(content, images);
+    await createPost(content, images, undefined, undefined, pollOptions);
     // Realtime subscription will fetch it, or we can fetch manually to be safe
     const fetched = await fetchPostsAction(null, 1, undefined, feedType);
     if (fetched.length > 0) {
@@ -93,36 +112,81 @@ export default function DiscussionPage() {
   return (
     <div className="w-full flex flex-col gap-6">
       <div className="border-b border-[var(--border)] pb-0">
-        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-4 font-serif px-2">Home</h1>
         
-        {/* Tabs */}
-        <div className="flex w-full border-b border-[var(--border)]">
-          <button
-            onClick={() => setFeedType('all')}
-            className={`flex-1 py-4 text-sm font-semibold transition-colors relative hover:bg-[var(--surface-alt)]/50 ${feedType === 'all' ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
-          >
-            For You
-            {feedType === 'all' && (
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-[var(--brand)] rounded-t-full" />
-            )}
-          </button>
-          <button
-            onClick={() => setFeedType('following')}
-            className={`flex-1 py-4 text-sm font-semibold transition-colors relative hover:bg-[var(--surface-alt)]/50 ${feedType === 'following' ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
-          >
-            Following
-            {feedType === 'following' && (
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-[var(--brand)] rounded-t-full" />
-            )}
-          </button>
-        </div>
+        {query ? (
+          <div className="px-2 mb-4">
+            <button 
+              onClick={() => router.push('/discussion')}
+              className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] mb-2 flex items-center gap-1"
+            >
+              ← Back to feed
+            </button>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)] font-serif flex items-center gap-2">
+              <Search size={24} />
+              Results for &quot;{query}&quot;
+            </h1>
+          </div>
+        ) : (
+          <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-4 font-serif px-2">Home</h1>
+        )}
         
-        <div className="pt-4">
-          <PostComposer onSubmit={handleCreatePost} />
-        </div>
+        {!query && (
+          <>
+            {/* Tabs */}
+            <div className="flex w-full border-b border-[var(--border)]">
+              <button
+                onClick={() => setFeedType('all')}
+                className={`flex-1 py-4 text-sm font-semibold transition-colors relative hover:bg-[var(--surface-alt)]/50 ${feedType === 'all' ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
+              >
+                For You
+                {feedType === 'all' && (
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-[var(--brand)] rounded-t-full" />
+                )}
+              </button>
+              <button
+                onClick={() => setFeedType('following')}
+                className={`flex-1 py-4 text-sm font-semibold transition-colors relative hover:bg-[var(--surface-alt)]/50 ${feedType === 'following' ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
+              >
+                Following
+                {feedType === 'following' && (
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-[var(--brand)] rounded-t-full" />
+                )}
+              </button>
+            </div>
+            
+            <div className="pt-4">
+              <PostComposer onSubmit={handleCreatePost} />
+            </div>
+          </>
+        )}
       </div>
 
       <div className="flex flex-col">
+        {query && people.length > 0 && (
+          <div className="border-b border-[var(--border)] pb-4 mb-4 px-2">
+            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-3">People</h2>
+            <div className="flex flex-col gap-3">
+              {people.map((person) => (
+                <div 
+                  key={person.id} 
+                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-[var(--surface-alt)] cursor-pointer transition-colors"
+                  onClick={() => router.push(`/user/${person.handle}`)}
+                >
+                  <img src={person.avatar} alt={person.name} className="w-12 h-12 rounded-full object-cover" />
+                  <div className="flex flex-col">
+                    <span className="font-bold text-[var(--text-primary)]">{person.name}</span>
+                    <span className="text-sm text-[var(--text-secondary)]">@{person.handle}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {query && posts.length > 0 && (
+          <h2 className="text-lg font-bold text-[var(--text-primary)] mb-3 px-2">Posts</h2>
+        )}
+
         {posts.map((post, index) => (
           <motion.div
             key={post.id}

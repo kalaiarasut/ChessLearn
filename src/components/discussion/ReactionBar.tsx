@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Repeat } from 'lucide-react';
+import { Heart, MessageCircle, Repeat, Bookmark } from 'lucide-react';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { PostReaction } from '@/lib/mock-data';
@@ -18,6 +18,7 @@ export interface ReactionBarProps {
     reposts: number;
     hasLiked?: boolean;
     hasReposted?: boolean;
+    hasBookmarked?: boolean;
   };
   onCommentClick?: () => void;
   onQuoteClick?: () => void;
@@ -27,10 +28,12 @@ export function ReactionBar({ postId, initialReactions, onCommentClick }: Reacti
   const [reactions, setReactions] = useState({
     ...initialReactions,
     hasLiked: initialReactions.hasLiked ?? false,
-    hasReposted: initialReactions.hasReposted ?? false
+    hasReposted: initialReactions.hasReposted ?? false,
+    hasBookmarked: initialReactions.hasBookmarked ?? false
   });
   const [isLiking, setIsLiking] = useState(false);
   const [isReposting, setIsReposting] = useState(false);
+  const [isBookmarking, setIsBookmarking] = useState(false);
   const [showRepostMenu, setShowRepostMenu] = useState(false);
   const supabase = createSupabaseBrowserClient();
 
@@ -133,6 +136,24 @@ export function ReactionBar({ postId, initialReactions, onCommentClick }: Reacti
     }
   };
 
+  const handleBookmark = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isBookmarking) return;
+    setIsBookmarking(true);
+    const willBookmark = !reactions.hasBookmarked;
+
+    setReactions(prev => ({ ...prev, hasBookmarked: willBookmark }));
+
+    try {
+      const { toggleBookmarkAction } = await import('@/app/actions/discussion');
+      await toggleBookmarkAction(postId);
+    } catch (err) {
+      setReactions(prev => ({ ...prev, hasBookmarked: !willBookmark }));
+    } finally {
+      setIsBookmarking(false);
+    }
+  };
+
   const formatCount = (count: number) => {
     if (count === 0) return "";
     if (count >= 10000) return (count / 1000).toFixed(1) + "K";
@@ -213,6 +234,18 @@ export function ReactionBar({ postId, initialReactions, onCommentClick }: Reacti
           <Heart size={18} className={reactions.hasLiked ? 'fill-current' : 'group-hover:fill-red-500/20'} />
         </motion.div>
         <span className="text-sm font-medium">{formatCount(reactions.likes)}</span>
+      </button>
+
+      <button
+        onClick={handleBookmark}
+        className={`group flex items-center gap-2 transition-colors ${reactions.hasBookmarked ? 'text-[var(--brand)]' : 'text-[var(--text-secondary)] hover:text-[var(--brand)]'}`}
+      >
+        <motion.div
+          whileTap={{ scale: 0.8 }}
+          className="p-2 rounded-full group-hover:bg-[var(--brand)]/10 transition-colors"
+        >
+          <Bookmark size={18} className={reactions.hasBookmarked ? 'fill-current' : ''} />
+        </motion.div>
       </button>
 
       <ShareMenu />

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getSupabaseServerClient } from "@/lib/discussion-service";
 
-export async function createPost(content: string, images: string[] = [], replyToId?: string, quotedPostId?: string) {
+export async function createPost(content: string, images: string[] = [], replyToId?: string, quotedPostId?: string, pollOptions?: string[]) {
   const supabase = await getSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -25,6 +25,19 @@ export async function createPost(content: string, images: string[] = [], replyTo
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  // Insert poll if provided
+  if (pollOptions && pollOptions.length >= 2) {
+    const { error: pollError } = await supabase
+      .from("polls")
+      .insert({
+        post_id: post.id,
+        options: pollOptions
+      });
+    if (pollError) {
+      console.error("Failed to create poll:", pollError);
+    }
   }
 
   // Find mentions
@@ -122,7 +135,7 @@ export async function editPost(postId: string, content: string, images?: string[
     throw new Error("Unauthorized");
   }
 
-  const updates: any = { content };
+  const updates: { content: string; images?: string[] } = { content };
   if (images) {
     updates.images = images;
   }
@@ -202,10 +215,23 @@ export async function fetchUsersAction(query: string) {
   return searchUsers(query);
 }
 
+export async function searchPostsAction(query: string) {
+  const { getPosts } = await import("@/lib/discussion-service");
+  // getPosts(replyToId, limit, cursor, feedType, searchQuery)
+  return getPosts(null, 50, undefined, 'all', query);
+}
+
 export async function getLinkPreviewAction(url: string) {
   try {
     const ogs = (await import('open-graph-scraper')).default;
-    const { result } = await ogs({ url });
+    const { result } = await ogs({ 
+      url,
+      fetchOptions: {
+        headers: {
+          'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
+        }
+      }
+    });
     return {
       title: result.ogTitle || result.twitterTitle,
       description: result.ogDescription || result.twitterDescription,
@@ -214,6 +240,7 @@ export async function getLinkPreviewAction(url: string) {
       siteName: result.ogSiteName,
     };
   } catch (e) {
+    console.error("Link preview error:", e);
     return null;
   }
 }
@@ -232,4 +259,79 @@ export async function reportPostAction(postId: string, reason: string) {
     });
 
   if (error) throw new Error(`Failed to report post: ${error.message}`);
+}
+
+export async function voteOnPollAction(pollId: string, optionIndex: number) {
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Must be logged in to vote");
+
+  const { error } = await supabase
+    .from('poll_votes')
+    .insert({
+      poll_id: pollId,
+      user_id: user.id,
+      option_index: optionIndex
+    });
+
+  if (error) {
+    if (error.code === '23505') { // Unique violation
+      throw new Error("You have already voted on this poll");
+    }
+    throw new Error(`Failed to vote: ${error.message}`);
+  }
+
+  revalidatePath("/discussion");
+}
+
+export async function toggleBookmarkAction(postId: string) {
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Must be logged in to bookmark");
+
+  // Check if bookmark exists
+  const { data: existing } = await supabase
+    .from('bookmarks')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('post_id', postId)
+    .single();
+
+  if (existing) {
+    // Remove bookmark
+    await supabase.from('bookmarks').delete().eq('id', existing.id);
+  } else {
+    // Add bookmark
+    await supabase.from('bookmarks').insert({
+      user_id: user.id,
+      post_id: postId
+    });
+  }
+
+  revalidatePath("/discussion");
+  revalidatePath("/discussion/bookmarks");
+}
+
+export async function fetchBookmarkedPostsAction() {
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data: bookmarks, error } = await supabase
+    .from('bookmarks')
+    .select('post_id')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error || !bookmarks || bookmarks.length === 0) return [];
+
+  const postIds = bookmarks.map(b => b.post_id);
+  
+  // Need to fetch actual posts using getPosts but filtered by IDs
+  const { getPostsByIds } = await import("@/lib/discussion-service");
+  if (getPostsByIds) {
+      return getPostsByIds(postIds);
+  }
+  
+  return [];
 }

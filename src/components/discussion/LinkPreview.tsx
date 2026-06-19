@@ -1,54 +1,87 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { getLinkPreviewAction } from "@/app/actions/discussion";
+import { Link2 } from "lucide-react";
 
-export function LinkPreview({ url }: { url: string }) {
-  const [data, setData] = useState<any>(null);
+interface LinkPreviewProps {
+  url: string;
+}
+
+export function LinkPreview({ url }: LinkPreviewProps) {
+  const [preview, setPreview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let mounted = true;
-    getLinkPreviewAction(url).then(res => {
-      if (mounted) {
-        setData(res);
-        setLoading(false);
+    let isMounted = true;
+    
+    const fetchPreview = async () => {
+      setLoading(true);
+      try {
+        const data = await getLinkPreviewAction(url);
+        if (isMounted) {
+          setPreview(data);
+        }
+      } catch (err) {
+        // Silent fail for link previews
+        console.error("Failed to load link preview for", url, err);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-    });
-    return () => { mounted = false; };
+    };
+
+    fetchPreview();
+
+    return () => {
+      isMounted = false;
+    };
   }, [url]);
 
-  if (loading) return null;
-  if (!data || (!data.title && !data.image)) return null;
+  if (loading) {
+    return (
+      <div className="w-full h-24 mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface-alt)] animate-pulse flex items-center justify-center">
+        <Link2 className="text-[var(--text-muted)] w-6 h-6" />
+      </div>
+    );
+  }
+
+  if (!preview) return null;
 
   return (
     <a 
-      href={url} 
+      href={preview.url || url} 
       target="_blank" 
       rel="noopener noreferrer"
-      className="flex flex-col mt-3 border border-[var(--border)] rounded-2xl overflow-hidden hover:bg-[var(--surface-hover)] transition-colors no-underline block max-w-full"
+      className="mt-3 flex flex-col sm:flex-row w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] transition-colors text-left group"
       onClick={(e) => e.stopPropagation()}
     >
-      {data.image && (
-        <div className="w-full relative aspect-video bg-[var(--surface-alt)]">
-          <img src={data.image} alt={data.title} className="w-full h-full object-cover" />
-          <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur-md text-white text-[11px] font-bold px-2 py-1 rounded-md flex items-center gap-1">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-            Article
-          </div>
+      {preview.image && (
+        <div className="sm:w-32 h-32 sm:h-auto shrink-0 border-b sm:border-b-0 sm:border-r border-[var(--border)] overflow-hidden">
+          <img 
+            src={preview.image} 
+            alt={preview.title || "Link preview"} 
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
         </div>
       )}
-      <div className="p-3 flex flex-col gap-0.5 bg-[var(--surface-alt)]">
-        <span className="text-[15px] font-bold text-[var(--text-primary)] line-clamp-1">{data.title}</span>
-        {data.description && (
-          <span className="text-[14px] text-[var(--text-secondary)] line-clamp-2 mt-0.5 leading-snug">{data.description}</span>
-        )}
-        <span className="text-[13px] text-[var(--text-muted)] mt-1.5 truncate flex items-center gap-1.5">
-          <span className="w-3.5 h-3.5 bg-[var(--border)] rounded-sm overflow-hidden flex items-center justify-center shrink-0">
-            <img src={`https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=32`} alt="" className="w-3 h-3" onError={(e) => e.currentTarget.style.display='none'} />
+      <div className="p-3 flex flex-col justify-center min-w-0 flex-1">
+        {preview.siteName && (
+          <span className="text-[11px] font-medium text-[var(--text-muted)] uppercase tracking-wider mb-1 truncate">
+            {preview.siteName}
           </span>
-          {data.siteName || new URL(url).hostname}
-        </span>
+        )}
+        <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1 line-clamp-1 group-hover:text-[var(--brand)] transition-colors">
+          {preview.title || url}
+        </h3>
+        {preview.description && (
+          <p className="text-[13px] text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
+            {preview.description}
+          </p>
+        )}
+        <div className="mt-2 flex items-center gap-1.5 text-[12px] text-[var(--text-muted)]">
+          <Link2 size={12} />
+          <span className="truncate">{new URL(preview.url || url).hostname}</span>
+        </div>
       </div>
     </a>
   );

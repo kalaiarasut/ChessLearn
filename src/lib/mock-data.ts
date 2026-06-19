@@ -25,6 +25,11 @@ export type Post = {
   replies?: Post[];
   replyToId?: string;
   quotedPost?: Post;
+  poll?: {
+    id: string;
+    options: string[];
+    votes: { userId: string, optionIndex: number }[];
+  };
 };
 
 export const currentUser: User = {

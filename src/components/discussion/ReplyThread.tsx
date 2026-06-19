@@ -14,6 +14,7 @@ interface ReplyThreadProps {
 
 export function ReplyThread({ post }: ReplyThreadProps) {
   const [showReplies, setShowReplies] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [focusReply, setFocusReply] = useState(false);
   const [replies, setReplies] = useState<Post[]>(post.replies || []);
   const supabase = createSupabaseBrowserClient();
@@ -51,24 +52,43 @@ export function ReplyThread({ post }: ReplyThreadProps) {
 
   return (
     <div className="flex flex-col">
-      <PostCard 
-        post={{ ...post, replies }} 
-        onCommentClick={() => {
-          setShowReplies(true);
-          setFocusReply(true);
-        }} 
-      />
-      
-      {(replies.length > 0 || showReplies) && (
-        <div className="flex">
-          {/* Thread vertical line connecting to the last reply */}
-          <div className="w-[56px] flex flex-col items-center shrink-0">
-            {/* The line is handled inside PostCard for the parent, but we can add a connecting line here if needed. 
-                Actually, the PostCard already renders a line if it has replies. */}
+      {isCollapsed ? (
+        <div className="flex items-center gap-2 p-3 bg-[var(--surface-alt)]/30 rounded-xl cursor-pointer hover:bg-[var(--surface-alt)] transition-colors" onClick={() => setIsCollapsed(false)}>
+          <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+            <img src={post.author.avatar} className="w-5 h-5 rounded-full" alt="" />
+            <span className="font-bold">{post.author.name}</span>
+            <span>·</span>
+            <span>{post.replies?.length || 0} replies</span>
+            <span className="text-[var(--brand)] ml-2">+ Expand thread</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="relative group/thread">
+            <PostCard 
+              post={{ ...post, replies }} 
+              onCommentClick={() => {
+                setShowReplies(true);
+                setFocusReply(true);
+              }} 
+            />
+            {/* Clickable vertical line for collapsing */}
+            <div 
+              className="absolute left-5 top-12 bottom-0 w-4 -translate-x-1/2 cursor-pointer group/line z-10"
+              onClick={() => setIsCollapsed(true)}
+              title="Collapse thread"
+            >
+              <div className="w-0.5 h-full bg-transparent group-hover/line:bg-[var(--brand)] transition-colors mx-auto" />
+            </div>
           </div>
           
-          <div className="flex-1 w-full min-w-0 pb-4">
-            {!showReplies && replies.length > 0 && (
+          {(replies.length > 0 || showReplies) && (
+            <div className="flex relative">
+              <div className="w-[56px] flex flex-col items-center shrink-0">
+              </div>
+              
+              <div className="flex-1 w-full min-w-0 pb-4">
+                {!showReplies && replies.length > 0 && (
               <button 
                 onClick={() => {
                   setShowReplies(true);
@@ -115,11 +135,12 @@ export function ReplyThread({ post }: ReplyThreadProps) {
                     />
                   </div>
                 </motion.div>
-              )}
-            </AnimatePresence>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </>)}
     </div>
   );
 }

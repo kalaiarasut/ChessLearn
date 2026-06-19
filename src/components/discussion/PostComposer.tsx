@@ -8,9 +8,10 @@ import { fetchUsersAction } from "@/app/actions/discussion";
 import { QuotedPostPreview } from "./QuotedPostPreview";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import EmojiPicker, { Theme } from "emoji-picker-react";
 
 interface PostComposerProps {
-  onSubmit: (content: string, images: string[]) => Promise<void>;
+  onSubmit: (content: string, images: string[], pollOptions?: string[]) => Promise<void>;
   placeholder?: string;
   autoFocus?: boolean;
   initialContent?: string;
@@ -35,9 +36,64 @@ export function PostComposer({
   const [images, setImages] = useState<string[]>(initialImages);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPoll, setShowPoll] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
+  const [dynamicPlaceholder, setDynamicPlaceholder] = useState(placeholder);
+  const [hasUsedBoardFeature, setHasUsedBoardFeature] = useState(true); // default true to avoid flash
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createSupabaseBrowserClient();
+
+  useEffect(() => {
+    const used = localStorage.getItem('chessify_has_used_board') === 'true';
+    setHasUsedBoardFeature(used);
+  }, []);
+
+  useEffect(() => {
+    if (hasUsedBoardFeature) {
+      setDynamicPlaceholder(placeholder);
+      return;
+    }
+
+    const example = "[fen]rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1[/fen]";
+    let i = 0;
+    let isDeleting = false;
+    let timeout: NodeJS.Timeout;
+    let isMounted = true;
+    
+    const typeWriter = () => {
+      if (!isMounted) return;
+      if (!isDeleting) {
+        setDynamicPlaceholder(example.substring(0, i));
+        i++;
+        if (i > example.length) {
+          isDeleting = true;
+          timeout = setTimeout(typeWriter, 2500); // pause at end
+        } else {
+          timeout = setTimeout(typeWriter, 40); // typing speed
+        }
+      } else {
+        setDynamicPlaceholder(example.substring(0, i));
+        i--;
+        if (i === 0) {
+          isDeleting = false;
+          setDynamicPlaceholder(placeholder);
+          timeout = setTimeout(typeWriter, 4000); // pause at beginning showing normal placeholder
+        } else {
+          timeout = setTimeout(typeWriter, 20); // deleting speed
+        }
+      }
+    };
+    
+    // Start after initial delay showing normal placeholder
+    timeout = setTimeout(typeWriter, 2000);
+    
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+    };
+  }, [hasUsedBoardFeature, placeholder]);
 
   useEffect(() => {
     if (autoFocus && textareaRef.current) {
@@ -156,11 +212,20 @@ export function PostComposer({
         }
       }
       
-      await onSubmit(content, [...initialImages.filter(img => images.includes(img)), ...uploadedUrls]);
+      await onSubmit(content, [...initialImages.filter(img => images.includes(img)), ...uploadedUrls], showPoll ? pollOptions.filter(o => o.trim()) : undefined);
+      
+      // Check if user just used the board feature
+      if (content.includes('[fen]') || content.includes('[pgn]')) {
+        localStorage.setItem('chessify_has_used_board', 'true');
+        setHasUsedBoardFeature(true);
+      }
+
       if (!onCancel) { // Don't clear if it's editing, parent handles unmount
         setContent("");
         setImages([]);
         setImageFiles([]);
+        setShowPoll(false);
+        setPollOptions(['', '']);
         localStorage.removeItem('chessify_post_draft');
         if (textareaRef.current) {
           textareaRef.current.style.height = 'auto';
@@ -177,7 +242,8 @@ export function PostComposer({
   const charsLeft = MAX_CHARS - content.length;
   const percentage = (content.length / MAX_CHARS) * 100;
   const isOverLimit = content.length > MAX_CHARS;
-  const isDisabled = (!content.trim() && images.length === 0) || isOverLimit || isSubmitting;
+  const isPollValid = !showPoll || pollOptions.filter(o => o.trim()).length >= 2;
+  const isDisabled = (!content.trim() && images.length === 0 && (!showPoll || !isPollValid)) || isOverLimit || isSubmitting || (showPoll && !isPollValid);
 
   // Circle properties
   const radius = 10;
@@ -200,8 +266,8 @@ export function PostComposer({
             ref={textareaRef}
             value={content}
             onChange={handleInput}
-            placeholder={placeholder}
-            className="w-full bg-transparent text-[var(--text-primary)] text-lg placeholder:text-[var(--text-muted)] resize-none outline-none min-h-[52px] py-2 overflow-hidden"
+            placeholder={dynamicPlaceholder}
+            className="w-full bg-transparent text-[var(--text-primary)] text-lg placeholder:text-[var(--text-muted)] resize-none outline-none min-h-[52px] py-2 overflow-hidden transition-all duration-75"
             rows={1}
           />
           
@@ -255,8 +321,43 @@ export function PostComposer({
           </div>
         )}
 
+        {showPoll && (
+          <div className="mt-2 p-3 border border-[var(--border)] rounded-xl flex flex-col gap-2 relative">
+            <button 
+              onClick={() => { setShowPoll(false); setPollOptions(['', '']); }}
+              className="absolute top-2 right-2 p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] rounded-full transition-colors"
+            >
+              <X size={16} />
+            </button>
+            <span className="text-sm font-bold text-[var(--text-primary)] mb-1">Poll</span>
+            {pollOptions.map((opt, idx) => (
+              <input
+                key={idx}
+                type="text"
+                placeholder={`Option ${idx + 1}${idx >= 2 ? ' (optional)' : ''}`}
+                value={opt}
+                maxLength={25}
+                onChange={(e) => {
+                  const newOpts = [...pollOptions];
+                  newOpts[idx] = e.target.value;
+                  setPollOptions(newOpts);
+                }}
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--brand)] transition-colors"
+              />
+            ))}
+            {pollOptions.length < 4 && (
+              <button 
+                onClick={() => setPollOptions([...pollOptions, ''])}
+                className="text-sm text-[var(--cta-bg)] hover:underline self-start mt-1"
+              >
+                + Add option
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 relative">
             <input
               type="file"
               multiple
@@ -269,12 +370,39 @@ export function PostComposer({
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={images.length >= MAX_IMAGES}
-              className="p-2 text-[var(--brand)] hover:bg-[var(--brand-muted)] rounded-full transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+              className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] rounded-full transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
             >
               <ImageIcon size={20} />
             </button>
-            <button className="p-2 text-[var(--brand)] hover:bg-[var(--brand-muted)] rounded-full transition-colors hidden sm:block">
-              <Smile size={20} />
+            <div className="relative">
+              <button 
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] rounded-full transition-colors hidden sm:block"
+              >
+                <Smile size={20} />
+              </button>
+              {showEmojiPicker && (
+                <div className="absolute top-full left-0 z-50 mt-2 shadow-2xl">
+                  <div className="fixed inset-0 z-40" onClick={() => setShowEmojiPicker(false)} />
+                  <div className="relative z-50">
+                    <EmojiPicker 
+                      theme={Theme.DARK}
+                      onEmojiClick={(emojiData) => {
+                        setContent(prev => prev + emojiData.emoji);
+                        setShowEmojiPicker(false);
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            <button 
+              onClick={() => setShowPoll(!showPoll)}
+              disabled={showPoll || images.length > 0}
+              className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] rounded-full transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+              title="Add poll"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 4v16"/><path d="M6 8v12"/><path d="M12 12v8"/><path d="M6 8H4"/><path d="M18 4h-2"/><path d="M12 12h-2"/></svg>
             </button>
           </div>
 
@@ -293,7 +421,7 @@ export function PostComposer({
                       cy="12"
                     />
                     <motion.circle
-                      className={isOverLimit ? "text-red-500" : (percentage > 90 ? "text-yellow-500" : "text-[var(--brand)]")}
+                      className={isOverLimit ? "text-red-500" : (percentage > 90 ? "text-yellow-500" : "text-[var(--cta-bg)]")}
                       strokeWidth="2"
                       strokeDasharray={circumference}
                       strokeDashoffset={strokeDashoffset < 0 ? 0 : strokeDashoffset}
@@ -331,7 +459,7 @@ export function PostComposer({
               whileTap={isDisabled ? undefined : { scale: 0.95 }}
               disabled={isDisabled}
               onClick={handleSubmit}
-              className="bg-[var(--brand)] text-white font-bold py-1.5 px-4 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--brand-hover)] transition-colors min-w-[80px] flex justify-center items-center h-9"
+              className="bg-[var(--cta-bg)] text-[var(--cta-text)] font-bold py-1.5 px-4 rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--cta-hover)] transition-colors min-w-[80px] flex justify-center items-center h-9"
             >
               {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : (onCancel ? "Save" : "Post")}
             </motion.button>
