@@ -25,6 +25,19 @@ export default async function SpectatePage() {
     .order('created_at', { ascending: false })
     .limit(30);
 
+  const { data: { user } } = await supabase.auth.getUser();
+  let bookmarkedMatchIds: string[] = [];
+  if (user) {
+    const { data: bookmarks } = await supabase
+      .from('bookmarks')
+      .select('match_id')
+      .eq('user_id', user.id)
+      .not('match_id', 'is', null);
+    if (bookmarks) {
+      bookmarkedMatchIds = bookmarks.map(b => b.match_id).filter(Boolean) as string[];
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[var(--bg)] flex flex-col">
       <Navbar />
@@ -33,7 +46,7 @@ export default async function SpectatePage() {
         <div className="flex flex-col gap-10">
           
           {/* Removed Heading per user request */}
-          <SpectateListClient initialMatches={matches || []} />
+          <SpectateListClient initialMatches={matches || []} initialBookmarkedMatchIds={bookmarkedMatchIds} />
 
         </div>
       </main>

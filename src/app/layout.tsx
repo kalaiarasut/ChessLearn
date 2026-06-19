@@ -36,6 +36,7 @@ export default function RootLayout({
       <head>
         {/* Prevent flash of wrong theme */}
         <script
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `
               try {

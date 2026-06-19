@@ -3,7 +3,7 @@ import Navbar from "@/components/ui/Navbar";
 import { getUserProfile } from "@/app/actions/user";
 import { notFound } from "next/navigation";
 import { Trophy, Swords, Medal, Calendar, Shield, ShieldCheck, Crosshair, Crown, Milestone, CheckCircle, Award, ChevronRight, Edit2, Zap, Target, Activity, Clock, Flag, Star, Ghost, RefreshCcw, Castle, BookOpen, Skull, TrendingUp, Axe, Split, Box, PanelBottom, CloudRain, Wand2, Diamond, Coins, ArrowUp } from "lucide-react";
-import GamesHistory from "@/components/ui/GamesHistory";
+import { ProfileTabsClient } from "./ProfileTabsClient";
 import { MiniBoardPreview } from "@/components/discussion/MiniBoardPreview";
 import { ACHIEVEMENTS, OPENINGS } from "@/lib/data/gamification";
 import EloGraph from "@/components/ui/EloGraph";
@@ -26,6 +26,9 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
   const { stats } = profile;
 
   const supabase = await createSupabaseServerClient();
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
+  const isOwnProfile = currentUser?.id === profile.id;
+
   const { data: userAch } = await supabase
     .from('user_achievements')
     .select('progress, unlocked_at, achievements(title)')
@@ -37,6 +40,46 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
     .or(`white_player_id.eq.${profile.id},black_player_id.eq.${profile.id}`)
     .eq('status', 'finished')
     .order('created_at', { ascending: true });
+
+  let bookmarkedMatches: any[] = [];
+  let bookmarkedPosts: any[] = [];
+
+  // Only fetch bookmarks if viewing own profile
+  if (isOwnProfile) {
+    // Fetch bookmarked matches
+    const { data: bMatchesData } = await supabase
+      .from('bookmarks')
+      .select(`
+      match_id,
+      matches!bookmarks_match_id_fkey(
+        id, pgn, created_at, status, time_control,
+        white_player:profiles!matches_white_player_id_fkey(username, rating, avatar_url),
+        black_player:profiles!matches_black_player_id_fkey(username, rating, avatar_url)
+      )
+    `)
+    .eq('user_id', profile.id)
+    .not('match_id', 'is', null)
+    .order('created_at', { ascending: false });
+
+  const bookmarkedMatches = bMatchesData?.map((b: any) => b.matches).filter(Boolean) || [];
+
+  // Fetch bookmarked posts
+  const { data: bPostsData } = await supabase
+    .from('bookmarks')
+    .select('post_id')
+    .eq('user_id', profile.id)
+    .not('post_id', 'is', null)
+    .order('created_at', { ascending: false });
+
+  let bookmarkedPosts: any[] = [];
+  if (bPostsData && bPostsData.length > 0) {
+    const postIds = bPostsData.map(b => b.post_id).filter(Boolean);
+    const { getPostsByIds } = await import("@/lib/discussion-service");
+    if (getPostsByIds && postIds.length > 0) {
+      bookmarkedPosts = await getPostsByIds(postIds as string[]);
+    }
+  }
+}
 
   const progressMap: Record<string, { current: number, unlocked: boolean }> = {};
   if (userAch) {
@@ -164,16 +207,14 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
 
           </div>
 
-          {/* Right Column: Match History */}
+          {/* Right Column: Match History & Bookmarks */}
           <div className="md:col-span-2">
-            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-sm h-full min-h-[600px]">
-              <div className="flex items-center gap-2 mb-6 border-b border-[var(--border)] pb-4">
-                <Swords size={20} className="text-[var(--text-secondary)]" />
-                <h2 className="text-lg font-bold text-[var(--text-primary)]">Recent Games</h2>
-              </div>
-              
-              <GamesHistory userId={profile.id} />
-            </div>
+            <ProfileTabsClient 
+              userId={profile.id} 
+              isOwnProfile={isOwnProfile}
+              bookmarkedMatches={bookmarkedMatches} 
+              bookmarkedPosts={bookmarkedPosts} 
+            />
           </div>
           
         </div>

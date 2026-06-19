@@ -8,9 +8,12 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-r
 interface MiniBoardPreviewProps {
   fenOrPgn?: string;
   liveGameId?: string;
+  wrapperClassName?: string;
+  overlayNode?: React.ReactNode;
+  showAnalyzeButton?: boolean;
 }
 
-export function MiniBoardPreview({ fenOrPgn, liveGameId: initialLiveGameId }: MiniBoardPreviewProps) {
+export function MiniBoardPreview({ fenOrPgn, liveGameId: initialLiveGameId, wrapperClassName, overlayNode, showAnalyzeButton = true }: MiniBoardPreviewProps) {
   const [board, setBoard] = useState<(string | null)[][] | null>(null);
   const [parsedFen, setParsedFen] = useState<string | null>(null);
   const [historyFens, setHistoryFens] = useState<string[]>([]);
@@ -140,8 +143,8 @@ export function MiniBoardPreview({ fenOrPgn, liveGameId: initialLiveGameId }: Mi
   };
 
   return (
-    <div className="flex flex-col gap-2 mt-2 max-w-[280px]">
-      <div className="relative w-full aspect-square rounded-md overflow-hidden border border-[var(--border)]">
+    <div className={`flex flex-col gap-2 max-w-[280px] relative ${wrapperClassName || 'mt-2'}`}>
+      <div className="relative w-full aspect-square rounded-md overflow-hidden border border-[var(--border)] shadow-sm">
         <div className="absolute inset-0 grid grid-cols-8 grid-rows-8">
           {Array.from({ length: 64 }).map((_, i) => {
             const row = Math.floor(i / 8);
@@ -204,19 +207,22 @@ export function MiniBoardPreview({ fenOrPgn, liveGameId: initialLiveGameId }: Mi
 
       <div className="flex justify-between items-center text-xs text-[var(--text-secondary)] mt-1">
         <span className="font-medium">{initialLiveGameId ? "Live Game" : (isPgn ? "PGN Viewer" : "Chess Position")}</span>
-        <button 
-          className="bg-[var(--brand)] text-white px-3 py-1 rounded-full hover:opacity-90 font-medium transition-opacity flex items-center gap-1 shadow-sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (parsedFen) {
-              window.location.href = `/analysis?fen=${encodeURIComponent(parsedFen)}`;
-            }
-          }}
-        >
-          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          Analyze
-        </button>
+        {showAnalyzeButton && (
+          <button 
+            className="bg-[var(--surface-hover)] text-[var(--text-primary)] border border-[var(--border)] px-3 py-1 rounded-full hover:bg-[var(--surface-alt)] font-medium transition-colors flex items-center gap-1 shadow-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (parsedFen) {
+                window.location.href = `/analysis?fen=${encodeURIComponent(parsedFen)}`;
+              }
+            }}
+          >
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            Analyze
+          </button>
+        )}
       </div>
+      {overlayNode}
     </div>
   );
 }

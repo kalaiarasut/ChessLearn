@@ -634,7 +634,7 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
                         </span>
                         {(isWhitePlayer || isBlackPlayer) && (
                           <div className="relative group/tag flex items-center justify-center">
-                            <span className="text-[9px] font-bold bg-[#eab308] text-black px-1 rounded-[3px] shrink-0 cursor-default select-none">PL</span>
+                            <span className="text-[9px] font-bold bg-[var(--surface-hover)] border border-[var(--border-subtle)] text-[var(--text-secondary)] px-1 rounded-[3px] shrink-0 cursor-default select-none">PL</span>
                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-primary)] text-[10px] font-bold rounded opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-[100] shadow-md">
                               PLAYER
                             </div>

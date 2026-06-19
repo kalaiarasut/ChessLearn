@@ -321,6 +321,7 @@ export async function fetchBookmarkedPostsAction() {
     .from('bookmarks')
     .select('post_id')
     .eq('user_id', user.id)
+    .not('post_id', 'is', null)
     .order('created_at', { ascending: false });
 
   if (error || !bookmarks || bookmarks.length === 0) return [];
@@ -334,4 +335,40 @@ export async function fetchBookmarkedPostsAction() {
   }
   
   return [];
+}
+
+export async function toggleMatchBookmarkAction(matchId: string) {
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Must be logged in to bookmark");
+
+  // Check if bookmark exists
+  const { data: existing } = await supabase
+    .from('bookmarks')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('match_id', matchId)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase.from('bookmarks').delete().eq('id', existing.id);
+  } else {
+    await supabase.from('bookmarks').insert({
+      user_id: user.id,
+      match_id: matchId
+    });
+  }
+}
+
+export async function fetchBookmarkedMatchesAction(userId: string) {
+  const supabase = await getSupabaseServerClient();
+  const { data: bookmarks, error } = await supabase
+    .from('bookmarks')
+    .select('match_id')
+    .eq('user_id', userId)
+    .not('match_id', 'is', null)
+    .order('created_at', { ascending: false });
+
+  if (error || !bookmarks || bookmarks.length === 0) return [];
+  return bookmarks.map(b => b.match_id).filter(Boolean) as string[];
 }
