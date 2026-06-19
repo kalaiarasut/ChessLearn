@@ -152,8 +152,13 @@ export default function GamesHistory({ userId }: GamesHistoryProps) {
                   <div className={`font-bold px-2 py-0.5 rounded text-[11px] ${isWin ? 'bg-green-500/20 text-green-500' : isDraw ? 'bg-amber-500/20 text-amber-500' : 'bg-red-500/20 text-red-500'}`}>
                     {isWin ? "Victory" : isDraw ? "Draw" : "Defeat"}
                   </div>
-                  <div className="text-[10px] text-[var(--text-muted)]">
-                    {new Date(game.created_at).toLocaleDateString()}
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="text-[10px] text-[var(--text-muted)]">
+                      {new Date(game.created_at).toLocaleDateString()}
+                    </div>
+                    <button className="text-[10px] font-bold text-[var(--cta-bg)] hover:text-[var(--cta-hover)] transition-colors px-2 py-0.5 border border-[var(--cta-bg)] rounded">
+                      Analyse
+                    </button>
                   </div>
                 </div>
               </div>

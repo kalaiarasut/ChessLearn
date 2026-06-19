@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Search, UserPlus, MoreHorizontal } from "lucide-react";
+import { Search, MoreHorizontal } from "lucide-react";
 import { getSupabaseServerClient } from "@/lib/discussion-service";
+import { FollowButton } from "./FollowButton";
 
 export async function RightSidebar() {
   const supabase = await getSupabaseServerClient();
@@ -68,9 +69,7 @@ export async function RightSidebar() {
                 </span>
               </div>
             </div>
-            <button className="bg-white text-black font-bold py-1.5 px-4 rounded-full text-sm hover:bg-gray-200 transition-colors">
-              Follow
-            </button>
+            <FollowButton targetUserId={person.id} />
           </div>
         ))}
         <div className="px-4 py-4 hover:bg-[var(--surface-hover)] transition-colors cursor-pointer text-[var(--cta-bg)] text-[15px]">
@@ -109,15 +108,6 @@ export async function RightSidebar() {
         <div className="px-4 py-4 hover:bg-[var(--surface-hover)] transition-colors cursor-pointer text-[var(--cta-bg)] text-[15px]">
           Show more
         </div>
-      </div>
-      
-      {/* Footer Links */}
-      <div className="px-4 text-[13px] text-[var(--text-muted)] flex flex-wrap gap-x-3 gap-y-1 mt-1">
-        <a href="#" className="hover:underline">Terms of Service</a>
-        <a href="#" className="hover:underline">Privacy Policy</a>
-        <a href="#" className="hover:underline">Cookie Policy</a>
-        <a href="#" className="hover:underline">Accessibility</a>
-        <span>© 2026 ChessLearn</span>
       </div>
     </div>
   );

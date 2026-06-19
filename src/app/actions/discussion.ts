@@ -192,9 +192,9 @@ export async function toggleReaction(postId: string, type: 'like' | 'repost') {
   revalidatePath("/discussion");
 }
 
-export async function fetchPostsAction(replyToId: string | null = null, limit = 20, cursor?: string) {
+export async function fetchPostsAction(replyToId: string | null = null, limit = 20, cursor?: string, feedType: 'all' | 'following' = 'all') {
   const { getPosts } = await import("@/lib/discussion-service");
-  return getPosts(replyToId, limit, cursor);
+  return getPosts(replyToId, limit, cursor, feedType);
 }
 
 export async function fetchUsersAction(query: string) {

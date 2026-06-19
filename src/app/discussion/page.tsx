@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react";
 import { useInView } from 'react-intersection-observer';
 
 export default function DiscussionPage() {
+  const [feedType, setFeedType] = useState<'all' | 'following'>('all');
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -25,11 +26,16 @@ export default function DiscussionPage() {
 
   const loadInitialPosts = async () => {
     setLoading(true);
-    const fetched = await fetchPostsAction();
+    const fetched = await fetchPostsAction(null, 20, undefined, feedType);
     setPosts(fetched);
     setLoading(false);
     if (fetched.length < 20) setHasMore(false);
+    else setHasMore(true);
   };
+
+  useEffect(() => {
+    loadInitialPosts();
+  }, [feedType]); // Reload when feedType changes
 
   useEffect(() => {
     loadInitialPosts();
@@ -58,7 +64,7 @@ export default function DiscussionPage() {
     if (loadingMore || !hasMore || posts.length === 0) return;
     setLoadingMore(true);
     const lastPost = posts[posts.length - 1];
-    const morePosts = await fetchPostsAction(null, 20, lastPost.createdAt);
+    const morePosts = await fetchPostsAction(null, 20, lastPost.createdAt, feedType);
     if (morePosts.length > 0) {
       setPosts((prev) => [...prev, ...morePosts]);
     } else {
@@ -78,7 +84,7 @@ export default function DiscussionPage() {
     const { createPost } = await import('@/app/actions/discussion');
     await createPost(content, images);
     // Realtime subscription will fetch it, or we can fetch manually to be safe
-    const fetched = await fetchPostsAction(null, 1);
+    const fetched = await fetchPostsAction(null, 1, undefined, feedType);
     if (fetched.length > 0) {
       setPosts((prev) => [fetched[0], ...prev.filter(p => p.id !== fetched[0].id)]);
     }
@@ -86,9 +92,34 @@ export default function DiscussionPage() {
 
   return (
     <div className="w-full flex flex-col gap-6">
-      <div className="border-b border-[var(--border)] pb-6">
-        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-6 font-serif">Home</h1>
-        <PostComposer onSubmit={handleCreatePost} />
+      <div className="border-b border-[var(--border)] pb-0">
+        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-4 font-serif px-2">Home</h1>
+        
+        {/* Tabs */}
+        <div className="flex w-full border-b border-[var(--border)]">
+          <button
+            onClick={() => setFeedType('all')}
+            className={`flex-1 py-4 text-sm font-semibold transition-colors relative hover:bg-[var(--surface-alt)]/50 ${feedType === 'all' ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
+          >
+            For You
+            {feedType === 'all' && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-[var(--brand)] rounded-t-full" />
+            )}
+          </button>
+          <button
+            onClick={() => setFeedType('following')}
+            className={`flex-1 py-4 text-sm font-semibold transition-colors relative hover:bg-[var(--surface-alt)]/50 ${feedType === 'following' ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}
+          >
+            Following
+            {feedType === 'following' && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-[var(--brand)] rounded-t-full" />
+            )}
+          </button>
+        </div>
+        
+        <div className="pt-4">
+          <PostComposer onSubmit={handleCreatePost} />
+        </div>
       </div>
 
       <div className="flex flex-col">

@@ -133,12 +133,18 @@ export function PostCard({ post, isReply = false, onCommentClick }: PostCardProp
     <article className={`group/post flex gap-4 p-4 hover:bg-[var(--surface-alt)]/30 transition-colors border-b border-[var(--border)] cursor-pointer ${isReply ? 'pt-2 pb-0 border-none' : ''}`}>
       {/* Avatar column */}
       <div className="flex flex-col items-center gap-2 flex-shrink-0">
-        <img
-          src={post.author.avatar}
-          alt={post.author.name}
-          onClick={(e) => { e.stopPropagation(); router.push(`/user/${post.author.handle}`); }}
-          className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-        />
+        <div className="relative">
+          <img
+            src={post.author.avatar}
+            alt={post.author.name}
+            onClick={(e) => { e.stopPropagation(); router.push(`/user/${post.author.handle}`); }}
+            className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+          />
+          <div 
+            title={post.author.isOnline ? "Online" : "Offline"}
+            className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 border-2 border-[var(--bg)] rounded-full ${post.author.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} 
+          />
+        </div>
         {post.replies && post.replies.length > 0 && (
           <div className="w-0.5 grow bg-[var(--border)] group-hover/post:bg-[var(--border-hover)] transition-colors" />
         )}

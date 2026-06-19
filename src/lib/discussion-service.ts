@@ -23,7 +23,7 @@ export async function getSupabaseServerClient() {
 }
 
 // Fetch posts (optionally filtered by parent id for replies)
-export async function getPosts(replyToId: string | null = null, limit = 20, cursor?: string): Promise<Post[]> {
+export async function getPosts(replyToId: string | null = null, limit = 20, cursor?: string, feedType: 'all' | 'following' = 'all'): Promise<Post[]> {
   const supabase = await getSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
   const currentUserId = userData?.user?.id;
@@ -58,6 +58,19 @@ export async function getPosts(replyToId: string | null = null, limit = 20, curs
 
   if (cursor) {
     query = query.lt("created_at", cursor);
+  }
+
+  if (feedType === 'following' && currentUserId && !replyToId) {
+    // Subquery to get followed users
+    const { data: follows } = await supabase
+      .from("follows")
+      .select("following_id")
+      .eq("follower_id", currentUserId);
+    
+    const followingIds = follows?.map(f => f.following_id) || [];
+    followingIds.push(currentUserId); // include own posts
+    
+    query = query.in("author_id", followingIds);
   }
 
   const { data, error } = await query;
@@ -111,7 +124,7 @@ export async function getPosts(replyToId: string | null = null, limit = 20, curs
   if (allAuthorIds.size > 0) {
     const { data: profilesData } = await supabase
       .from("profiles")
-      .select("id, username, avatar_url, verified")
+      .select("id, username, avatar_url, verified, is_online")
       .in("id", Array.from(allAuthorIds));
       
     if (profilesData) {
@@ -144,6 +157,7 @@ export async function getPosts(replyToId: string | null = null, limit = 20, curs
           handle: qProfile?.username || 'unknown',
           avatar: qProfile?.avatar_url || `https://ui-avatars.com/api/?name=${qProfile?.username || 'U'}`,
           verified: qProfile?.verified || false,
+          isOnline: qProfile?.is_online || false,
         },
         content: qp.content,
         images: qp.images && qp.images.length > 0 ? qp.images : undefined,
@@ -160,6 +174,7 @@ export async function getPosts(replyToId: string | null = null, limit = 20, curs
         handle: profile?.username || 'unknown',
         avatar: profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.username || 'U'}`,
         verified: profile?.verified || false,
+        isOnline: profile?.is_online || false,
       },
       content: p.content,
       images: p.images && p.images.length > 0 ? p.images : undefined,
@@ -184,7 +199,7 @@ export async function searchUsers(query: string): Promise<User[]> {
   const supabase = await getSupabaseServerClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, avatar_url, verified")
+    .select("id, username, avatar_url, verified, is_online")
     .ilike("username", `%${query}%`)
     .limit(5);
 
@@ -196,5 +211,6 @@ export async function searchUsers(query: string): Promise<User[]> {
     handle: p.username,
     avatar: p.avatar_url || `https://ui-avatars.com/api/?name=${p.username}`,
     verified: p.verified,
+    isOnline: p.is_online || false,
   }));
 }

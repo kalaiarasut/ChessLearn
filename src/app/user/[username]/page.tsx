@@ -2,7 +2,7 @@ import React from "react";
 import Navbar from "@/components/ui/Navbar";
 import { getUserProfile } from "@/app/actions/user";
 import { notFound } from "next/navigation";
-import { Trophy, Swords, Medal, Calendar, ShieldCheck, Crosshair, Crown, Milestone, CheckCircle, Award, ChevronRight, Edit2, Zap, Target, Activity, Flag, Star, Ghost, RefreshCcw, Castle, BookOpen, Skull, TrendingUp, Axe, Split, Box, PanelBottom, CloudRain, Wand2, Diamond, Coins, ArrowUp } from "lucide-react";
+import { Trophy, Swords, Medal, Calendar, Shield, ShieldCheck, Crosshair, Crown, Milestone, CheckCircle, Award, ChevronRight, Edit2, Zap, Target, Activity, Clock, Flag, Star, Ghost, RefreshCcw, Castle, BookOpen, Skull, TrendingUp, Axe, Split, Box, PanelBottom, CloudRain, Wand2, Diamond, Coins, ArrowUp } from "lucide-react";
 import GamesHistory from "@/components/ui/GamesHistory";
 import { MiniBoardPreview } from "@/components/discussion/MiniBoardPreview";
 import { ACHIEVEMENTS, OPENINGS } from "@/lib/data/gamification";
@@ -16,7 +16,7 @@ const iconMap: Record<string, any> = {
 
 export default async function UserProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
-  
+  const decodedUsername = decodeURIComponent(username);
   const profile = await getUserProfile(decodedUsername);
 
   if (!profile) {
@@ -31,6 +31,13 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
     .select('progress, unlocked_at, achievements(title)')
     .eq('user_id', profile.id);
 
+  const { data: matches } = await supabase
+    .from('matches')
+    .select('created_at, winner_id, status')
+    .or(`white_player_id.eq.${profile.id},black_player_id.eq.${profile.id}`)
+    .eq('status', 'finished')
+    .order('created_at', { ascending: true });
+
   const progressMap: Record<string, { current: number, unlocked: boolean }> = {};
   if (userAch) {
     for (const record of userAch as any[]) {
@@ -41,6 +48,34 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
         };
       }
     }
+  }
+
+  // Generate real graph data from matches
+  let currentSimulatedRating = 1200;
+  let netEloDelta = 0;
+  const matchHistoryData = (matches || []).map(match => {
+    if (match.winner_id === profile.id) {
+      currentSimulatedRating += 8;
+      netEloDelta += 8;
+    } else if (match.winner_id && match.winner_id !== profile.id) {
+      currentSimulatedRating -= 8;
+      netEloDelta -= 8;
+    }
+    return {
+      date: new Date(match.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      rating: currentSimulatedRating
+    };
+  });
+
+  // Adjust to anchor at their ACTUAL current rating
+  const ratingOffset = Math.round(profile.rating) - currentSimulatedRating;
+  const graphData = matchHistoryData.map(d => ({
+    date: d.date,
+    rating: d.rating + ratingOffset
+  }));
+  
+  if (graphData.length === 0) {
+    graphData.push({ date: 'Today', rating: Math.round(profile.rating) });
   }
 
   return (
@@ -70,7 +105,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
               
               <div className="flex items-center justify-center gap-2 text-sm text-[var(--text-muted)] mt-4 pt-4 border-t border-[var(--border)]">
                 <Calendar size={14} />
-                <span>Joined {new Date(profile.created_at).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</span>
+                <span>Joined {new Date(profile.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
               </div>
             </div>
 
@@ -124,15 +159,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
               <h2 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-2 flex items-center gap-2">
                 <TrendingUp size={16} /> Rating Progression
               </h2>
-              {/* Mock data for Elo graph until backend sync */}
-              <EloGraph data={[
-                { date: 'Jan', rating: 1200 },
-                { date: 'Feb', rating: 1250 },
-                { date: 'Mar', rating: 1220 },
-                { date: 'Apr', rating: 1300 },
-                { date: 'May', rating: 1350 },
-                { date: 'Jun', rating: 1400 },
-              ]} />
+              <EloGraph data={graphData} />
             </div>
 
           </div>
@@ -232,6 +259,9 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
               <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
                 <Medal className="text-[var(--text-primary)] w-5 h-5" /> Mastered Openings Vault
               </h2>
+              <button className="text-[var(--text-primary)] hover:underline text-sm font-bold transition-colors flex items-center">
+                View All <ChevronRight size={16} />
+              </button>
             </div>
             
             <div className="flex overflow-x-auto gap-4 pb-2 snap-x hide-scrollbar">

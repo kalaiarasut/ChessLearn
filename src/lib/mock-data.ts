@@ -4,6 +4,7 @@ export type User = {
   handle: string;
   avatar: string;
   verified?: boolean;
+  isOnline?: boolean;
 };
 
 export type PostReaction = {
