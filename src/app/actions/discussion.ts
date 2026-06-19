@@ -207,7 +207,21 @@ export async function toggleReaction(postId: string, type: 'like' | 'repost') {
 
 export async function fetchPostsAction(replyToId: string | null = null, limit = 20, cursor?: string, feedType: 'all' | 'following' = 'all') {
   const { getPosts } = await import("@/lib/discussion-service");
-  return getPosts(replyToId, limit, cursor, feedType);
+  const posts = await getPosts(replyToId, limit, cursor, feedType);
+
+  if (feedType === 'all' && !replyToId) {
+    // "For You" algorithm: sort by engagement (likes + comments * 2 + reposts * 3)
+    posts.sort((a, b) => {
+      const scoreA = (a.reactions?.likes || 0) + (a.reactions?.comments || 0) * 2 + (a.reactions?.reposts || 0) * 3;
+      const scoreB = (b.reactions?.likes || 0) + (b.reactions?.comments || 0) * 2 + (b.reactions?.reposts || 0) * 3;
+      if (scoreB === scoreA) {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      return scoreB - scoreA;
+    });
+  }
+
+  return posts;
 }
 
 export async function fetchUsersAction(query: string) {

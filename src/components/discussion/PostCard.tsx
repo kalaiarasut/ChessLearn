@@ -17,6 +17,7 @@ import { ImageLightbox } from "./ImageLightbox";
 import { ReportModal } from "./ReportModal";
 import { QuotedPostPreview } from "./QuotedPostPreview";
 import { PollViewer } from "./PollViewer";
+import { PuzzleBoardPreview } from "./PuzzleBoardPreview";
 
 interface PostCardProps {
   post: Post;
@@ -80,13 +81,13 @@ export function PostCard({ post, isReply = false, onCommentClick }: PostCardProp
     const firstUrl = urlMatch ? urlMatch[0] : null;
 
     // Regex for matching @mentions, #hashtags, links, and board tags
-    const parts = content.split(/(@\w+|#\w+|https?:\/\/[^\s]+|\[fen\][\s\S]*?\[\/fen\]|\[pgn\][\s\S]*?\[\/pgn\]|\[livegame:[\w-]+\])/ig);
+    const parts = content.split(/(@\w+|#\w+|https?:\/\/[^\s]+|\[fen\][\s\S]*?\[\/fen\]|\[pgn\][\s\S]*?\[\/pgn\]|\[livegame:[\w-]+\]|\[puzzle:[^\]]+\])/ig);
 
     return (
       <div className="text-[15px] leading-normal text-[var(--text-primary)] mt-1 whitespace-pre-wrap word-break">
         {parts.map((part, i) => {
           if (!part) return null;
-          if (part.toLowerCase().startsWith('[fen]') || part.toLowerCase().startsWith('[pgn]') || part.toLowerCase().startsWith('[livegame:')) {
+          if (part.toLowerCase().startsWith('[fen]') || part.toLowerCase().startsWith('[pgn]') || part.toLowerCase().startsWith('[livegame:') || part.toLowerCase().startsWith('[puzzle:')) {
             return null; // hide tags from text
           }
           if (part.startsWith('@')) {
@@ -123,8 +124,20 @@ export function PostCard({ post, isReply = false, onCommentClick }: PostCardProp
           const fenMatch = content.match(/\[fen\]([\s\S]*?)\[\/fen\]/i);
           const pgnMatch = content.match(/\[pgn\]([\s\S]*?)\[\/pgn\]/i);
           const liveGameMatch = content.match(/\[livegame:([\w-]+)\]/i);
+          const puzzleMatch = content.match(/\[puzzle:([^:]+):([^\]]+)\]/i);
+
           const boardData = fenMatch ? fenMatch[1].trim() : (pgnMatch ? pgnMatch[1].trim() : null);
           const liveGameId = liveGameMatch ? liveGameMatch[1] : null;
+
+          if (puzzleMatch) {
+            const initialFen = puzzleMatch[1].trim();
+            const solutionMoves = puzzleMatch[2].trim().split(',');
+            return (
+              <div className="mt-3">
+                <PuzzleBoardPreview initialFen={initialFen} solutionMoves={solutionMoves} />
+              </div>
+            );
+          }
           
           if (boardData || liveGameId) {
             return (

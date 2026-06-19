@@ -16,6 +16,7 @@ const inter = Inter({
 });
 
 import GlobalInviteListener from "@/components/ui/GlobalInviteListener";
+import { FloatingMessages } from "@/components/discussion/FloatingMessages";
 
 export const metadata: Metadata = {
   title: "ChessLearn",
@@ -55,6 +56,7 @@ export default function RootLayout({
           <DisplayPreferencesProvider>
             <GlobalInviteListener />
             {children}
+            <FloatingMessages />
             <Toaster theme="system" position="bottom-right" />
           </DisplayPreferencesProvider>
         </ThemeProvider>
