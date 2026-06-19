@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Users, Send, MessageSquare, Smile, Eye, FlipVertical, Maximize2, Minimize2, PieChart, ArrowLeft, ChevronUp, ChevronDown, History } from "lucide-react";
 import Link from "next/link";
 import EmojiPicker, { Theme } from 'emoji-picker-react';
+import themeManifest from "@/data/themeManifest.json";
 
 import { PlayerCard } from "@/components/play/PlayerCard";
 import { GameControls } from "@/components/play/GameControls";
@@ -27,6 +28,59 @@ const parseTimeControl = (tc: string | null): number => {
   const dayMatch = tc.match(/^(\d+)d$/);       if (dayMatch) return parseInt(dayMatch[1]) * 86400 * 1000;
   return 10 * 60 * 1000;
 };
+
+function BoardPreview({
+  boardTheme,
+  pieceTheme,
+  boardAssets,
+  pieceAssets,
+}: {
+  boardTheme: string;
+  pieceTheme: string;
+  boardAssets: Record<string, string>;
+  pieceAssets: Record<string, string>;
+}) {
+  const previewPieces = ["bb", "bq", "bp", null, null, null, "wn", "wk", "wr"];
+  const piecePath = pieceAssets[pieceTheme] ?? `/pieces/${pieceTheme}/150`;
+
+  return (
+    <div className="w-full aspect-square relative shadow-xl rounded-sm overflow-hidden border border-[var(--border)]">
+      <img
+        src={boardAssets[boardTheme] ?? `/boards/green.png`}
+        alt="Board preview"
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+      <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
+        {previewPieces.map((piece, index) => {
+          const row = Math.floor(index / 3);
+          const col = index % 3;
+          const isLightSquare = (row + col) % 2 === 0;
+
+          return (
+            <div key={`${row}-${col}`} className="flex items-center justify-center relative p-1 md:p-2">
+              {col === 0 && (
+                <span
+                  className={`absolute top-1 left-1.5 text-[14px] font-bold ${
+                    isLightSquare ? "text-[#b07b46]" : "text-[#e6ca9a]"
+                  } select-none`}
+                >
+                  {8 - row}
+                </span>
+              )}
+              {piece && (
+                <img
+                  src={`${piecePath}/${piece}.png`}
+                  alt={piece}
+                  className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 const getIncrementMs = (tc: string | null): number => {
   if (!tc) return 0;
@@ -52,7 +106,7 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // Spectator specific
   const [spectatorCount, setSpectatorCount] = useState(0);
@@ -69,8 +123,26 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
   // Settings
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSettingsModalTab, setActiveSettingsModalTab] = useState("board");
-  const [boardTheme, setBoardTheme] = useState("neo");
+  const [boardTheme, setBoardTheme] = useState("green");
   const [pieceTheme, setPieceTheme] = useState("neo");
+
+  const customPieces = useMemo(() => {
+    const pieces: Record<string, any> = {};
+    const pieceTypes = ['wP', 'wN', 'wB', 'wR', 'wQ', 'wK', 'bP', 'bN', 'bB', 'bR', 'bQ', 'bK'];
+    const pieceAssets = themeManifest.pieceAssets as Record<string, string>;
+    
+    pieceTypes.forEach((p) => {
+      pieces[p] = ({ squareWidth }: { squareWidth: number }) => (
+        <div style={{
+          width: squareWidth,
+          height: squareWidth,
+          backgroundImage: `url(${pieceAssets[pieceTheme] ?? `/pieces/${pieceTheme}/150`}/${p.toLowerCase()}.png)`,
+          backgroundSize: '100%'
+        }} />
+      );
+    });
+    return pieces;
+  }, [pieceTheme]);
   const [isPredictionsCollapsed, setIsPredictionsCollapsed] = useState(false);
 
   // Stockfish Eval
@@ -199,7 +271,12 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
   }, [match.id, supabase]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: "smooth"
+      });
+    }
   }, [chatMessages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -313,16 +390,26 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
         .animate-floatUp {
           animation: floatUp 3s ease-out forwards;
         }
+        @media (min-width: 1024px) {
+          .spectator-column-height {
+            height: calc(min(720px, 100vh - 140px) + 140px) !important;
+          }
+        }
+        @media (max-width: 1023px) {
+          .spectator-column-height {
+            height: auto !important;
+          }
+        }
       `}</style>
 
       {/* Main Wrapper matching online page */}
-      <div className={`flex-1 w-full max-w-[1536px] mx-auto flex flex-col lg:flex-row items-start justify-center px-4 gap-4 xl:gap-12 transition-all duration-700 h-[calc(100vh-80px)] overflow-hidden pt-4 pb-8`}>
+      <div className={`flex-1 w-full max-w-[1536px] mx-auto flex flex-col lg:flex-row items-start justify-start px-4 sm:px-6 gap-4 xl:gap-8 transition-all duration-700 h-[calc(100vh-80px)] overflow-hidden pt-0 pb-2`}>
         
         {/* Left Side: The Board */}
-        <div className={`w-full ${isTheaterMode ? 'lg:w-[100%] max-w-[850px]' : 'lg:w-auto'} flex flex-col items-center relative transition-all duration-700 justify-start shrink-0`}>
+        <div className={`w-full ${isTheaterMode ? 'lg:w-[100%] max-w-[850px]' : 'lg:w-auto lg:ml-4 xl:ml-8'} flex flex-col items-center relative transition-all duration-700 justify-start shrink-0`}>
 
           {/* Board Height Constraint Wrapper */}
-          <div className={`flex flex-col items-center justify-start w-full relative shrink-0 transition-all duration-700 max-w-[100%] sm:max-w-[90%] lg:max-w-[min(720px,calc(100vh-160px))] lg:mt-0 gap-0`}>
+          <div className={`flex flex-col items-center justify-start w-full relative shrink-0 transition-all duration-700 max-w-[100%] sm:max-w-[90%] lg:max-w-[min(720px,calc(100vh-140px))] lg:mt-0 gap-0`}>
 
             <div className="flex w-full relative items-stretch mt-4">
               
@@ -386,8 +473,13 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
                   position={viewingFen} 
                   boardOrientation={boardOrientation}
                   arePiecesDraggable={false}
-                  customDarkSquareStyle={{ backgroundColor: "#779556" }}
-                  customLightSquareStyle={{ backgroundColor: "#ebecd0" }}
+                  customBoardStyle={{
+                    backgroundImage: `url(${(themeManifest.boardAssets as Record<string, string>)[boardTheme] ?? `/boards/green.png`})`,
+                    backgroundSize: 'cover'
+                  }}
+                  customDarkSquareStyle={{ backgroundColor: 'transparent' }}
+                  customLightSquareStyle={{ backgroundColor: 'transparent' }}
+                  customPieces={customPieces}
                 />
                 
                 {/* Emotes Overlay */}
@@ -434,10 +526,10 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
 
         {/* Column 2: Moves */}
         <div 
-          className={`bg-[var(--surface-alt)] lg:bg-[var(--surface)] border-[var(--border)] rounded-2xl shadow-xl flex flex-col shrink-0 transition-all duration-700 mt-0 overflow-hidden ${isTheaterMode ? 'w-0 opacity-0 border-none m-0 p-0' : 'w-full lg:w-[280px] xl:w-[320px] opacity-100 border'}`}
-          style={{ height: typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'calc(min(720px, 100vh - 160px) + 140px)' : 'auto', maxHeight: '100%' }}
+          className={`bg-[var(--surface-alt)] lg:bg-[var(--surface)] border-[var(--border)] rounded-2xl shadow-xl flex flex-col shrink-0 transition-all duration-700 mt-2 overflow-hidden lg:ml-auto spectator-column-height ${isTheaterMode ? 'w-0 opacity-0 border-none m-0 p-0' : 'w-full lg:w-[300px] xl:w-[360px] opacity-100 border'}`}
+          style={{ maxHeight: '100%' }}
         >
-          <div className="w-full lg:w-[280px] xl:w-[320px] flex flex-col h-full shrink-0">
+          <div className="w-full lg:w-[300px] xl:w-[360px] flex flex-col h-full shrink-0">
             {/* Moves Header */}
             <div className="p-3 border-b border-[var(--border)] bg-[var(--surface)] flex items-center gap-2 font-bold text-[13px] text-[var(--text-primary)] shrink-0">
               <History className="w-4 h-4 text-[var(--text-primary)]" />
@@ -469,10 +561,10 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
 
         {/* Column 3: Chat */}
         <div 
-          className={`bg-[var(--surface-alt)] lg:bg-[var(--surface)] border-[var(--border)] rounded-2xl shadow-xl flex flex-col shrink-0 transition-all duration-700 mt-0 overflow-hidden ${isTheaterMode ? 'w-0 opacity-0 border-none m-0 p-0' : 'w-full lg:w-[340px] xl:w-[400px] opacity-100 border'}`}
-          style={{ height: typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'calc(min(720px, 100vh - 160px) + 140px)' : 'auto', maxHeight: '100%' }}
+          className={`bg-[var(--surface-alt)] lg:bg-[var(--surface)] border-[var(--border)] rounded-2xl shadow-xl flex flex-col shrink-0 transition-all duration-700 mt-2 overflow-hidden spectator-column-height ${isTheaterMode ? 'w-0 opacity-0 border-none m-0 p-0' : 'w-full lg:w-[300px] xl:w-[360px] opacity-100 border'}`}
+          style={{ maxHeight: '100%' }}
         >
-          <div className="w-full lg:w-[340px] xl:w-[400px] flex flex-col h-full shrink-0">
+          <div className="w-full lg:w-[300px] xl:w-[360px] flex flex-col h-full shrink-0">
             {/* Chat Area */}
             <div className="p-3 border-b border-[var(--border)] bg-[var(--surface)] flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2 font-bold text-[13px] text-[var(--text-primary)]">
@@ -523,7 +615,7 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 min-h-0">
+            <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 min-h-0">
               {chatMessages.length === 0 ? (
                 <div className="text-center text-[var(--text-muted)] my-auto flex flex-col items-center gap-2">
                   <Users className="w-8 h-8 opacity-50" />
@@ -535,70 +627,82 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
                   const isBlackPlayer = msg.user_id === match.black_player_id;
                   
                   return (
-                    <div key={i} className={`flex items-start justify-between gap-2 w-full ${isWhitePlayer || isBlackPlayer ? "bg-[var(--surface)] p-2 rounded-lg border border-[var(--text-primary)]" : "px-1"}`}>
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="font-bold text-[13px] text-[var(--text-primary)] shrink-0">
+                    <div key={i} className="group flex items-start justify-between gap-2 w-full px-2 py-1 hover:bg-[var(--surface-hover)] rounded transition-colors">
+                      <div className="flex items-baseline gap-1.5 flex-wrap flex-1">
+                        <span className="font-bold text-[13px] text-[var(--text-primary)] shrink-0 transition-colors">
                           {msg.profiles?.username || "Unknown"}
                         </span>
                         {(isWhitePlayer || isBlackPlayer) && (
-                          <span className="text-[9px] uppercase tracking-wider bg-[var(--text-primary)] text-[var(--bg)] px-1 py-0.5 rounded shrink-0">Player</span>
+                          <div className="relative group/tag flex items-center justify-center">
+                            <span className="text-[9px] font-bold bg-[#eab308] text-black px-1 rounded-[3px] shrink-0 cursor-default select-none">PL</span>
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-primary)] text-[10px] font-bold rounded opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-[100] shadow-md">
+                              PLAYER
+                            </div>
+                          </div>
                         )}
-                        <span className="text-[14px] text-[var(--text-secondary)] break-words">{msg.content}</span>
+                        {msg.profiles?.username?.toLowerCase() === 'admin' && (
+                          <div className="relative group/tag flex items-center justify-center">
+                            <span className="text-[9px] font-bold bg-red-500 text-white px-1 rounded-[3px] shrink-0 cursor-default select-none">AD</span>
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 bg-[var(--surface-alt)] border border-[var(--border)] text-[var(--text-primary)] text-[10px] font-bold rounded opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-[100] shadow-md">
+                              ADMIN
+                            </div>
+                          </div>
+                        )}
+                        <span className="text-[14px] text-[var(--text-secondary)] break-words leading-tight ml-1">{msg.content}</span>
                       </div>
-                      <span className="text-[10px] text-[var(--text-muted)] shrink-0 mt-0.5">
+                      <span className="text-[10px] text-[var(--text-muted)] shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                         {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                   );
                 })
               )}
-              <div ref={chatEndRef} />
-              
-              <div className="border-t border-[var(--border)] bg-[var(--surface)] relative shrink-0">
-                {showEmojiPicker && (
-                  <div className="absolute bottom-[calc(100%+8px)] right-2 z-50 shadow-2xl rounded-xl overflow-hidden border border-[var(--border)]">
-                    <EmojiPicker 
-                      onEmojiClick={onEmojiClick} 
-                      theme={Theme.AUTO} 
-                      lazyLoadEmojis={true} 
-                      searchDisabled={true} 
-                      width={300} 
-                      height={350} 
+            </div>
+
+            <div className="border-t border-[var(--border)] bg-[var(--surface)] relative shrink-0 p-3">
+              {showEmojiPicker && (
+                <div className="absolute bottom-[calc(100%+8px)] right-2 z-50 shadow-2xl rounded-xl overflow-hidden border border-[var(--border)]">
+                  <EmojiPicker 
+                    onEmojiClick={onEmojiClick} 
+                    theme={Theme.AUTO} 
+                    lazyLoadEmojis={true} 
+                    searchDisabled={true} 
+                    width={300} 
+                    height={350} 
+                  />
+                </div>
+              )}
+              {currentUser ? (
+                <form onSubmit={handleSendMessage} className="flex gap-2 relative">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      placeholder="Send a message..."
+                      className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-full px-4 py-2 pr-10 text-[13px] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-0 tap-highlight-transparent"
                     />
-                  </div>
-                )}
-                {currentUser ? (
-                  <form onSubmit={handleSendMessage} className="flex gap-2 relative p-1.5">
-                    <div className="relative flex-1">
-                      <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Send a message..."
-                        className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-full px-4 py-2 pr-10 text-[13px] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-0 tap-highlight-transparent"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1 outline-none focus:outline-none focus:ring-0 tap-highlight-transparent"
-                      >
-                        <Smile className="w-4 h-4" />
-                      </button>
-                    </div>
                     <button
-                      type="submit"
-                      disabled={!newMessage.trim()}
-                      className="bg-[var(--surface-hover)] border border-[var(--border)] rounded-full text-[var(--brand)] hover:text-[var(--brand-hover)] disabled:opacity-50 transition-colors p-2 outline-none focus:outline-none focus:ring-0 tap-highlight-transparent"
+                      type="button"
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1 outline-none focus:outline-none focus:ring-0 tap-highlight-transparent"
                     >
-                      <Send className="w-4 h-4 ml-0.5" />
+                      <Smile className="w-4 h-4" />
                     </button>
-                  </form>
-                ) : (
-                  <div className="text-center text-sm text-[var(--text-muted)] p-2">
-                    Please sign in to chat
                   </div>
-                )}
-              </div>
+                  <button
+                    type="submit"
+                    disabled={!newMessage.trim()}
+                    className="bg-[var(--surface-hover)] border border-[var(--border)] rounded-full text-[var(--brand)] hover:text-[var(--brand-hover)] disabled:opacity-50 transition-colors p-2 outline-none focus:outline-none focus:ring-0 tap-highlight-transparent"
+                  >
+                    <Send className="w-4 h-4 ml-0.5" />
+                  </button>
+                </form>
+              ) : (
+                <div className="text-center text-sm text-[var(--text-muted)]">
+                  Please sign in to chat
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -607,7 +711,7 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
 
       {/* Settings Modal */}
       <SettingsModalLayout
-        isOpen={isSettingsOpen}
+        open={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         activeTabId={activeSettingsModalTab}
         onTabChange={setActiveSettingsModalTab}
@@ -617,14 +721,47 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
             label: "Board & Pieces",
             content: (
               <BoardPiecesSettingsTab
+                activeSettingsTab={activeSettingsModalTab as "boards" | "pieces"}
+                setActiveSettingsTab={(tab) => setActiveSettingsModalTab(tab)}
                 boardTheme={boardTheme}
                 onBoardThemeChange={setBoardTheme}
                 pieceTheme={pieceTheme}
                 onPieceThemeChange={setPieceTheme}
+                boardThemes={Object.keys(themeManifest.boardAssets)}
+                pieceThemes={Object.keys(themeManifest.pieceAssets)}
+                boardAssets={themeManifest.boardAssets as Record<string, string>}
+                pieceAssets={themeManifest.pieceAssets as Record<string, string>}
+                boardPreviewNode={
+                  <BoardPreview
+                    boardTheme={boardTheme}
+                    pieceTheme={pieceTheme}
+                    boardAssets={themeManifest.boardAssets as Record<string, string>}
+                    pieceAssets={themeManifest.pieceAssets as Record<string, string>}
+                  />
+                }
               />
             ),
           },
         ]}
+        footer={
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setBoardTheme("green");
+                setPieceTheme("neo");
+              }}
+              className="px-6 py-2 border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] font-bold rounded-lg transition-colors"
+            >
+              Reset to Default
+            </button>
+            <button
+              onClick={() => setIsSettingsOpen(false)}
+              className="px-8 py-2 bg-[var(--cta-bg)] hover:bg-[var(--cta-hover)] text-[var(--cta-text)] font-bold rounded-lg transition-colors shadow-md"
+            >
+              Save
+            </button>
+          </div>
+        }
       />
     </>
   );

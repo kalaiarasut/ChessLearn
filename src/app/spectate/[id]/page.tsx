@@ -30,7 +30,7 @@ export default async function SpectateMatchPage({ params }: { params: Promise<{ 
   return (
     <div className="min-h-screen bg-[var(--bg)] flex flex-col">
       <Navbar />
-      <main className="flex-1 w-full max-w-[1400px] mx-auto pt-24 pb-8">
+      <main className="flex-1 w-full max-w-[1536px] mx-auto pt-[80px] pb-0">
         <SpectatorRoom match={match} />
       </main>
     </div>

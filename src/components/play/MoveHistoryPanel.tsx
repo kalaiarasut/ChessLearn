@@ -45,11 +45,16 @@ export function MoveHistoryPanel({
   onMoveClick,
   currentMoveIndex = -1
 }: MoveHistoryPanelProps) {
-  const movesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new moves are added
   useEffect(() => {
-    movesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
   }, [history.length]);
 
   const renderMove = (san: string, isWhite: boolean) => {
@@ -89,7 +94,7 @@ export function MoveHistoryPanel({
   }, []);
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar">
+    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto custom-scrollbar">
       <div className="grid grid-cols-[28px_1fr_1fr] gap-x-1.5 gap-y-0.5 p-2">
         {groupedMoves.map((pair, rowIdx) => {
           const whiteMoveIdx = rowIdx * 2;
@@ -139,7 +144,6 @@ export function MoveHistoryPanel({
             <p className="text-sm font-semibold">No moves yet</p>
           </div>
         )}
-        <div ref={movesEndRef} />
       </div>
     </div>
   );
