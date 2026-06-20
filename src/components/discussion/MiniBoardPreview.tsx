@@ -48,7 +48,7 @@ export function MiniBoardPreview({ fenOrPgn, liveGameId: initialLiveGameId, wrap
 
     if (activeLiveGameId) {
       const supabase = createSupabaseBrowserClient();
-      supabase.from('games').select('fen').eq('id', activeLiveGameId).single().then(({ data }) => {
+      supabase.from('games').select('fen').eq('id', activeLiveGameId).single().then(({ data }: any) => {
         if (data?.fen) updateBoardFromFen(data.fen);
       });
       

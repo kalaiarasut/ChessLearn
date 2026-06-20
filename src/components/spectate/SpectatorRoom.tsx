@@ -152,7 +152,7 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }: any) => {
       if (user) {
-        supabase.from("profiles").select("username").eq("id", user.id).single().then(({ data }) => {
+        supabase.from("profiles").select("username").eq("id", user.id).single().then(({ data }: any) => {
           setCurrentUser({ ...user, username: data?.username || "Anonymous" });
         });
       }

@@ -264,14 +264,14 @@ function PlayOnlineContent() {
   useEffect(() => {
     if (!userId) return;
     createSupabaseBrowserClient().from("profiles").select("username, rating").eq("id", userId).single()
-      .then(({ data }) => { if (data) setMyProfile({ username: data.username, rating: Math.round(data.rating) }); });
+      .then(({ data }: any) => { if (data) setMyProfile({ username: data.username, rating: Math.round(data.rating) }); });
   }, [userId]);
 
   useEffect(() => {
     const oppId = userId === gameState.whitePlayerId ? gameState.blackPlayerId : gameState.whitePlayerId;
     if (!oppId) { setOpponentProfile(null); return; }
     createSupabaseBrowserClient().from("profiles").select("username, rating").eq("id", oppId).single()
-      .then(({ data }) => { if (data) setOpponentProfile({ username: data.username, rating: Math.round(data.rating) }); });
+      .then(({ data }: any) => { if (data) setOpponentProfile({ username: data.username, rating: Math.round(data.rating) }); });
   }, [gameState.whitePlayerId, gameState.blackPlayerId, userId]);
 
   // ── Clocks ───────────────────────────────────────────────────────────────────
@@ -492,7 +492,7 @@ function PlayOnlineContent() {
         setTimeout(() => {
           if (newGame.isCheckmate()) {
             const epicAch = ACHIEVEMENTS.find(a => a.title === "The Immortal King") || ACHIEVEMENTS[0];
-            showAchievement(epicAch);
+            showAchievement(epicAch as any);
           }
         }, 1000);
       } else if (newGame.inCheck()) {
@@ -1876,7 +1876,7 @@ function PlayOnlineContent() {
                     
                     if (myProfile) {
                       const channel = supabase.channel(`invites:${friend.id}`);
-                      channel.subscribe((status) => {
+                      channel.subscribe((status: any) => {
                         if (status === 'SUBSCRIBED') {
                           channel.send({
                             type: 'broadcast',

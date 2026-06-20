@@ -83,7 +83,7 @@ export default function GlobalInviteListener() {
       await rejectMatch(invite.matchId);
       
       const channel = supabase.channel(`invites:${invite.inviterId}`);
-      channel.subscribe((status) => {
+      channel.subscribe((status: any) => {
         if (status === 'SUBSCRIBED') {
           channel.send({
             type: 'broadcast',
