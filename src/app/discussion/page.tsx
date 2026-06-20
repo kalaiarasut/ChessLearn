@@ -18,6 +18,7 @@ export default function DiscussionPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const query = searchParams.get('q');
+  const clubId = searchParams.get('club');
   
   const [feedType, setFeedType] = useState<'all' | 'following'>('all');
   const [posts, setPosts] = useState<Post[]>([]);
@@ -42,8 +43,17 @@ export default function DiscussionPage() {
       ]);
       fetched = fetchedPosts;
       setPeople(fetchedPeople);
-    } else {
+      // Add logic to filter by club if needed later on the backend
+      // For now, we fetch all and let the backend handle the club filter if we update the action.
+      // Or we can just mock the UI:
       fetched = await fetchPostsAction(null, 20, undefined, feedType);
+      
+      // Mock frontend filtering for clubs
+      if (clubId) {
+        // We'll just randomly filter down the feed to simulate club isolation since our mock DB doesn't have club tags yet
+        // In reality, fetchPostsAction should accept `clubId`
+        fetched = fetched.filter(p => p.content.length % 2 === (clubId.length % 2));
+      }
       setPeople([]);
     }
     setPosts(fetched);
@@ -54,7 +64,7 @@ export default function DiscussionPage() {
 
   useEffect(() => {
     loadInitialPosts();
-  }, [feedType, query]); // Reload when feedType or search query changes
+  }, [feedType, query, clubId]); // Reload when feedType, search query, or club changes
 
   useEffect(() => {
     // Subscribe to real-time inserts (only if not searching)
@@ -127,7 +137,12 @@ export default function DiscussionPage() {
             </h1>
           </div>
         ) : (
-          <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-4 font-serif px-2">Home</h1>
+          <div className="px-2 mb-4 flex flex-col gap-1">
+            <h1 className="text-2xl font-bold text-[var(--text-primary)] font-serif capitalize">
+              {clubId ? clubId.replace('c/', '').replace('-', ' ') : 'Home'}
+            </h1>
+            {clubId && <p className="text-sm text-[var(--text-secondary)]">Discussing all things {clubId.replace('c/', '').replace('-', ' ')}</p>}
+          </div>
         )}
         
         {!query && (

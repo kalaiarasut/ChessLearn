@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { toggleFollow, checkIsFollowing } from "@/app/actions/follows";
 import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -42,7 +43,9 @@ export function FollowButton({ targetUserId, initialIsFollowing = false }: Follo
   }
 
   return (
-    <button
+    <motion.button
+      whileTap={{ scale: 0.9 }}
+      whileHover={{ scale: 1.05 }}
       onClick={handleToggle}
       disabled={loading}
       className={`px-4 py-1.5 rounded-full font-bold text-sm transition-colors flex items-center justify-center min-w-[6rem] ${
@@ -53,6 +56,6 @@ export function FollowButton({ targetUserId, initialIsFollowing = false }: Follo
     >
       {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin absolute" />}
       <span className={loading ? "opacity-0" : ""}></span>
-    </button>
+    </motion.button>
   );
 }

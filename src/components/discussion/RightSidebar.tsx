@@ -45,7 +45,7 @@ export async function RightSidebar() {
 
       {/* Relevant People */}
       <div className="bg-[var(--surface-alt)] rounded-2xl border border-[var(--border)] overflow-hidden">
-        <h2 className="font-bold text-[var(--text-primary)] text-xl px-4 py-3">Relevant people</h2>
+        <h2 className="font-bold text-[var(--text-primary)] text-[18px] px-4 py-3">Relevant people</h2>
         {people && people.map((person) => (
           <div key={person.id} className="px-4 py-3 hover:bg-[var(--surface-hover)] transition-colors flex items-center justify-between cursor-pointer">
             <div className="flex items-center gap-3">
@@ -53,10 +53,10 @@ export async function RightSidebar() {
                 {person.username[0].toUpperCase()}
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-[var(--text-primary)] leading-tight hover:underline">
+                <span className="font-bold text-[14px] text-[var(--text-primary)] leading-tight hover:underline">
                   {person.username}
                 </span>
-                <span className="text-[var(--text-secondary)] text-[15px]">
+                <span className="text-[var(--text-secondary)] text-[13px]">
                   @{person.username.toLowerCase()}
                 </span>
               </div>
@@ -64,17 +64,17 @@ export async function RightSidebar() {
             <FollowButton targetUserId={person.id} />
           </div>
         ))}
-        <div className="px-4 py-4 hover:bg-[var(--surface-hover)] transition-colors cursor-pointer text-[var(--cta-bg)] text-[15px]">
+        <div className="px-4 py-4 hover:bg-[var(--surface-hover)] transition-colors cursor-pointer text-[var(--cta-bg)] text-[14px]">
           Show more
         </div>
       </div>
 
       {/* What's Happening */}
       <div className="bg-[var(--surface-alt)] rounded-2xl border border-[var(--border)] overflow-hidden">
-        <h2 className="font-bold text-[var(--text-primary)] text-xl px-4 py-3">What's happening</h2>
+        <h2 className="font-bold text-[var(--text-primary)] text-[18px] px-4 py-3">What's happening</h2>
         
         {trendingTags.length === 0 ? (
-          <div className="px-4 py-3 text-[var(--text-muted)] text-sm">
+          <div className="px-4 py-3 text-[var(--text-muted)] text-[14px]">
             No trending topics right now.
           </div>
         ) : (
@@ -91,13 +91,13 @@ export async function RightSidebar() {
                     <MoreHorizontal className="w-4 h-4" />
                   </button>
                 </div>
-                <span className="font-bold text-[var(--text-primary)] mt-0.5">{tag}</span>
+                <span className="font-bold text-[15px] text-[var(--text-primary)] mt-0.5">{tag}</span>
                 <span className="text-[var(--text-muted)] text-[13px] mt-1">{count} posts</span>
               </Link>
             ))}
           </div>
         )}
-        <div className="px-4 py-4 hover:bg-[var(--surface-hover)] transition-colors cursor-pointer text-[var(--cta-bg)] text-[15px]">
+        <div className="px-4 py-4 hover:bg-[var(--surface-hover)] transition-colors cursor-pointer text-[var(--cta-bg)] text-[14px]">
           Show more
         </div>
       </div>

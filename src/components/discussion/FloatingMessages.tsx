@@ -26,42 +26,11 @@ interface Conversation {
   isBlocked?: boolean;
 }
 
-const MOCK_CONVERSATIONS: Conversation[] = [
-  {
-    id: '1',
-    userId: 'u1',
-    name: 'Magnus Carlsen',
-    handle: 'MagnusC',
-    avatar: 'https://ui-avatars.com/api/?name=Magnus+Carlsen',
-    lastMessage: 'Let\'s play a blitz match tomorrow!',
-    unreadCount: 2,
-    isOnline: true,
-    messages: [
-      { id: 'm1', senderId: 'u1', content: 'Hey there!', timestamp: new Date(Date.now() - 3600000) },
-      { id: 'm2', senderId: 'me', content: 'Hey Magnus, what\'s up?', timestamp: new Date(Date.now() - 3500000) },
-      { id: 'm3', senderId: 'u1', content: 'Let\'s play a blitz match tomorrow!', timestamp: new Date() }
-    ]
-  },
-  {
-    id: '2',
-    userId: 'u2',
-    name: 'Hikaru Nakamura',
-    handle: 'GMHikaru',
-    avatar: 'https://ui-avatars.com/api/?name=Hikaru+Nakamura',
-    lastMessage: 'Did you see that recent tournament?',
-    unreadCount: 0,
-    isOnline: false,
-    messages: [
-      { id: 'm4', senderId: 'u2', content: 'Did you see that recent tournament?', timestamp: new Date(Date.now() - 86400000) }
-    ]
-  }
-];
-
 export function FloatingMessages() {
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [conversations, setConversations] = useState<Conversation[]>(MOCK_CONVERSATIONS);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState('');
 
