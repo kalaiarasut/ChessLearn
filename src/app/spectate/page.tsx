@@ -46,7 +46,7 @@ export default async function SpectatePage() {
         <div className="flex flex-col gap-10">
           
           {/* Removed Heading per user request */}
-          <SpectateListClient initialMatches={matches || []} initialBookmarkedMatchIds={bookmarkedMatchIds} />
+          <SpectateListClient initialMatches={(matches as any) || []} initialBookmarkedMatchIds={bookmarkedMatchIds} />
 
         </div>
       </main>

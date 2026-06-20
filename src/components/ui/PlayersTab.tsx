@@ -54,14 +54,14 @@ export default function PlayersTab({ currentUserId, onInviteFriend }: { currentU
 
     if (error || !data) return;
 
-    const accepted = data.filter(f => f.status === "accepted");
-    const pendingReceived = data.filter(f => f.status === "pending" && f.friend_id === currentUserId);
-    const pendingSent = data.filter(f => f.status === "pending" && f.user_id === currentUserId);
+    const accepted = data.filter((f: any) => f.status === "accepted");
+    const pendingReceived = data.filter((f: any) => f.status === "pending" && f.friend_id === currentUserId);
+    const pendingSent = data.filter((f: any) => f.status === "pending" && f.user_id === currentUserId);
 
     const neededProfileIds = new Set<string>();
-    accepted.forEach(f => neededProfileIds.add(f.user_id === currentUserId ? f.friend_id : f.user_id));
-    pendingReceived.forEach(f => neededProfileIds.add(f.user_id));
-    pendingSent.forEach(f => neededProfileIds.add(f.friend_id));
+    accepted.forEach((f: any) => neededProfileIds.add(f.user_id === currentUserId ? f.friend_id : f.user_id));
+    pendingReceived.forEach((f: any) => neededProfileIds.add(f.user_id));
+    pendingSent.forEach((f: any) => neededProfileIds.add(f.friend_id));
 
     if (neededProfileIds.size === 0) {
       setFriends([]);
@@ -76,22 +76,22 @@ export default function PlayersTab({ currentUserId, onInviteFriend }: { currentU
       .in("id", Array.from(neededProfileIds));
 
     if (!profilesData) return;
-    const profileMap = new Map(profilesData.map(p => [p.id, p]));
+    const profileMap = new Map(profilesData.map((p: any) => [p.id, p]));
 
-    setFriends(accepted.map(f => {
+    setFriends(accepted.map((f: any) => {
       const otherId = f.user_id === currentUserId ? f.friend_id : f.user_id;
       return { ...f, friendProfile: profileMap.get(otherId) };
-    }).filter(f => f.friendProfile));
+    }).filter((f: any) => f.friendProfile));
 
-    setPendingRequests(pendingReceived.map(f => ({
+    setPendingRequests(pendingReceived.map((f: any) => ({
       ...f, 
       senderProfile: profileMap.get(f.user_id)
-    })).filter(f => f.senderProfile));
+    })).filter((f: any) => f.senderProfile));
 
-    setSentRequests(pendingSent.map(f => ({
+    setSentRequests(pendingSent.map((f: any) => ({
       ...f,
       receiverProfile: profileMap.get(f.friend_id)
-    })).filter(f => f.receiverProfile));
+    })).filter((f: any) => f.receiverProfile));
   };
 
   useEffect(() => {
@@ -174,8 +174,8 @@ export default function PlayersTab({ currentUserId, onInviteFriend }: { currentU
               <div className="p-4 text-center text-[var(--text-muted)] text-sm">Searching...</div>
             ) : searchResults.length > 0 ? (
               searchResults.map(profile => {
-                const isFriend = friends.some(f => f.friendProfile?.id === profile.id);
-                const isSent = sentRequests.some(f => f.receiverProfile?.id === profile.id);
+                const isFriend = friends.some((f: any) => f.friendProfile?.id === profile.id);
+                const isSent = sentRequests.some((f: any) => f.receiverProfile?.id === profile.id);
                 
                 return (
                   <div key={profile.id} className="flex items-center justify-between px-2 py-1.5 border-b border-[var(--border)] last:border-0 hover:bg-[var(--surface-hover)] transition-colors">

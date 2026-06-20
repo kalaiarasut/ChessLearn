@@ -20,7 +20,7 @@ export async function RightSidebar() {
       const tags = post.content.match(/#\w+/g);
       if (tags) {
         const uniqueTags = Array.from(new Set(tags));
-        uniqueTags.forEach((tag) => {
+        uniqueTags.forEach((tag: any) => {
           const lowerTag = tag.toLowerCase();
           hashtagCounts[lowerTag] = (hashtagCounts[lowerTag] || 0) + 1;
         });

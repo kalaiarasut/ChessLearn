@@ -58,7 +58,7 @@ export function MiniBoardPreview({ fenOrPgn, liveGameId: initialLiveGameId, wrap
           schema: 'public',
           table: 'games',
           filter: `id=eq.${activeLiveGameId}`
-        }, (payload) => {
+        }, (payload: any) => {
           if (payload.new.fen) {
             updateBoardFromFen(payload.new.fen);
           }

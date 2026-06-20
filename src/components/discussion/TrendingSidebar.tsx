@@ -19,7 +19,7 @@ export async function TrendingSidebar() {
       if (tags) {
         // Unique tags per post to prevent spamming
         const uniqueTags = Array.from(new Set(tags));
-        uniqueTags.forEach((tag) => {
+        uniqueTags.forEach((tag: any) => {
           const lowerTag = tag.toLowerCase();
           hashtagCounts[lowerTag] = (hashtagCounts[lowerTag] || 0) + 1;
         });

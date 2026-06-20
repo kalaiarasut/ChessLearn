@@ -79,7 +79,7 @@ export async function getPosts(replyToId: string | null = null, limit = 20, curs
       .select('following_id')
       .eq('follower_id', currentUserId);
     if (follows && follows.length > 0) {
-      const followedIds = follows.map(f => f.following_id);
+      const followedIds = follows.map((f: any) => f.following_id);
       query = query.in('author_id', [...followedIds, currentUserId]);
     } else {
       // If not following anyone, return empty or just own posts
@@ -98,7 +98,7 @@ export async function getPosts(replyToId: string | null = null, limit = 20, curs
   // For simplicity, we'll just fetch immediate replies for the returned posts.
   let allReplies: any[] = [];
   if (!replyToId && data && data.length > 0) {
-    const parentIds = data.map(p => p.id);
+    const parentIds = data.map((p: any) => p.id);
     const { data: repliesData } = await supabase
       .from("discussion_posts")
       .select(`
@@ -128,10 +128,10 @@ export async function getPosts(replyToId: string | null = null, limit = 20, curs
 
   // Fetch all related profiles in a single query
   const allAuthorIds = new Set([
-    ...(data?.map(p => p.author_id) || []),
-    ...(data?.map(p => p.quoted_post?.author_id) || []),
-    ...allReplies.map(p => p.author_id),
-    ...allReplies.map(p => p.quoted_post?.author_id)
+    ...(data?.map((p: any) => p.author_id) || []),
+    ...(data?.map((p: any) => p.quoted_post?.author_id) || []),
+    ...allReplies.map((p: any) => p.author_id),
+    ...allReplies.map((p: any) => p.quoted_post?.author_id)
   ].filter(Boolean));
 
   let profilesMap: Record<string, any> = {};
@@ -224,7 +224,7 @@ export async function searchUsers(query: string): Promise<User[]> {
 
   if (error || !data) return [];
 
-  return data.map(p => ({
+  return data.map((p: any) => ({
     id: p.id,
     name: p.username,
     handle: p.username,
@@ -268,7 +268,7 @@ export async function getPostsByIds(postIds: string[]): Promise<Post[]> {
 
   const profilesMap: Record<string, any> = {};
   if (profiles) {
-    profiles.forEach(p => profilesMap[p.id] = p);
+    profiles.forEach((p: any) => profilesMap[p.id] = p);
   }
 
   // Fetch replies
@@ -292,7 +292,7 @@ export async function getPostsByIds(postIds: string[]): Promise<Post[]> {
       .select("id, username, avatar_url, verified, is_online")
       .in("id", Array.from(authorIds));
     if (moreProfiles) {
-      moreProfiles.forEach(p => profilesMap[p.id] = p);
+      moreProfiles.forEach((p: any) => profilesMap[p.id] = p);
     }
   }
 

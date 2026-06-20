@@ -31,7 +31,7 @@ export default function GlobalInviteListener() {
 
       channel = supabase.channel(`invites:${session.user.id}`);
       
-      channel.on('broadcast', { event: 'game_invite' }, ({ payload }) => {
+      channel.on('broadcast', { event: 'game_invite' }, ({ payload }: any) => {
         setInvite(payload as InvitePayload);
         setTimeLeft(10);
       })

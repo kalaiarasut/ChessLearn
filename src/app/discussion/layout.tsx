@@ -1,3 +1,4 @@
+import React, { Suspense } from 'react';
 import { Metadata } from "next";
 import Navbar from "@/components/ui/Navbar";
 import { RightSidebar } from "@/components/discussion/RightSidebar";
@@ -19,7 +20,9 @@ export default function DiscussionLayout({
       <div className="min-h-screen bg-[var(--bg)] pt-24 pb-12 flex flex-col justify-between">
         <div className="max-w-[1450px] mx-auto w-full px-4 sm:px-6 flex justify-between gap-8">
           <div className="hidden lg:block w-[250px] flex-shrink-0">
-            <ClubsSidebar />
+            <Suspense fallback={<div className="h-[200px] bg-[var(--surface)] rounded-2xl animate-pulse"></div>}>
+              <ClubsSidebar />
+            </Suspense>
           </div>
           <div className="w-full max-w-[650px] flex-shrink-0">
             {children}

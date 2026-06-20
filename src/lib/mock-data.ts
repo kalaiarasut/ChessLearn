@@ -13,6 +13,7 @@ export type PostReaction = {
   reposts: number;
   hasLiked?: boolean;
   hasReposted?: boolean;
+  hasBookmarked?: boolean;
 };
 
 export type Post = {

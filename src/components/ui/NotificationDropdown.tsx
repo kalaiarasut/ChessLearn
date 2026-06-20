@@ -19,7 +19,7 @@ export function NotificationDropdown() {
     fetchNotifications();
 
     const channel = supabase.channel('realtime:notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, payload => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload: any) => {
         setNotifications(prev => [payload.new, ...prev]);
         setUnreadCount(prev => prev + 1);
       })
@@ -46,7 +46,7 @@ export function NotificationDropdown() {
 
     if (data) {
       setNotifications(data);
-      setUnreadCount(data.filter(n => !n.read).length);
+      setUnreadCount(data.filter((n: any) => !n.read).length);
     }
   };
 
@@ -62,7 +62,7 @@ export function NotificationDropdown() {
       .eq('read', false);
       
     setUnreadCount(0);
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications(prev => prev.map((n: any) => ({ ...n, read: true })));
   };
 
   useEffect(() => {

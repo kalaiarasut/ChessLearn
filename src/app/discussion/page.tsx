@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { PostComposer } from '@/components/discussion/PostComposer';
 import { PostCard } from '@/components/discussion/PostCard';
 import { ReplyThread } from '@/components/discussion/ReplyThread';
@@ -14,7 +14,7 @@ import { useInView } from 'react-intersection-observer';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 
-export default function DiscussionPage() {
+function DiscussionPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const query = searchParams.get('q');
@@ -52,7 +52,7 @@ export default function DiscussionPage() {
       if (clubId) {
         // We'll just randomly filter down the feed to simulate club isolation since our mock DB doesn't have club tags yet
         // In reality, fetchPostsAction should accept `clubId`
-        fetched = fetched.filter(p => p.content.length % 2 === (clubId.length % 2));
+        fetched = fetched.filter((p: any) => p.content.length % 2 === (clubId.length % 2));
       }
       setPeople([]);
     }
@@ -77,7 +77,7 @@ export default function DiscussionPage() {
           // Re-fetch or add directly (re-fetch is safer for getting author profile)
           fetchPostsAction(null, 1).then((newPosts) => {
             if (newPosts.length > 0) {
-              setPosts((prev) => [newPosts[0], ...prev.filter(p => p.id !== newPosts[0].id)]);
+              setPosts((prev) => [newPosts[0], ...prev.filter((p: any) => p.id !== newPosts[0].id)]);
             }
           });
         }
@@ -115,7 +115,7 @@ export default function DiscussionPage() {
     // Realtime subscription will fetch it, or we can fetch manually to be safe
     const fetched = await fetchPostsAction(null, 1, undefined, feedType);
     if (fetched.length > 0) {
-      setPosts((prev) => [fetched[0], ...prev.filter(p => p.id !== fetched[0].id)]);
+      setPosts((prev) => [fetched[0], ...prev.filter((p: any) => p.id !== fetched[0].id)]);
     }
   };
 
@@ -233,5 +233,13 @@ export default function DiscussionPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function DiscussionPage() {
+  return (
+    <Suspense fallback={<div className="flex w-full h-[50vh] items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[var(--text-muted)]" /></div>}>
+      <DiscussionPageContent />
+    </Suspense>
   );
 }

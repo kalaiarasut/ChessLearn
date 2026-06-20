@@ -24,7 +24,7 @@ export interface ReactionBarProps {
   onQuoteClick?: () => void;
 }
 
-export function ReactionBar({ postId, initialReactions, onCommentClick }: ReactionBarProps) {
+export function ReactionBar({ postId, initialReactions, onCommentClick, onQuoteClick }: ReactionBarProps) {
   const [reactions, setReactions] = useState({
     ...initialReactions,
     hasLiked: initialReactions.hasLiked ?? false,
@@ -42,7 +42,7 @@ export function ReactionBar({ postId, initialReactions, onCommentClick }: Reacti
     supabase.auth.getUser().then(({ data }: any) => currentUserId = data.user?.id || null);
 
     const channel = supabase.channel(`realtime:reactions:${postId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'discussion_reactions', filter: `post_id=eq.${postId}` }, payload => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'discussion_reactions', filter: `post_id=eq.${postId}` }, (payload: any) => {
         if (payload.eventType === 'INSERT') {
           if (payload.new.user_id === currentUserId) return; // Handled optimistically
           if (payload.new.type === 'like') {

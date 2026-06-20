@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Chess } from "chess.js";
-import { Chessboard } from "react-chessboard";
+import { Chessboard as _Chessboard } from 'react-chessboard';
+const Chessboard = _Chessboard as any;
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Users, Send, MessageSquare, Smile, Eye, FlipVertical, Maximize2, Minimize2, PieChart, ArrowLeft, ChevronUp, ChevronDown, History } from "lucide-react";
 import Link from "next/link";
@@ -174,7 +175,7 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
 
     // Match Updates Channel
     const matchChannel = supabase.channel(`match_${match.id}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${match.id}` }, (payload) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${match.id}` }, (payload: any) => {
         if (payload.new.pgn) {
           const newGame = new Chess();
           try {
@@ -212,13 +213,13 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
         for (const id in presenceState) { count += presenceState[id].length; }
         setSpectatorCount(count);
       })
-      .on("broadcast", { event: "emote" }, ({ payload }) => {
+      .on("broadcast", { event: "emote" }, ({ payload }: any) => {
         triggerLocalEmote(payload.emoji);
       })
-      .on("broadcast", { event: "vote" }, ({ payload }) => {
+      .on("broadcast", { event: "vote" }, ({ payload }: any) => {
         setVotes(prev => ({ ...prev, [payload.vote]: prev[payload.vote as keyof typeof prev] + 1 }));
       })
-      .subscribe(async (status) => {
+      .subscribe(async (status: any) => {
         if (status === "SUBSCRIBED") {
           const { data } = await supabase.auth.getUser();
           await specChannel.track({ user_id: data?.user?.id || 'anonymous' });
@@ -261,7 +262,7 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
     loadChat();
 
     const chatChannel = supabase.channel(`chat_${match.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'spectator_chat', filter: `match_id=eq.${match.id}` }, async (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'spectator_chat', filter: `match_id=eq.${match.id}` }, async (payload: any) => {
         const { data: profile } = await supabase.from('profiles').select('username').eq('id', payload.new.user_id).single();
         setChatMessages(prev => [...prev, { ...payload.new, profiles: profile }]);
       })
@@ -425,7 +426,7 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
                 ></div>
                 <div className="pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-center px-[2px]">
                   <span className="rounded bg-black/70 px-1 py-1 md:py-0.5 text-center text-[10px] md:text-[10px] font-[700] text-white shadow-sm [writing-mode:vertical-lr] md:[writing-mode:horizontal-tb] rotate-180 md:rotate-0 tracking-widest md:tracking-normal">
-                    {analysis.evalScore > 0 ? `+${analysis.evalScore.toFixed(1)}` : (analysis.evalScore < 0 ? analysis.evalScore.toFixed(1) : "0.0")}
+                    {analysis.evaluationText === "..." ? "0.0" : analysis.evaluationText}
                   </span>
                 </div>
               </div>
@@ -718,7 +719,10 @@ export function SpectatorRoom({ match }: SpectatorRoomProps) {
         tabs={[
           {
             id: "board",
+            icon: <PieChart />,
             label: "Board & Pieces",
+            title: "Board & Pieces",
+            description: "Customize your board appearance",
             content: (
               <BoardPiecesSettingsTab
                 activeSettingsTab={activeSettingsModalTab as "boards" | "pieces"}

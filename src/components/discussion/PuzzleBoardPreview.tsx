@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Chess, Move } from 'chess.js';
-import { Chessboard } from 'react-chessboard';
+import { Chessboard as _Chessboard } from 'react-chessboard';
+const Chessboard = _Chessboard as any;
 import { CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -130,7 +131,7 @@ export function PuzzleBoardPreview({ initialFen, solutionMoves }: PuzzleBoardPre
       
       <div className="w-full aspect-square relative">
         <Chessboard 
-          id="PuzzleBoard"
+
           position={game.fen()} 
           onPieceDrop={onDrop}
           boardWidth={boardWidth}

@@ -25,9 +25,9 @@ export function NotificationsDrawer({ isOpen, onClose, notifications = [], onMar
   const tabs: TabType[] = ["Mentions", "Likes", "Alerts"];
   
   // Filter real notifications
-  const mentions = notifications.filter(n => n.type === 'mention' || n.type === 'reply');
-  const likes = notifications.filter(n => n.type === 'like' || n.type === 'repost');
-  const alerts = notifications.filter(n => n.type === 'alert' || n.type === 'system' || n.type === 'follow');
+  const mentions = notifications.filter((n: any) => n.type === 'mention' || n.type === 'reply');
+  const likes = notifications.filter((n: any) => n.type === 'like' || n.type === 'repost');
+  const alerts = notifications.filter((n: any) => n.type === 'alert' || n.type === 'system' || n.type === 'follow');
 
   const activeNotifications = activeTab === "Mentions" ? mentions : activeTab === "Likes" ? likes : alerts;
 
@@ -114,13 +114,13 @@ export function NotificationsDrawer({ isOpen, onClose, notifications = [], onMar
                     />
                   )}
                   {/* Unread indicators */}
-                  {tab === "Mentions" && mentions.some(n => !n.read) && (
+                  {tab === "Mentions" && mentions.some((n: any) => !n.read) && (
                     <span className="absolute -top-1 -right-3 w-2 h-2 bg-blue-500 rounded-full"></span>
                   )}
-                  {tab === "Likes" && likes.some(n => !n.read) && (
+                  {tab === "Likes" && likes.some((n: any) => !n.read) && (
                     <span className="absolute -top-1 -right-3 w-2 h-2 bg-rose-500 rounded-full"></span>
                   )}
-                  {tab === "Alerts" && alerts.some(n => !n.read) && (
+                  {tab === "Alerts" && alerts.some((n: any) => !n.read) && (
                     <span className="absolute -top-1 -right-3 w-2 h-2 bg-amber-500 rounded-full"></span>
                   )}
                 </button>

@@ -103,7 +103,7 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
       .on(
         "broadcast",
         { event: "move" },
-        ({ payload }) => {
+        ({ payload }: any) => {
           setGameState(prev => ({ 
             ...prev, 
             pgn: payload.pgn,
@@ -119,7 +119,7 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
       .on(
         "broadcast",
         { event: "rematch_offer" },
-        ({ payload }) => {
+        ({ payload }: any) => {
           if (payload && payload.newMatchId) {
             setRematchOfferReceived(payload.newMatchId);
           }
@@ -138,7 +138,7 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
           table: "matches",
           filter: `id=eq.${matchId}`,
         },
-        (payload) => {
+        (payload: any) => {
           setGameState(prev => ({
             ...prev,
             status: payload.new.status,
@@ -151,7 +151,7 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
           }));
         }
       )
-      .subscribe(async (status) => {
+      .subscribe(async (status: any) => {
         if (status === "SUBSCRIBED") {
           // Track presence
           const { data: { user } } = await supabase.auth.getUser();
@@ -203,7 +203,7 @@ export function useRealtimeMatch(matchId: string | null, currentUserId?: string 
     const channel = channelRef.current;
     
     // We add the chat_message handler dynamically so we can access setChatMessages
-    channel.on("broadcast", { event: "chat_message" }, ({ payload }) => {
+    channel.on("broadcast", { event: "chat_message" }, ({ payload }: any) => {
       if (payload.text && payload.senderId) {
         setChatMessages(prev => [...prev, {
           senderId: payload.senderId,
