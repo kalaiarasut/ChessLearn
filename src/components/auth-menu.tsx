@@ -34,7 +34,7 @@ export function AuthMenu() {
       setProfileUsername(data?.username ?? null);
     }
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }: any) => {
       setSession(session);
       if (session?.user?.id) {
         await loadUsername(session.user.id);

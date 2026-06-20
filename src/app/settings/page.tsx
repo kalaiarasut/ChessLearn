@@ -134,7 +134,7 @@ export default function SettingsPage() {
   useEffect(() => {
     let cancelled = false;
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }: any) => {
       if (cancelled || !session?.user?.id) return;
       setCurrentUserId(session.user.id);
       const { data } = await supabase.from("profiles").select("username").eq("id", session.user.id).maybeSingle();
