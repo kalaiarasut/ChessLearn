@@ -83,9 +83,9 @@ function LoginForm() {
                 <label htmlFor="password" className="text-[13px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
                   Password
                 </label>
-                <a href="#" className="text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                <Link href="/forgot-password" className="text-[13px] font-medium text-[#adadad] hover:text-white transition-colors">
                   Forgot?
-                </a>
+                </Link>
               </div>
               <div className="relative flex items-center">
                 <div className="pointer-events-none absolute left-3 z-10 flex h-7 w-7 items-center justify-center rounded-md bg-[var(--input-bg)]">
