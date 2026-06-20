@@ -62,7 +62,7 @@ export function useLearnProgressSync(
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       hydratedRef.current = false;
       lastPayloadRef.current = "";
       setUserId(session?.user?.id ?? null);

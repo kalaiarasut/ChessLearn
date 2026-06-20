@@ -38,7 +38,7 @@ export function PostCard({ post, isReply = false, onCommentClick }: PostCardProp
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }: any) => {
       setCurrentUserId(user?.id || null);
     });
   }, [supabase.auth]);

@@ -1939,7 +1939,7 @@ export default function PlayComputerPage() {
   useEffect(() => {
     let cancelled = false;
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }: any) => {
       if (cancelled) return;
 
       const user = session?.user;
@@ -2075,7 +2075,7 @@ export default function PlayComputerPage() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       const userId = session?.user?.id ?? null;
       setBotReplaySyncUserId(userId);
       botReplayServerHydratedRef.current = false;
@@ -2650,7 +2650,7 @@ export default function PlayComputerPage() {
           if (currentProgress === baseline.max) {
              const achInfo = ACHIEVEMENTS.find(a => a.title === title);
              if (achInfo) {
-               showAchievement(achInfo);
+               showAchievement(achInfo as any);
                setGamificationState(prev => ({
                  ...prev,
                  [title]: { ...baseline, current: baseline.max, unlocked: true }
@@ -2715,7 +2715,7 @@ export default function PlayComputerPage() {
              data.newUnlocks.forEach((title: string, i: number) => {
                 const achInfo = ACHIEVEMENTS.find(a => a.title === title);
                 if (achInfo) {
-                  setTimeout(() => showAchievement(achInfo), i * 1500);
+                  setTimeout(() => showAchievement(achInfo as any), i * 1500);
                   setGamificationState(prev => ({
                     ...prev,
                     [title]: { current: achInfo.maxProgress || 1, max: achInfo.maxProgress || 1, unlocked: true }

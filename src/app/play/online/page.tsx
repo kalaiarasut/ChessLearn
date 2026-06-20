@@ -224,7 +224,7 @@ function PlayOnlineContent() {
   const [userId, setUserId] = useState<string | null>(null);
   
   useEffect(() => {
-    createSupabaseBrowserClient().auth.getUser().then(({ data }) => {
+    createSupabaseBrowserClient().auth.getUser().then(({ data }: any) => {
       if (!data.user) {
         const currentUrl = window.location.pathname + window.location.search;
         router.push(`/login?next=${encodeURIComponent(currentUrl)}`);
@@ -881,7 +881,7 @@ function PlayOnlineContent() {
               if (currentProgress === baseline.max) {
                  const achInfo = ACHIEVEMENTS.find(a => a.title === title);
                  if (achInfo) {
-                   showAchievement(achInfo);
+                   showAchievement(achInfo as any);
                    setGamificationState(prev => ({
                      ...prev,
                      [title]: { ...baseline, current: baseline.max, unlocked: true }
@@ -915,7 +915,7 @@ function PlayOnlineContent() {
                  data.newUnlocks.forEach((title: string, i: number) => {
                     const achInfo = ACHIEVEMENTS.find(a => a.title === title);
                     if (achInfo) {
-                      setTimeout(() => showAchievement(achInfo), i * 1500);
+                      setTimeout(() => showAchievement(achInfo as any), i * 1500);
                       setGamificationState(prev => ({
                         ...prev,
                         [title]: { current: achInfo.maxProgress || 1, max: achInfo.maxProgress || 1, unlocked: true }

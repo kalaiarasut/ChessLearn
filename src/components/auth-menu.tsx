@@ -44,7 +44,7 @@ export function AuthMenu() {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       setSession(session);
       if (session?.user?.id) {
         loadUsername(session.user.id);

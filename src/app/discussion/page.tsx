@@ -71,7 +71,7 @@ export default function DiscussionPage() {
     if (query) return;
 
     const channel = supabase.channel('realtime_posts')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'discussion_posts' }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'discussion_posts' }, (payload: any) => {
         // Only prepend top-level posts
         if (!payload.new.reply_to_id) {
           // Re-fetch or add directly (re-fetch is safer for getting author profile)

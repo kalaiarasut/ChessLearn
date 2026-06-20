@@ -39,7 +39,7 @@ export function ReactionBar({ postId, initialReactions, onCommentClick }: Reacti
 
   useEffect(() => {
     let currentUserId: string | null = null;
-    supabase.auth.getUser().then(({ data }) => currentUserId = data.user?.id || null);
+    supabase.auth.getUser().then(({ data }: any) => currentUserId = data.user?.id || null);
 
     const channel = supabase.channel(`realtime:reactions:${postId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'discussion_reactions', filter: `post_id=eq.${postId}` }, payload => {
